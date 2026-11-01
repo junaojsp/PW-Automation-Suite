@@ -1,0 +1,18 @@
+EclipseBot - Bagaceira Engine - fonte de interface integrada (BETA)
+
+ALTERACOES:
+- Novo menu lateral EclipseBot no formulario AvalonInterno.
+- Controles operacionais originais deslocados, preservando os handlers.
+- Paleta Rubi substituida por tons azul-ciano.
+- Inicializacao do atualizador automatico original desabilitada nesta copia.
+- Licenciamento original mantido.
+- Eclipse Materiais e Macro Rota VM sao placeholders, nao implementacoes.
+
+ATENCAO:
+- Bagaceira.exe incluido no export original foi REMOVIDO deste ZIP para
+  evitar confusao com uma compilacao nova. O projeto deve ser compilado.
+- Projeto descompilado pelo ILSpy, .NET Framework 4.0 x86.
+- Ainda nao compilado nem testado no Windows; pode exigir correcoes.
+- A rotina de atualizacao manual original continua no codigo e nao deve ser
+  usada nesta edicao, pois pode restaurar o executavel do fornecedor.
+- Recomendado compilar com Visual Studio e suporte a .NET Framework 4.x.
