@@ -1,0 +1,47 @@
+name: EclipseBot - Compilar Windows x86
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'EclipseBot/**'
+      - '.github/workflows/eclipsebot-build.yml'
+  pull_request:
+    paths:
+      - 'EclipseBot/**'
+      - '.github/workflows/eclipsebot-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: EclipseBot .NET Framework 4.8 (x86)
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - name: Obter codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Compilar em Release x86
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $project = 'EclipseBot/eclipse_integration/Bagaceira.csproj'
+          msbuild $project /restore /t:Build /p:Configuration=Release /p:PlatformTarget=x86 /p:RestoreIgnoreFailedSources=false /verbosity:minimal /nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = 'EclipseBot/eclipse_integration/bin/Release/net48/EclipseBot.exe'
+          if (-not (Test-Path $exe)) { throw "Executavel nao encontrado: $exe" }
+          Write-Host "Compilacao concluida: $exe"
+
+      - name: Publicar EXE e dependencias como artefato
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: EclipseBot-Windows-x86-Release
+          path: EclipseBot/eclipse_integration/bin/Release/net48/
+          if-no-files-found: error
+          retention-days: 14
