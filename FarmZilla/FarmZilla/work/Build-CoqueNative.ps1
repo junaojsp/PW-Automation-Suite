@@ -7,7 +7,7 @@ $resource=Join-Path $source 'recursos\RotaAvalon.NativeBridge.dll'
 $integration=Join-Path $source 'RotaIntegration.cs'
 $build=Join-Path $PSScriptRoot 'Build-Release.ps1'
 $compiler='C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-foreach($path in @($native,$resource,$integration,$build)){
+foreach($path in @($native,$integration,$build)){
  if(-not (Test-Path -LiteralPath $path -PathType Leaf)){throw "Arquivo ausente: $path"}
 }
 $zig=(Get-Command zig -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)
@@ -26,10 +26,12 @@ if(-not (Test-Path -LiteralPath $zig -PathType Leaf)){throw "Zig nao encontrado:
 $work=Join-Path $env:TEMP ('farmzilla-coque-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $work | Out-Null
 $newDll=Join-Path $work 'RotaAvalon.NativeBridge.dll'
-$oldDll=[IO.File]::ReadAllBytes($resource)
+$hadDll=Test-Path -LiteralPath $resource -PathType Leaf
+$oldDll=if($hadDll){[IO.File]::ReadAllBytes($resource)}else{$null}
 $oldText=[IO.File]::ReadAllText($integration)
 $changed=$false
 try{
+ if(-not $hadDll){Write-Host 'DLL nao veio no checkout: sera criada a partir do fonte C nativo.'}
  Write-Host 'Compilando ponte nativa x86...'
  & $zig cc -target x86-windows-gnu -shared -O2 -fno-stack-protector -o $newDll $native -luser32 -lkernel32
  if($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $newDll -PathType Leaf)){throw 'Compilacao nativa falhou.'}
@@ -64,9 +66,9 @@ try{
  Write-Host 'Valide em jogo: Coque = primeira opcao; outros materiais = segunda opcao.'
 } catch {
  if($changed){
-  [IO.File]::WriteAllBytes($resource,$oldDll)
+  if($hadDll){[IO.File]::WriteAllBytes($resource,$oldDll)}elseif(Test-Path -LiteralPath $resource){Remove-Item -LiteralPath $resource -Force}
   [IO.File]::WriteAllText($integration,$oldText,(New-Object System.Text.UTF8Encoding($false)))
-  Write-Warning 'DLL e hash restaurados aos valores anteriores. O exe compilado deve ser reconstruido antes de usar.'
+  Write-Warning 'Estado anterior da DLL (inclusive ausencia) e hash restaurados. O exe compilado deve ser reconstruido antes de usar.'
  }
  throw
 } finally {
