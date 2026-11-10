@@ -109,14 +109,14 @@ async function handle(req,res) {
       if(fs.existsSync(dest))throw Object.assign(Error('Essa versão já possui arquivo'),{status:409});
       const digest=hash.digest('hex');
       const client=await pool.connect();
-      let committed=false;
+      let linked=false;
       try {
         await client.query('BEGIN');
         await client.query('INSERT INTO releases(version,filename,sha256,bytes) VALUES ($1,$2,$3,$4)',[version,filename,digest,received]);
-        await fsp.rename(temp,dest);
+        await fsp.link(temp,dest);linked=true;
         await client.query('INSERT INTO audit_log(action,detail) VALUES ($1,$2)',['release.upload',JSON.stringify({version,sha256:digest,bytes:received})]);
-        await client.query('COMMIT');committed=true;
-      } catch(err) {await client.query('ROLLBACK');if(!committed)await fsp.rm(dest,{force:true});throw err;}
+        await client.query('COMMIT');
+      } catch(err) {await client.query('ROLLBACK');if(linked)await fsp.rm(dest,{force:true});throw err;}
       finally{client.release();}
       return response(res,201,{release:{version,sha256:digest,bytes:received}});
     } finally {await fsp.rm(temp,{force:true});}
