@@ -1,0 +1,29 @@
+name: FarmZilla Control - login v2
+on:
+  pull_request:
+    paths:
+      - 'FarmZilla/FarmZilla/work/farmzilla-control-linux/**'
+      - '.github/workflows/farmzilla-control-login.yml'
+  workflow_dispatch:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Node source
+        run: |
+          node --check FarmZilla/FarmZilla/work/farmzilla-control-linux/app/server.js
+          node --check FarmZilla/FarmZilla/work/farmzilla-control-linux/app/auth.js
+      - name: Validate browser JavaScript
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const file='FarmZilla/FarmZilla/work/farmzilla-control-linux/app/index.html';
+          const html=fs.readFileSync(file,'utf8');
+          const block=html.match(/<script>([\s\S]*?)<\/script>/);
+          if(!block)throw Error('Browser script not found');
+          new vm.Script(block[1],{filename:'index-inline.js'});
+          NODE
