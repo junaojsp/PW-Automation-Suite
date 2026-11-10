@@ -12,11 +12,11 @@ partial class AvalonInterno : IParentPainter {
    Text="FarmZilla • "+ReleaseInfo.Version+" / 32 bits";AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(390,606);BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",(float)(9)*global::UiScale.F);Padding=Padding.Empty;
    MouseDown+=(s,e)=>{if(e.Y<48&&e.Button==MouseButtons.Left){DragNative.ReleaseCapture();DragNative.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}};
    var mark=RubiLabel("FZ",14,12,28,25,9,FontStyle.Bold,Rubi.OnAccent);mark.TextAlign=ContentAlignment.MiddleCenter;EnableRubiDrag(mark);
-   var brand=RubiLabel("FarmZilla",51,8,180,32,13,FontStyle.Bold,Rubi.Accent);brand.Font=new Font("Segoe UI Semibold",18,FontStyle.Bold,GraphicsUnit.Pixel);brand.AutoEllipsis=false;brand.TextAlign=ContentAlignment.MiddleLeft;EnableRubiDrag(brand);
+   var brand=RubiLabel("FarmZilla",51,8,180,32,13,FontStyle.Bold,Rubi.Text);brand.Font=new Font("Segoe UI Semibold",19,FontStyle.Bold,GraphicsUnit.Pixel);brand.AutoEllipsis=false;brand.TextAlign=ContentAlignment.MiddleLeft;EnableRubiDrag(brand);
    var version=RubiLabel("v"+ReleaseInfo.Version,232,18,79,18,8,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(version);
    minimize.SetBounds(321,10,25,28);close.SetBounds(351,10,25,28);
-   RubiLabel("PRINCIPAL",27,66,140,17,8,FontStyle.Regular,Rubi.Muted);main.SetBounds(27,88,300,29);var primaryHead=RubiLabel("Ataque",326,66,48,17,8,FontStyle.Regular,Rubi.Accent);primaryHead.TextAlign=ContentAlignment.MiddleCenter;primaryAttack.SetBounds(339,90,23,23);primaryAttack.FlatStyle=FlatStyle.Flat;primaryAttack.ForeColor=Rubi.Accent;primaryAttack.BackColor=CardTone(59,70,102);primaryAttack.AccessibleName="Atacar com o principal";main.AccessibleName="Principal";
-   RubiLabel("Secundários",14,143,128,18,8,FontStyle.Bold,Rubi.Muted);var attackHead=RubiLabel("Ataque",145,143,44,18,8,FontStyle.Regular,Rubi.Accent);var supportHead=RubiLabel("Suporte",187,143,46,18,8,FontStyle.Regular,SupportColor);attackHead.TextAlign=supportHead.TextAlign=ContentAlignment.MiddleCenter;RubiLabel("Comandos",238,143,138,18,8,FontStyle.Bold,Rubi.Muted);
+   RubiLabel("PERSONAGEM PRINCIPAL",27,66,208,17,8,FontStyle.Bold,Rubi.Text);main.SetBounds(27,88,300,29);var primaryHead=RubiLabel("Ataque",326,66,48,17,8,FontStyle.Regular,Rubi.Accent);primaryHead.TextAlign=ContentAlignment.MiddleCenter;primaryAttack.SetBounds(339,90,23,23);primaryAttack.FlatStyle=FlatStyle.Flat;primaryAttack.ForeColor=Rubi.Accent;primaryAttack.BackColor=CardTone(59,70,102);primaryAttack.AccessibleName="Atacar com o principal";main.AccessibleName="Principal";
+   RubiLabel("SECUNDÁRIOS",14,143,128,18,8,FontStyle.Bold,Rubi.Text);var attackHead=RubiLabel("Atq.",150,143,34,18,8,FontStyle.Bold,Rubi.Accent);var supportHead=RubiLabel("Sup.",192,143,34,18,8,FontStyle.Bold,SupportColor);hints.SetToolTip(attackHead,"Ataque dos personagens secundários");hints.SetToolTip(supportHead,"Suporte dos personagens secundários");attackHead.TextAlign=supportHead.TextAlign=ContentAlignment.MiddleCenter;RubiLabel("COMANDOS",238,143,138,18,8,FontStyle.Bold,Rubi.Text);
    for(int i=0;i<rows.Length;i++){rows[i].SetBounds(14,168+i*32,128,27);rows[i].AccessibleName="Secundário "+(i+1);attackRows[i].SetBounds(155,170+i*32,24,24);supportRows[i].SetBounds(198,170+i*32,24,24);supportRows[i].BackColor=CardTone(137,322,171+i*32+10);attackRows[i].AccessibleName="Atacar com secundário "+(i+1);attackRows[i].ForeColor=Rubi.Accent;attackRows[i].FlatStyle=FlatStyle.Flat;attackRows[i].BackColor=CardTone(137,322,171+i*32+10);}
    // 0.46.1 (owner): the Alto cultivo key sits with the other keys; rows 27 apart so the card keeps its size.
    altoKey=AltoKeyField();
@@ -43,8 +43,11 @@ partial class AvalonInterno : IParentPainter {
   using(var p=new Pen(Color.FromArgb(90,0,0,0)))g.DrawLine(p,1,48,w-2,48);using(var p=new Pen(Color.FromArgb(28,255,255,255)))g.DrawLine(p,1,49,w-2,49);using(var accent=new Pen(Color.FromArgb(145,Rubi.Accent)))g.DrawLine(accent,16,48,102,48);
   var badge=new Rectangle(14,12,28,25);Depth.Shadow(g,badge,5,2);Depth.Raised(g,badge,5,Rubi.Shade(Rubi.Accent,30),Rubi.Shade(Rubi.Accent,-35),Rubi.Shade(Rubi.Accent,-50));
   if(!rotaView){Card(g,new Rectangle(14,59,362,70));using(var p=new Pen(Rubi.Accent,3))g.DrawLine(p,16,67,16,121);
+  using(var accent=new SolidBrush(Color.FromArgb(115,Rubi.Accent)))g.FillRectangle(accent,22,124,78,2);
   Card(g,new Rectangle(8,137,222,322));Card(g,new Rectangle(233,137,149,268));
-  using(var p=new Pen(Color.FromArgb(80,0,0,0)))g.DrawLine(p,14,520,376,520);using(var p=new Pen(Color.FromArgb(22,255,255,255)))g.DrawLine(p,14,521,376,521);}
+  using(var line=new Pen(Color.FromArgb(90,Rubi.Accent)))g.DrawLine(line,17,161,74,161);
+  using(var line=new Pen(Color.FromArgb(90,Rubi.Accent)))g.DrawLine(line,242,161,296,161);
+  using(var footer=new SolidBrush(Color.FromArgb(95,Rubi.Panel)))g.FillRectangle(footer,9,550,374,50);using(var p=new Pen(Color.FromArgb(80,0,0,0)))g.DrawLine(p,14,520,376,520);using(var p=new Pen(Color.FromArgb(22,255,255,255)))g.DrawLine(p,14,521,376,521);}
 }
  // Flat check boxes fill their box with BackColor (white when transparent), so match the card gradient at their row.
  static Color CardTone(int top,int height,int y){var a=Rubi.Shade(Rubi.Panel,8);var b=Rubi.Shade(Rubi.Panel,-5);float t=Math.Max(0f,Math.Min(1f,(y-top)/(float)height));return Color.FromArgb((int)(a.R+(b.R-a.R)*t),(int)(a.G+(b.G-a.G)*t),(int)(a.B+(b.B-a.B)*t));}
