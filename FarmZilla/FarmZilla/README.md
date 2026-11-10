@@ -1,6 +1,6 @@
 # FarmZilla — código-fonte para continuidade
 
-Pacote preparado em 31/10/2026. Base: **FarmZilla 0.19.2**, gerenciador **2.0.1**. Contém o código atual do cliente, gerenciador, serviço de autorização, testes e scripts. Leia `CLAUDE.md` antes de modificar.
+Pacote preparado em 31/10/2026. Base importada: **FarmZilla 0.51.20**, gerenciador **2.0.1**. Contém o código atual do cliente, gerenciador, serviço de autorização, testes e scripts. Leia `CLAUDE.md` antes de modificar.
 
 ## Começar no Claude Code
 
@@ -15,7 +15,7 @@ O workspace original agora também contém `CLAUDE.md` e mantém o histórico co
 | Caminho | Conteúdo |
 |---|---|
 | `CLAUDE.md` | Estado do projeto, decisões, restrições e próximos passos |
-| `outputs/FarmZilla-0.19.2/` | Todos os fontes C# do cliente, ícone e documentação da versão |
+| `outputs/FarmZilla-0.51.20/` | Todos os fontes C# do cliente, ícone e documentação da versão |
 | `work/admin-source-v2/Admin.cs` | Gerenciador de liberar/bloquear computadores |
 | `work/online-control/` | Worker, painel web, banco SQL e testes do serviço |
 | `work/online-control-tooling/` | Dependências fixadas do Wrangler, sem node_modules |
@@ -30,14 +30,16 @@ O workspace original agora também contém `CLAUDE.md` e mantém o histórico co
 
 ## Compilar sem acessar o jogo ou publicar
 
+A versao importada para este repositorio e 0.51.20. Scripts e testes exigem Windows e .NET Framework. O caminho na arvore Git e `FarmZilla/FarmZilla/`, que sera normalizado futuramente em mudanca separada.
+
 No PowerShell, a partir desta pasta:
 
 ```powershell
-& .\work\Build-Release.ps1 -Source outputs\FarmZilla-0.19.2
+& .\work\Build-Release.ps1
 & .\work\Build-AdminOnline.ps1
 ```
 
-Saídas: `outputs/FarmZilla-0.19.2/Bagaceira.exe` e `outputs/BagaceiraAdmin-2.0.1/BagaceiraAdmin.exe`.
+Saídas: `outputs/FarmZilla-0.51.20/Bagaceira.exe` e `outputs/BagaceiraAdmin-2.0.1/BagaceiraAdmin.exe`.
 
 O nome técnico **Bagaceira.exe** é mantido para compatibilidade de atualização; o nome público é **FarmZilla**. Não renomeie arbitrariamente o exe, os identificadores do manifesto ou as pastas de identidade/configuração.
 
