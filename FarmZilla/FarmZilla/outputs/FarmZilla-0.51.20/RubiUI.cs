@@ -27,10 +27,21 @@ partial class AvalonInterno : IParentPainter {
    mount.SetBounds(238,411,138,28);remount.SetBounds(238,445,138,28);var buff=ButtonAt("Bufar",238,479,138,()=>{var task=BuffParty();});buff.Height=28;hints.SetToolTip(buff,"Executa a macro 1 uma única vez no principal e nos secundários selecionados.");
    teleportStatus.SetBounds(14,491,205,14);SupportTargetField(14,463);teleportStatus.ForeColor=Rubi.Muted;teleportStatus.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);teleportStatus.AutoEllipsis=true;
    missionCheck.SetBounds(14,506,218,19);ResurrectField(238,505);FoxField(304,505);missionCheck.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);status.SetBounds(14,530,362,19);status.ForeColor=Rubi.Muted;status.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);teleportStatus.BackColor=missionCheck.BackColor=status.BackColor=Color.Transparent;
-   action.SetBounds(14,558,168,34);refresh.SetBounds(188,558,92,34);refresh.Text="Sincronizar\npersonagens";Controls.Remove(updateSettingsButton);updateSettingsButton.Dispose();updateSettingsButton=ButtonAt("Update",286,558,90,()=>{var task=CheckUpdate(true);});updateSettingsButton.Height=34;
+   action.SetBounds(14,558,168,34);refresh.SetBounds(188,558,92,34);refresh.Text="Sincronizar\npersonagens";Controls.Remove(updateSettingsButton);updateSettingsButton.Dispose();
+#if FARMZILLA_STANDALONE
+ updateSettingsButton=ButtonAt("Config.",286,558,90,Configure);
+#else
+ updateSettingsButton=ButtonAt("Update",286,558,90,()=>{var task=CheckUpdate(true);});
+#endif
+updateSettingsButton.Height=34;
    foreach(var button in Controls.OfType<NeonButton>()){button.BackColor=Rubi.Panel;button.ForeColor=Rubi.Text;button.Primary=button==action;}
    foreach(var combo in Controls.OfType<ComboBox>()){combo.BackColor=Rubi.Field;combo.ForeColor=Rubi.Text;combo.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);combo.ItemHeight=21;combo.DropDownHeight=220;}
-   hints.SetToolTip(updateSettingsButton,"Procura a versão mais nova do FarmZilla e instala.");hints.SetToolTip(refresh,"Procura de novo os clientes do jogo abertos e atualiza os personagens.");Invalidate();
+   #if FARMZILLA_STANDALONE
+ hints.SetToolTip(updateSettingsButton,"Configurações do FarmZilla. Atualização automática removida.");
+#else
+ hints.SetToolTip(updateSettingsButton,"Procura a versão mais nova do FarmZilla e instala.");
+#endif
+hints.SetToolTip(refresh,"Procura de novo os clientes do jogo abertos e atualiza os personagens.");Invalidate();
   }finally{ResumeLayout(false);}
  }
  Label RubiLabel(string text,int x,int y,int w,int h,float size,FontStyle style,Color color){var label=new Label{Text=text,Bounds=new Rectangle(x,y,w,h),Font=new Font("Segoe UI",(float)(size)*global::UiScale.F,style),ForeColor=color,BackColor=Color.Transparent,AutoEllipsis=true};Controls.Add(label);return label;}
