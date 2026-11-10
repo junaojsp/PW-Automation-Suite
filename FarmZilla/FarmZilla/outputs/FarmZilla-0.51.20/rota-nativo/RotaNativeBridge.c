@@ -127,9 +127,13 @@ static DWORD confirm_second_reward(Request *r) {
     uintptr_t dialog=(uintptr_t)((GetDialogMethod)getDialog)((void *)manager,"Win_Award");
     if(!native_type(dialog,base,".?AVCDlgAward@@")||u32(dialog+0xFC)!=r->reserved)return ERROR_NO_MORE_ITEMS;
     if(!readable((void *)(dialog+0x25C),2)||*(BYTE *)(dialog+0x25C)||*(BYTE *)(dialog+0x25D))return ERROR_NOT_SUPPORTED;
-    uintptr_t second=control(dialog,"Rdo_Award2");
-    if(!native_type(second,base,".?AVAUIRadioButton@@")||!readable((void *)second,0x132)||!*(BYTE *)(second+0x7C))return ERROR_NO_MORE_ITEMS;
-    for(unsigned i=1;i<=12;++i){char name[20];row_name(name,"Rdo_Award",i);uintptr_t radio=control(dialog,name);if(radio&&native_type(radio,base,".?AVAUIRadioButton@@")&&readable((void *)radio,0x132))*(BYTE *)(radio+0x131)=(i==2);}
+    /* Coque (resource 3092, quest 61548) awards the desired dark item in the first slot.
+       Keep the previously verified second-slot selection for every other material. */
+    unsigned award=(r->reserved==61548u)?1u:2u;
+    char wanted_name[20];row_name(wanted_name,"Rdo_Award",award);
+    uintptr_t wanted=control(dialog,wanted_name);
+    if(!native_type(wanted,base,".?AVAUIRadioButton@@")||!readable((void *)wanted,0x132)||!*(BYTE *)(wanted+0x7C))return ERROR_NO_MORE_ITEMS;
+    for(unsigned i=1;i<=12;++i){char name[20];row_name(name,"Rdo_Award",i);uintptr_t radio=control(dialog,name);if(radio&&native_type(radio,base,".?AVAUIRadioButton@@")&&readable((void *)radio,0x132))*(BYTE *)(radio+0x131)=(i==award);}
     ((CommandMethod)(base+r->rva[R_AWARD_SELECT]))((void *)dialog,"select");
     ((CommandMethod)(base+r->rva[R_AWARD_CONFIRM]))((void *)dialog,"confirm");
     return ERROR_SUCCESS;
