@@ -36,7 +36,7 @@ namespace RotaAvalon {
         public double Radius{get{return (double)farmRadius.Value;}set{farmRadius.Value=(decimal)Math.Max(100,Math.Min(30000,value));}}
         public void SetExcludedCount(int n){restore.Text="Restaurar pontos ("+n+")";restore.Enabled=n>0;}public event Action<double> ScanRequested;public event Action<int,bool> MaterialToggled;
         public readonly RouteMap Map=new RouteMap();public Func<int,Image> IconFor;
-        readonly ListView materials=new ListView();readonly TextBox search=new TextBox();readonly Label found=new Label();readonly ImageList icons=new ImageList();readonly Dictionary<int,int> iconIndex=new Dictionary<int,int>();
+        readonly ListView materials=new ListView();readonly TextBox search=new TextBox();readonly Label found=new Label();readonly ImageList icons=new ImageList();readonly Dictionary<int,int> iconIndex=new Dictionary<int,int>();readonly System.Windows.Forms.Timer visibleIconTimer=new System.Windows.Forms.Timer();
         readonly Button start=new Button(),stop=new Button(),scan=new Button();readonly NumericUpDown radius=new NumericUpDown(),height=new NumericUpDown();
         public double Height{get{return (double)height.Value;}set{height.Value=(decimal)Math.Max(10,Math.Min(300,value));}}
         readonly Label state=new Label(),detail=new Label(),hint=new Label();bool updating,running;string signature="";
@@ -52,7 +52,7 @@ namespace RotaAvalon {
             search.Dock=DockStyle.Fill;search.Margin=new Padding(0,7,6,0);search.TextChanged+=(s,e)=>RenderMaterials();search.HandleCreated+=(s,e)=>SendMessage(search.Handle,0x1501,(IntPtr)1,"Pesquisar material…");searchBar.Controls.Add(search,0,0);
             found.Dock=DockStyle.Fill;found.ForeColor=Rubi.Muted;found.TextAlign=ContentAlignment.MiddleRight;searchBar.Controls.Add(found,1,0);left.Controls.Add(searchBar,0,1);
             materials.Dock=DockStyle.Fill;materials.ShowItemToolTips=true;materials.View=View.Details;materials.CheckBoxes=true;materials.FullRowSelect=true;materials.HideSelection=false;materials.SmallImageList=icons;materials.Columns.Add("Material",230);materials.Columns.Add("Pontos",62);materials.Columns.Add("Perto",52);
-            materials.ItemChecked+=(s,e)=>{if(updating)return;var ids=(int[])e.Item.Tag;if(MaterialToggled!=null)foreach(var id in ids)MaterialToggled(id,e.Item.Checked);};left.Controls.Add(materials,0,2);
+            materials.ItemChecked+=(s,e)=>{if(updating)return;var ids=(int[])e.Item.Tag;if(MaterialToggled!=null)foreach(var id in ids)MaterialToggled(id,e.Item.Checked);};left.Controls.Add(materials,0,2);visibleIconTimer.Interval=350;visibleIconTimer.Tick+=(s,e)=>LoadVisibleMaterialIcons();visibleIconTimer.Start();Disposed+=(s,e)=>visibleIconTimer.Dispose();
             var scanBar=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=true};
             overlayButton.Text="Mapinha por cima";overlayButton.Width=150;overlayButton.Height=31;overlayButton.Click+=(s,e)=>{if(OverlayRequested!=null)OverlayRequested();};scanBar.Controls.Add(overlayButton);
             scan.Text="Escanear arredores";scan.Width=150;scan.Height=31;scan.Click+=(s,e)=>{if(ScanRequested!=null)ScanRequested((double)radius.Value);};/* 0.47.0 (dono): escanear removido — os materiais já vêm fixos no mapa. */
@@ -82,8 +82,8 @@ namespace RotaAvalon {
         // List (0.43.0, owner): every collectible material of the catalog, one row per name (all its variants together), with
         // the scanned points; a search box filters by name (accents and case ignored). Chosen ones stay on top.
         IList<FarmMaterial> allItems=new List<FarmMaterial>();ICollection<int> allChosen=new HashSet<int>();
-        // Light on the PC: hidden panels skip the list (redrawn when shown), folded names are cached, and icons are read only
-        // for rows with points, chosen ones or search results.
+        // Light on the PC: hidden panels skip the list (redrawn when shown), folded names are cached,
+        // and every visible material icon is loaded incrementally, even without registered points.
         bool materialsPending;string userSignature="";DateTime lastBuild=DateTime.MinValue;static readonly Dictionary<string,string> folded=new Dictionary<string,string>();
         public void SetMaterials(IList<FarmMaterial> items,ICollection<int> chosen){allItems=items;allChosen=chosen;if(!Visible){materialsPending=true;return;}RenderMaterials();}
         protected override void OnVisibleChanged(EventArgs e){base.OnVisibleChanged(e);if(Visible&&materialsPending){materialsPending=false;RenderMaterials();}}
@@ -100,12 +100,33 @@ namespace RotaAvalon {
                 // Reordering the whole list is the costly part: data-only changes (new points from a scan) reorder at most every 3 s;
                 // a search or a ticked material reorders at once.
                 string user=q+"|"+String.Join(",",chosen.OrderBy(i=>i));bool soon=user==userSignature&&(DateTime.UtcNow-lastBuild).TotalMilliseconds<3000;
-                if(next!=signature&&!soon){signature=next;userSignature=user;lastBuild=DateTime.UtcNow;materials.BeginUpdate();try{materials.Items.Clear();var built=new ListViewItem[sorted.Count];for(int i=0;i<sorted.Count;i++){var m=sorted[i];built[i]=new ListViewItem(new[]{m.Name,m.Points>0?m.Points.ToString():"",m.Loaded>0?m.Loaded.ToString():""},m.Points>0||m.Chosen||q.Length>0?Icon(m.Ids[0]):0){Tag=m.Ids,Checked=m.Chosen,ToolTipText=String.IsNullOrEmpty(m.Source)?m.Name:"No chão: "+m.Source};}materials.Items.AddRange(built);}finally{materials.EndUpdate();}}
-                else{var byName=sorted.ToDictionary(m=>String.Join(",",m.Ids));foreach(ListViewItem row in materials.Items){MaterialRow m;if(!byName.TryGetValue(String.Join(",",(int[])row.Tag),out m))continue;string pts=m.Points>0?m.Points.ToString():"",l=m.Loaded>0?m.Loaded.ToString():"";if(row.SubItems[1].Text!=pts)row.SubItems[1].Text=pts;if(row.SubItems[2].Text!=l)row.SubItems[2].Text=l;if(row.ImageIndex==0&&(m.Points>0||m.Chosen||q.Length>0))row.ImageIndex=Icon(m.Ids[0]);}}
+                if(next!=signature&&!soon){signature=next;userSignature=user;lastBuild=DateTime.UtcNow;materials.BeginUpdate();try{materials.Items.Clear();var built=new ListViewItem[sorted.Count];for(int i=0;i<sorted.Count;i++){var m=sorted[i];built[i]=new ListViewItem(new[]{m.Name,m.Points>0?m.Points.ToString():"",m.Loaded>0?m.Loaded.ToString():""},0){Tag=m.Ids,Checked=m.Chosen,ToolTipText=String.IsNullOrEmpty(m.Source)?m.Name:"No chão: "+m.Source};}materials.Items.AddRange(built);}finally{materials.EndUpdate();}}
+                else{var byName=sorted.ToDictionary(m=>String.Join(",",m.Ids));foreach(ListViewItem row in materials.Items){MaterialRow m;if(!byName.TryGetValue(String.Join(",",(int[])row.Tag),out m))continue;string pts=m.Points>0?m.Points.ToString():"",l=m.Loaded>0?m.Loaded.ToString():"";if(row.SubItems[1].Text!=pts)row.SubItems[1].Text=pts;if(row.SubItems[2].Text!=l)row.SubItems[2].Text=l;}}
             }finally{updating=false;}
             found.Text=q.Length==0?rows.Count+" materiais":sorted.Count+" de "+rows.Count;
         }
-        int Icon(int id){int index;if(iconIndex.TryGetValue(id,out index))return index;var image=IconFor==null?null:IconFor(id);if(image==null)return 0;icons.Images.Add((Image)image.Clone());index=icons.Images.Count-1;iconIndex[id]=index;return index;}
+        // Load only the visible rows (at most four images per tick). List scrolling stays responsive.
+        void LoadVisibleMaterialIcons(){
+            if(IsDisposed||!Visible||!materials.Visible||updating||materials.Items.Count==0)return;
+            ListViewItem top;
+            try{top=materials.TopItem;}catch(InvalidOperationException){return;}
+            if(top==null)return;
+            int first=top.Index,visibleRows=Math.Max(1,materials.ClientSize.Height/Math.Max(1,materials.Font.Height+7)+2),loaded=0;
+            for(int i=first;i<Math.Min(materials.Items.Count,first+visibleRows)&&loaded<4;i++){
+                var row=materials.Items[i];if(row.ImageIndex!=0)continue;
+                var ids=row.Tag as int[];if(ids==null||ids.Length==0)continue;
+                int index;
+                if(iconIndex.TryGetValue(ids[0],out index)){if(index>0)row.ImageIndex=index;continue;}
+                row.ImageIndex=Icon(ids[0]);loaded++;
+            }
+        }
+        int Icon(int id){
+            int index;if(iconIndex.TryGetValue(id,out index))return index;
+            Image image=null;
+            try{if(IconFor!=null)image=IconFor(id);if(image!=null){icons.Images.Add((Image)image.Clone());index=icons.Images.Count-1;}else index=0;}
+            catch{index=0;}
+            iconIndex[id]=index;return index;
+        }
         public void ResetIcons(){iconIndex.Clear();while(icons.Images.Count>1)icons.Images.RemoveAt(icons.Images.Count-1);signature="";}
         public void SetRunning(bool value){if(value==running)return;running=value;start.Enabled=!value;stop.Enabled=value;scan.Enabled=!value;loadRoute.Enabled=!value;height.Enabled=!value;farmRadius.Enabled=!value;TrailRunning(value);if(value){cycle=collected=defenses=skipped=plan=0;next=last="—";}UpdateText();}
         public void SetPlan(RouteDocument route){if(Manual)return;plan=route==null?0:route.Points.Count;Map.Route=route;Map.Invalidate();UpdateText();}
