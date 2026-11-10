@@ -9,22 +9,27 @@ sealed class SideItem : Control {
   Color top=selected?Rubi.Shade(Rubi.Accent,-158):Rubi.Shade(Rubi.Panel,hover?13:4),bottom=selected?Rubi.Shade(Rubi.Accent,-180):Rubi.Shade(Rubi.Panel,-7);
   Depth.Shadow(g,r,6,selected?2:1);Depth.Raised(g,r,6,top,bottom,selected?Rubi.Accent:Rubi.Line);
   if(selected)using(var p=new Pen(Rubi.Accent,3))g.DrawLine(p,r.X+3,r.Y+7,r.X+3,r.Bottom-7);
-  TextRenderer.DrawText(g,Text,Font,new Rectangle(r.X+15,r.Y,r.Width-18,r.Height),selected?Rubi.Text:Rubi.Muted,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);}
+  var symbol=new Rectangle(r.X+13,r.Y+(r.Height-15)/2,15,15);
+  using(var stroke=new Pen(selected?Rubi.Text:Rubi.Muted,1.6f)){
+   if(Text=="Espelho"){g.DrawEllipse(stroke,symbol.X+3,symbol.Y,9,9);g.DrawArc(stroke,symbol.X,symbol.Y+9,15,7,195,150);}
+   else {g.DrawRectangle(stroke,symbol.X+1,symbol.Y+2,13,11);g.DrawLine(stroke,symbol.X+4,symbol.Y+6,symbol.X+7,symbol.Y+9);g.DrawLine(stroke,symbol.X+7,symbol.Y+9,symbol.X+12,symbol.Y+4);}
+  }
+  TextRenderer.DrawText(g,Text,Font,new Rectangle(r.X+36,r.Y,r.Width-39,r.Height),selected?Rubi.Text:Rubi.Muted,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);}
 }
 partial class AvalonInterno {
- const int SideWidth=158,PanelWidth=390,PanelHeight=606;
+ const int SideWidth=172,PanelWidth=390,PanelHeight=606;
  SideItem sidePersonagens,sideRota,sideAjustes;Panel rotaHost;bool rotaView;Point? panelLocation;readonly List<Control> panelBody=new List<Control>();readonly Dictionary<Control,bool> panelVisible=new Dictionary<Control,bool>();
  Control minimizeButton,closeButton;
  void ApplySideMenu(){SuspendLayout();try{
   minimizeButton=Controls.OfType<Button>().Single(b=>b.Text=="—");closeButton=Controls.OfType<Button>().Single(b=>b.Text=="×");
   foreach(Control c in Controls){c.Left+=SideWidth;if(c.Top>=50)panelBody.Add(c);}
   ClientSize=new Size(SideWidth+PanelWidth,PanelHeight);
-  var brand=RubiLabel("FARMZILLA",50,13,104,20,10,FontStyle.Bold,Rubi.Accent);EnableRubiDrag(brand);var engine=RubiLabel("MOTOR AVALON · x86",50,33,104,15,7,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(engine);
+  var brand=RubiLabel("FARMZILLA",50,13,115,20,10,FontStyle.Bold,Rubi.Accent);EnableRubiDrag(brand);var engine=RubiLabel("MOTOR AVALON · x86",50,33,116,15,7,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(engine);
   RubiLabel("FERRAMENTAS",16,72,130,16,7,FontStyle.Bold,Rubi.Text);
   sidePersonagens=SideAt("Espelho",94,()=>ShowRotaView(false));sideRota=SideAt("Mat Farm",136,()=>ShowRotaView(true));
   // 0.46.4 (owner): no Ajustes button any more; the tools stay on top.
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
-  var footer=RubiLabel("FarmZilla · Rubi",16,PanelHeight-46,130,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,140,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
+  var footer=RubiLabel("FarmZilla · Rubi",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);
   sidePersonagens.Selected=true;Invalidate();
  }finally{ResumeLayout(false);}}
@@ -46,7 +51,7 @@ partial class AvalonInterno {
  // Full window: background, side menu, then the panel (header band always, cards only on Personagens) and the outer border.
  void PaintRubi(Graphics g){g.SmoothingMode=SmoothingMode.AntiAlias;int w=ClientSize.Width,h=ClientSize.Height;
   using(var b=new LinearGradientBrush(new Rectangle(0,0,SideWidth,h),Rubi.Shade(Rubi.Background,-2),Rubi.Shade(Rubi.Background,-12),LinearGradientMode.Vertical))g.FillRectangle(b,0,0,SideWidth,h);
-  using(var p=new Pen(Color.FromArgb(110,0,0,0)))g.DrawLine(p,SideWidth-1,0,SideWidth-1,h);using(var p=new Pen(Color.FromArgb(24,255,255,255)))g.DrawLine(p,SideWidth,0,SideWidth,h);
+  using(var p=new Pen(Color.FromArgb(110,0,0,0)))g.DrawLine(p,SideWidth-1,0,SideWidth-1,h);using(var shade=new SolidBrush(Color.FromArgb(24,Rubi.Accent)))g.FillRectangle(shade,SideWidth-3,0,2,60);using(var p=new Pen(Color.FromArgb(24,255,255,255)))g.DrawLine(p,SideWidth,0,SideWidth,h);
   var badge=new Rectangle(14,15,28,26);Depth.Shadow(g,badge,6,2);Depth.Raised(g,badge,6,Rubi.Shade(Rubi.Accent,30),Rubi.Shade(Rubi.Accent,-35),Rubi.Shade(Rubi.Accent,-50));using(var f=new Font("Segoe UI",(float)(9)*global::UiScale.F,FontStyle.Bold))TextRenderer.DrawText(g,"FZ",f,badge,Rubi.OnAccent,TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter);
   using(var p=new Pen(Color.FromArgb(70,0,0,0)))g.DrawLine(p,14,60,SideWidth-14,60);using(var p=new Pen(Color.FromArgb(20,255,255,255)))g.DrawLine(p,14,61,SideWidth-14,61);using(var accent=new Pen(Color.FromArgb(170,Rubi.Accent)))g.DrawLine(accent,14,61,58,61);
   var state=g.Save();g.TranslateTransform(SideWidth,0);g.SetClip(new Rectangle(0,0,w-SideWidth,h));PaintContent(g,w-SideWidth,h);g.Restore(state);

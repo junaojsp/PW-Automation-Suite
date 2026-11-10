@@ -47,10 +47,10 @@ namespace RotaAvalon {
             icons.ImageSize=new Size(24,24);icons.ColorDepth=ColorDepth.Depth32Bit;using(var blank=new Bitmap(24,24))icons.Images.Add((Image)blank.Clone());
             var split=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1};split.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,380));split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));Controls.Add(split);
             var left=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=5,Margin=new Padding(0,0,10,0)};left.RowStyles.Add(new RowStyle(SizeType.Absolute,30));left.RowStyles.Add(new RowStyle(SizeType.Absolute,40));left.RowStyles.Add(new RowStyle(SizeType.Percent,100));left.RowStyles.Add(new RowStyle(SizeType.Absolute,40));left.RowStyles.Add(new RowStyle(SizeType.Absolute,62));split.Controls.Add(left,0,0);
-            left.Controls.Add(new Label{Text="1 · MATERIAIS PARA FARMAR",Dock=DockStyle.Fill,Font=new Font("Segoe UI Semibold",(float)(10.5f)*global::UiScale.F),TextAlign=ContentAlignment.MiddleLeft},0,0);
+            left.Controls.Add(new Label{Text="01  /  MATERIAIS PARA FARMAR",Dock=DockStyle.Fill,Font=new Font("Segoe UI Semibold",(float)(10.5f)*global::UiScale.F),ForeColor=Rubi.Text,TextAlign=ContentAlignment.MiddleLeft},0,0);
             var searchBar=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=new Padding(0)};searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,92));
             search.Dock=DockStyle.Fill;search.Margin=new Padding(0,7,6,0);search.TextChanged+=(s,e)=>RenderMaterials();search.HandleCreated+=(s,e)=>SendMessage(search.Handle,0x1501,(IntPtr)1,"Pesquisar material…");searchBar.Controls.Add(search,0,0);
-            found.Dock=DockStyle.Fill;found.ForeColor=Color.SlateGray;found.TextAlign=ContentAlignment.MiddleRight;searchBar.Controls.Add(found,1,0);left.Controls.Add(searchBar,0,1);
+            found.Dock=DockStyle.Fill;found.ForeColor=Rubi.Muted;found.TextAlign=ContentAlignment.MiddleRight;searchBar.Controls.Add(found,1,0);left.Controls.Add(searchBar,0,1);
             materials.Dock=DockStyle.Fill;materials.ShowItemToolTips=true;materials.View=View.Details;materials.CheckBoxes=true;materials.FullRowSelect=true;materials.HideSelection=false;materials.SmallImageList=icons;materials.Columns.Add("Material",230);materials.Columns.Add("Pontos",62);materials.Columns.Add("Perto",52);
             materials.ItemChecked+=(s,e)=>{if(updating)return;var ids=(int[])e.Item.Tag;if(MaterialToggled!=null)foreach(var id in ids)MaterialToggled(id,e.Item.Checked);};left.Controls.Add(materials,0,2);
             var scanBar=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=true};
@@ -61,7 +61,7 @@ namespace RotaAvalon {
             var routeBar=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=true};
             saveRoute.Text="Salvar rota (.txt)";saveRoute.Width=150;saveRoute.Height=31;saveRoute.Click+=(s,e)=>{if(SaveRouteRequested!=null)SaveRouteRequested();};routeBar.Controls.Add(saveRoute);
             loadRoute.Text="Carregar rota (.txt)";loadRoute.Width=150;loadRoute.Height=31;loadRoute.Click+=(s,e)=>{if(LoadRouteRequested!=null)LoadRouteRequested();};routeBar.Controls.Add(loadRoute);
-            routeLabel.AutoSize=true;routeLabel.Margin=new Padding(3,2,0,0);routeBar.Controls.Add(routeLabel);SetLoadedRoute(null,0);left.Controls.Add(routeBar,0,4);
+            routeLabel.AutoSize=true;routeLabel.Margin=new Padding(3,2,0,0);routeLabel.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);routeBar.Controls.Add(routeLabel);SetLoadedRoute(null,0);left.Controls.Add(routeBar,0,4);
             var right=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=5};right.RowStyles.Add(new RowStyle(SizeType.Absolute,30));right.RowStyles.Add(new RowStyle(SizeType.Absolute,52));right.RowStyles.Add(new RowStyle(SizeType.Absolute,40));right.RowStyles.Add(new RowStyle(SizeType.Absolute,92));right.RowStyles.Add(new RowStyle(SizeType.Percent,100));split.Controls.Add(right,1,0);
             right.Controls.Add(BuildModeBar(),0,0);
             var buttons=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false};
