@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FarmZilla Control</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1017;--panel:#151c27;--line:#2d3b50;--text:#ecf2f9;--muted:#9dabbe;--accent:#db5555}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,Segoe UI,sans-serif}
+header{padding:22px 5vw;background:#111825;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px}
+h1{margin:0;font-size:25px}h2{margin:0 0 14px;font-size:17px}small,.muted{color:var(--muted)}
+main{max-width:1200px;margin:25px auto;padding:0 18px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px}
+.card,section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}.stat{font-size:30px;font-weight:750;margin:8px 0}
+section{margin-bottom:18px}button{background:#27364a;border:1px solid #435573;color:#fff;border-radius:8px;padding:9px 14px;cursor:pointer}button:hover{background:#354a63}button.primary{background:#a72e37;border-color:#d24a53}button:disabled{opacity:.6;cursor:not-allowed}
+input,textarea,select{background:#0e1622;border:1px solid #364761;border-radius:7px;color:#fff;padding:9px;max-width:100%;font:inherit}input[type=file]{width:100%}
+form{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+table{border-collapse:collapse;width:100%;min-width:570px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid var(--line)}th{color:#b8c6d6;font-weight:600}.scroll{overflow:auto}
+code{font-size:12px;color:#c3d6e6;overflow-wrap:anywhere}
+.pill{padding:4px 8px;border-radius:12px;background:#253c38;color:#8fdfbd}.pill.blocked{background:#48252b;color:#f3a3ad}
+#notice{min-height:25px;color:#9edbba;font-size:13px}#notice.error{color:#ff9494}
+footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;margin:auto}
+</style></head><body>
+<header><div><h1>FarmZilla <span style="color:var(--accent)">Control</span></h1><small>Painel administrativo interno · MVP Linux</small></div><button id="reload">Atualizar</button></header>
+<main>
+<div id="notice" role="status"></div>
+<div class="cards"><div class="card"><small>Computadores cadastrados</small><div class="stat" id="total-devices">—</div></div><div class="card"><small>Computadores bloqueados</small><div class="stat" id="blocked-devices">—</div></div><div class="card"><small>Versões armazenadas</small><div class="stat" id="total-releases">—</div></div></div>
+<section><h2>Computadores</h2><small>Cadastro administrativo. Ainda não ativa nem bloqueia o executável standalone já distribuído.</small>
+<form id="device-form"><input id="device-name" maxlength="120" placeholder="Identificação do computador" required><input id="device-note" maxlength="1000" placeholder="Observação" style="flex:1;min-width:170px"><button class="primary">Cadastrar</button></form>
+<div class="scroll"><table><thead><tr><th>Computador</th><th>Observação</th><th>Estado</th><th>Cadastrado</th><th>Ação</th></tr></thead><tbody id="device-rows"></tbody></table></div></section>
+<section><h2>Versões do FarmZilla</h2><small>Upload manual de executáveis Windows. Arquivos ficam armazenados localmente; não são publicados para clientes nem instalados automaticamente.</small>
+<form id="release-form"><input id="release-version" placeholder="Versão: 0.51.20" pattern="[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" required><input id="release-file" type="file" accept=".exe" required><button class="primary">Enviar versão</button></form>
+<div class="scroll"><table><thead><tr><th>Versão</th><th>Tamanho</th><th>SHA-256</th><th>Registrada em</th></tr></thead><tbody id="release-rows"></tbody></table></div></section>
+<section><h2>Auditoria</h2><div class="scroll"><table><thead><tr><th>Data</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="audit-rows"></tbody></table></div></section>
+</main><footer>Acesso local via 127.0.0.1:8088. Antes de publicar na internet: configurar HTTPS, domínio e camada de segurança adicional.</footer>
+<script>
+const $=id=>document.getElementById(id);
+const d=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'});
+const notify=(message,err=false)=>{const n=$('notice');n.textContent=message;n.className=err?'error':'';};
+const el=(name,text)=>{const e=document.createElement(name);e.textContent=String(text??'');return e;};
+function cells(row,values){for(const value of values)row.appendChild(el('td',value));}
+async function api(url,options){const r=await fetch(url,{cache:'no-store',...options});const j=await r.json();if(!r.ok)throw Error(j.error||'Falha HTTP '+r.status);return j;}
+function formatted(date){return d.format(new Date(date));}
+async function refresh(){
+ try{
+  const [stats,devs,rels,audit]=await Promise.all([api('/api/overview'),api('/api/devices'),api('/api/releases'),api('/api/audit')]);
+  $('total-devices').textContent=stats.devices.total;$('blocked-devices').textContent=stats.devices.blocked;$('total-releases').textContent=stats.releases.total;
+  const rows=$('device-rows');rows.replaceChildren();
+  for(const v of devs.devices){
+   const row=document.createElement('tr');cells(row,[v.name,v.note,'',formatted(v.created_at)]);
+   const state=row.children[2];const pill=el('span',v.status==='blocked'?'Bloqueado':'Registrado');pill.className='pill'+(v.status==='blocked'?' blocked':'');state.appendChild(pill);
+   const td=el('td','');const btn=el('button',v.status==='blocked'?'Reativar':'Bloquear');btn.onclick=async()=>{if(!confirm('Alterar o estado administrativo deste computador?'))return;btn.disabled=true;try{await api('/api/devices/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:v.status==='blocked'?'registered':'blocked'})});await refresh();notify('Estado atualizado');}catch(e){notify(e.message,true);btn.disabled=false;}};td.appendChild(btn);row.appendChild(td);rows.appendChild(row);
+  }
+  if(!devs.devices.length)rows.appendChild(el('tr',''));
+  const releases=$('release-rows');releases.replaceChildren();
+  for(const v of rels.releases){const row=el('tr','');cells(row,[v.version,(Number(v.bytes)/1048576).toFixed(2)+' MB',v.sha256,formatted(v.created_at)]);releases.appendChild(row);}
+  const logs=$('audit-rows');logs.replaceChildren();
+  for(const v of audit.events){const row=el('tr','');cells(row,[formatted(v.created_at),v.action,JSON.stringify(v.detail)]);logs.appendChild(row);}
+ }catch(e){notify(e.message,true);}
+}
+$('reload').onclick=refresh;
+$('device-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('device-name').value,note:$('device-note').value})});e.target.reset();await refresh();notify('Computador registrado');}catch(err){notify(err.message,true);}};
+$('release-form').onsubmit=async e=>{e.preventDefault();const file=$('release-file').files[0];if(!file)return;const btn=e.target.querySelector('button');btn.disabled=true;notify('Enviando versão...');try{await api('/api/releases?version='+encodeURIComponent($('release-version').value),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});e.target.reset();await refresh();notify('Arquivo armazenado e SHA-256 registrado');}catch(err){notify(err.message,true);}finally{btn.disabled=false;}};
+refresh();
+</script></body></html>

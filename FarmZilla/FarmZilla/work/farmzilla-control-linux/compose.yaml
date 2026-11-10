@@ -1,0 +1,45 @@
+name: farmzilla-control
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: farmzilla
+      POSTGRES_USER: farmzilla
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD no .env}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farmzilla -d farmzilla"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [farmzilla-backend]
+    security_opt: ["no-new-privileges:true"]
+  web:
+    build: ./app
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://farmzilla:${DB_PASSWORD}@db:5432/farmzilla
+      ADMIN_USER: ${ADMIN_USER:?Define ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Define ADMIN_PASSWORD}
+      RELEASE_DIR: /releases
+    ports:
+      - "127.0.0.1:8088:3000"
+    volumes:
+      - ./releases:/releases
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    pids_limit: 120
+    networks: [farmzilla-backend]
+networks:
+  farmzilla-backend:
+    name: farmzilla-backend
+    driver: bridge

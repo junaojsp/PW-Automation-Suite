@@ -1,0 +1,9 @@
+{
+  "name": "farmzilla-control",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Painel interno de dispositivos e releases FarmZilla",
+  "type": "commonjs",
+  "scripts": {"start": "node server.js", "test": "node --test"},
+  "dependencies": {"pg": "8.13.1"}
+}
