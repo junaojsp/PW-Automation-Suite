@@ -1,21 +1,36 @@
-param([string]$Source='outputs\FarmZilla-0.19.2')
+param([string]$Source='outputs\FarmZilla-0.51.20')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$sourcePath=(Resolve-Path -LiteralPath (Join-Path $root $Source)).Path
+$sourceCandidate=Join-Path $root $Source
+if(-not (Test-Path -LiteralPath $sourceCandidate -PathType Container)){
+    throw "Fonte nao encontrada: $sourceCandidate. Informe -Source outputs\FarmZilla-0.51.20 ou atualize o projeto."
+}
+$sourcePath=(Resolve-Path -LiteralPath $sourceCandidate).Path
 $compiler='C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-$files=@(Get-ChildItem -LiteralPath $sourcePath -Filter '*.cs'|ForEach-Object FullName)
+if(-not (Test-Path -LiteralPath $compiler -PathType Leaf)){
+    throw "Compilador .NET Framework x64 nao encontrado: $compiler"
+}
+$files=@(Get-ChildItem -LiteralPath $sourcePath -Filter '*.cs' -File | ForEach-Object FullName)
+if($files.Count -eq 0){throw "Nenhum arquivo C# encontrado em $sourcePath"}
+$icon=Join-Path $sourcePath 'Bagaceira.ico'
+if(-not (Test-Path -LiteralPath $icon -PathType Leaf)){throw "Icone necessario nao encontrado: $icon"}
 $refs=@('/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll','/r:System.Security.dll','/r:System.Management.dll')
-# Optional recursos folder (0.20.0+): each file is embedded under its name without extension (e.g. RotaAvalon.Catalogo.json -> RotaAvalon.Catalogo).
+# Recursos opcionais embutidos usando nome sem extensao.
 $resourcePath=Join-Path $sourcePath 'recursos'
 $resources=@()
-if(Test-Path -LiteralPath $resourcePath){$resources=@(Get-ChildItem -LiteralPath $resourcePath -File|ForEach-Object{'/resource:'+$_.FullName+','+[IO.Path]::GetFileNameWithoutExtension($_.Name)})}
-& $compiler /nologo /target:winexe /platform:x86 $refs "/win32icon:$sourcePath\Bagaceira.ico" "/out:$sourcePath\Bagaceira.exe" $resources $files
-if($LASTEXITCODE -ne 0){throw 'Compilação falhou.'}
-foreach($test in @('UpdateTests','OnlineLicenseTests')){
- & $compiler /nologo /target:exe /platform:x86 $refs "/main:$test" "/out:$PSScriptRoot\$test.exe" "$PSScriptRoot\$test.cs" $resources $files
- if($LASTEXITCODE -ne 0){throw "Falha compilando $test"}
- & "$PSScriptRoot\$test.exe"
- if($LASTEXITCODE -ne 0){throw "Falha em $test"}
+if(Test-Path -LiteralPath $resourcePath -PathType Container){
+    $resources=@(Get-ChildItem -LiteralPath $resourcePath -File | ForEach-Object {'/resource:'+$_.FullName+','+[IO.Path]::GetFileNameWithoutExtension($_.Name)})
 }
-Get-FileHash -LiteralPath "$sourcePath\Bagaceira.exe" -Algorithm SHA256
-
+Write-Host "Compilando FarmZilla de: $sourcePath"
+& $compiler /nologo /target:winexe /platform:x86 $refs "/win32icon:$icon" "/out:$sourcePath\Bagaceira.exe" $resources $files
+if($LASTEXITCODE -ne 0){throw 'Compilacao do cliente falhou.'}
+foreach($test in @('UpdateTests','OnlineLicenseTests')){
+    $testFile=Join-Path $PSScriptRoot ($test+'.cs')
+    if(-not (Test-Path -LiteralPath $testFile -PathType Leaf)){throw "Teste nao encontrado: $testFile"}
+    $testExe=Join-Path $PSScriptRoot ($test+'.exe')
+    & $compiler /nologo /target:exe /platform:x86 $refs "/main:$test" "/out:$testExe" $testFile $resources $files
+    if($LASTEXITCODE -ne 0){throw "Falha compilando $test"}
+    & $testExe
+    if($LASTEXITCODE -ne 0){throw "Falha em $test"}
+}
+Get-FileHash -LiteralPath (Join-Path $sourcePath 'Bagaceira.exe') -Algorithm SHA256
