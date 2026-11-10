@@ -1,6 +1,6 @@
 using System;using System.Collections.Generic;using System.Drawing;using System.Drawing.Drawing2D;using System.Linq;using System.Windows.Forms;
 static class Rubi {
- public static readonly Color Background=Color.FromArgb(22,23,28),Panel=Color.FromArgb(32,33,39),Field=Color.FromArgb(41,43,51),Line=Color.FromArgb(54,56,65),Text=Color.FromArgb(238,238,243),Muted=Color.FromArgb(175,177,191),Accent=Color.FromArgb(241,100,118),OnAccent=Color.FromArgb(35,9,15);
+ public static readonly Color Background=Color.FromArgb(16,18,23),Panel=Color.FromArgb(29,32,39),Field=Color.FromArgb(39,43,51),Line=Color.FromArgb(65,71,82),Text=Color.FromArgb(244,246,249),Muted=Color.FromArgb(181,190,204),Accent=Color.FromArgb(239,73,89),OnAccent=Color.FromArgb(255,255,255);
  public static Color Shade(Color c,int amount){Func<int,int> f=v=>Math.Max(0,Math.Min(255,v+amount));return Color.FromArgb(c.A,f(c.R),f(c.G),f(c.B));}
 }
 partial class AvalonInterno : IParentPainter {
@@ -12,7 +12,7 @@ partial class AvalonInterno : IParentPainter {
    Text="FarmZilla • "+ReleaseInfo.Version+" / 32 bits";AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(390,606);BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",(float)(9)*global::UiScale.F);Padding=Padding.Empty;
    MouseDown+=(s,e)=>{if(e.Y<48&&e.Button==MouseButtons.Left){DragNative.ReleaseCapture();DragNative.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}};
    var mark=RubiLabel("FZ",14,12,28,25,9,FontStyle.Bold,Rubi.OnAccent);mark.TextAlign=ContentAlignment.MiddleCenter;EnableRubiDrag(mark);
-   var brand=RubiLabel("FarmZilla",51,8,180,32,13,FontStyle.Bold,Rubi.Accent);brand.Font=new Font("Segoe UI",18,FontStyle.Bold,GraphicsUnit.Pixel);brand.AutoEllipsis=false;brand.TextAlign=ContentAlignment.MiddleLeft;EnableRubiDrag(brand);
+   var brand=RubiLabel("FarmZilla",51,8,180,32,13,FontStyle.Bold,Rubi.Accent);brand.Font=new Font("Segoe UI Semibold",18,FontStyle.Bold,GraphicsUnit.Pixel);brand.AutoEllipsis=false;brand.TextAlign=ContentAlignment.MiddleLeft;EnableRubiDrag(brand);
    var version=RubiLabel("v"+ReleaseInfo.Version,232,18,79,18,8,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(version);
    minimize.SetBounds(321,10,25,28);close.SetBounds(351,10,25,28);
    RubiLabel("PRINCIPAL",27,66,140,17,8,FontStyle.Regular,Rubi.Muted);main.SetBounds(27,88,300,29);var primaryHead=RubiLabel("Ataque",326,66,48,17,8,FontStyle.Regular,Rubi.Accent);primaryHead.TextAlign=ContentAlignment.MiddleCenter;primaryAttack.SetBounds(339,90,23,23);primaryAttack.FlatStyle=FlatStyle.Flat;primaryAttack.ForeColor=Rubi.Accent;primaryAttack.BackColor=CardTone(59,70,102);primaryAttack.AccessibleName="Atacar com o principal";main.AccessibleName="Principal";
@@ -40,7 +40,7 @@ partial class AvalonInterno : IParentPainter {
  void PaintContent(Graphics g,int w,int h){
   using(var b=new LinearGradientBrush(new Rectangle(0,0,w,h),Rubi.Shade(Rubi.Background,6),Rubi.Shade(Rubi.Background,-8),LinearGradientMode.Vertical))g.FillRectangle(b,0,0,w,h);
   using(var b=new LinearGradientBrush(new Rectangle(0,0,w,49),Rubi.Shade(Rubi.Panel,14),Rubi.Shade(Rubi.Panel,-6),LinearGradientMode.Vertical))g.FillRectangle(b,1,1,w-2,47);
-  using(var p=new Pen(Color.FromArgb(90,0,0,0)))g.DrawLine(p,1,48,w-2,48);using(var p=new Pen(Color.FromArgb(28,255,255,255)))g.DrawLine(p,1,49,w-2,49);
+  using(var p=new Pen(Color.FromArgb(90,0,0,0)))g.DrawLine(p,1,48,w-2,48);using(var p=new Pen(Color.FromArgb(28,255,255,255)))g.DrawLine(p,1,49,w-2,49);using(var accent=new Pen(Color.FromArgb(145,Rubi.Accent)))g.DrawLine(accent,16,48,102,48);
   var badge=new Rectangle(14,12,28,25);Depth.Shadow(g,badge,5,2);Depth.Raised(g,badge,5,Rubi.Shade(Rubi.Accent,30),Rubi.Shade(Rubi.Accent,-35),Rubi.Shade(Rubi.Accent,-50));
   if(!rotaView){Card(g,new Rectangle(14,59,362,70));using(var p=new Pen(Rubi.Accent,3))g.DrawLine(p,16,67,16,121);
   Card(g,new Rectangle(8,137,222,322));Card(g,new Rectangle(233,137,149,268));
@@ -48,5 +48,5 @@ partial class AvalonInterno : IParentPainter {
 }
  // Flat check boxes fill their box with BackColor (white when transparent), so match the card gradient at their row.
  static Color CardTone(int top,int height,int y){var a=Rubi.Shade(Rubi.Panel,8);var b=Rubi.Shade(Rubi.Panel,-5);float t=Math.Max(0f,Math.Min(1f,(y-top)/(float)height));return Color.FromArgb((int)(a.R+(b.R-a.R)*t),(int)(a.G+(b.G-a.G)*t),(int)(a.B+(b.B-a.B)*t));}
- static void Card(Graphics g,Rectangle r){Depth.Shadow(g,r,7,3);Depth.Raised(g,r,7,Rubi.Shade(Rubi.Panel,8),Rubi.Shade(Rubi.Panel,-5),Rubi.Line);}
+ static void Card(Graphics g,Rectangle r){Depth.Shadow(g,r,8,2);Depth.Raised(g,r,8,Rubi.Shade(Rubi.Panel,11),Rubi.Shade(Rubi.Panel,-5),Rubi.Line);}
 }
