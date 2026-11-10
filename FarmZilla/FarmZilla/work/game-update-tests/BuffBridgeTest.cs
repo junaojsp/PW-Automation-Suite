@@ -1,0 +1,11 @@
+using System;using System.Runtime.InteropServices;using System.Threading.Tasks;using System.Windows.Forms;
+class BuffBridgeTest:Form {
+ [DllImport("kernel32.dll")]static extern IntPtr VirtualAlloc(IntPtr a,UIntPtr n,uint t,uint p);
+ [DllImport("kernel32.dll")]static extern bool VirtualProtect(IntPtr a,UIntPtr n,uint p,out uint old);
+ [DllImport("kernel32.dll")]static extern bool VirtualFree(IntPtr a,UIntPtr n,uint t);
+ [DllImport("user32.dll")]static extern IntPtr SendMessage(IntPtr w,uint m,IntPtr a,IntPtr b);
+ static int exit=1;protected override void WndProc(ref Message m){if(m.Msg==0x8001){m.Result=new IntPtr(42);return;}base.WndProc(ref m);}
+ BuffBridgeTest(){Shown+=async(s,e)=>{IntPtr w=Handle;await Task.Run(()=>Run(w));Close();};}
+ static void Run(IntPtr w){IntPtr code=VirtualAlloc(IntPtr.Zero,new UIntPtr(4096),0x3000,4),context=Marshal.AllocHGlobal(8192);try{for(int i=0;i<8192;i++)Marshal.WriteByte(context,i,0);byte[] body={0x8B,0x44,0x24,4,0x89,0x81,0,1,0,0,0x8B,0x44,0x24,8,0x89,0x81,4,1,0,0,0x8B,0x44,0x24,12,0x89,0x81,8,1,0,0,0xFF,0x81,12,1,0,0,0xB8,1,0,0,0,0xC2,12,0};Marshal.Copy(body,0,code,body.Length);uint old;VirtualProtect(code,new UIntPtr(4096),0x20,out old);BuffBridge b;using(b=new BuffBridge(w,BuffBridge.Addr(context),BuffBridge.Addr(code))){b.BuffOnce();if(Marshal.ReadInt32(context,0x100)!=1||Marshal.ReadInt32(context,0x104)!=1||Marshal.ReadInt32(context,0x108)!=-1||Marshal.ReadInt32(context,0x10C)!=1)throw new Exception("Indice, execucao unica ou numero de chamadas incorretos");Console.WriteLine("PASS macro indice 1, modo uma vez e exatamente uma chamada");if(b.LastResult!=1||b.ExecutedThread!=b.UiThread)throw new Exception("Retorno ou thread invalidos");Console.WriteLine("PASS comando executado na thread da janela e retorno preservado");}if(!b.RestoreSucceeded||SendMessage(w,0x8001,IntPtr.Zero,IntPtr.Zero).ToInt32()!=42)throw new Exception("Janela nao restaurada");Console.WriteLine("PASS ponte removida e procedimento original da janela restaurado");exit=0;}catch(Exception e){Console.WriteLine(e);}finally{VirtualFree(code,UIntPtr.Zero,0x8000);Marshal.FreeHGlobal(context);}}
+ [STAThread]static int Main(){Application.EnableVisualStyles();Application.Run(new BuffBridgeTest());return exit;}
+}

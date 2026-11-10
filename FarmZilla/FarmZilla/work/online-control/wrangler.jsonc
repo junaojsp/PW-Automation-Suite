@@ -1,0 +1,10 @@
+{
+ "name":"bagaceira-control",
+ "account_id":"0e80c4fb7733e15f8b66b05785f05471",
+ "main":"worker.mjs",
+ "compatibility_date":"2026-10-30",
+ "workers_dev":true,
+ "preview_urls":false,
+ "assets":{"directory":"./assets","binding":"ASSETS","run_worker_first":true},
+ "d1_databases":[{"binding":"DB","database_name":"bagaceira-licenses","database_id":"25b61b44-cdfa-4b55-8043-4091c1fa5547"}]
+}

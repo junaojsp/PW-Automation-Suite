@@ -1,0 +1,20 @@
+# Binarios e saidas geradas
+*.exe
+*.dll
+*.pdb
+*.obj
+*.log
+*.zip
+*.rar
+bin/
+obj/
+node_modules/
+.vs/
+# Credenciais e segredos
+.env
+.env.*
+*.pem
+*.pfx
+*.key
+**/CREDENCIAIS-LOCAIS.md
+**/secrets.json
