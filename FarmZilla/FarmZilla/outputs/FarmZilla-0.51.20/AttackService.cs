@@ -80,6 +80,7 @@ sealed class AttackController {
   if(jobs.Length>0)System.Threading.Tasks.Task.WaitAll(jobs);
   foreach(var j in jobs){var t=j.Result;if(t.Item3!=null){blocked.Add(t.Item1.Character.Pid);note(t.Item1.Character.Name+": falha encerrando ataque; reinicie esse cliente. "+t.Item3.Message);continue;}foreach(var r in t.Item2){if(r.Blocked)blocked.Add(t.Item1.Character.Pid);if(r.Message!=null)note(r.Message);}}
   if(release&&list.Length>0)released=true;Snapshot();}
+ void StopLeaderOnly(CharacterRef leader,bool requested){Session own;if(sessions.TryGetValue(leader.Pid,out own)){Stop(own);sessions.Remove(leader.Pid);}if(requested)note("Ataque: líder não consegue atacar o alvo; secundários mantidos.");}
  void Stop(Session s){if(blocked.Contains(s.Character.Pid)||!s.Support&&(s.Combo==0||s.Completed))return;try{var result=s.Support?runtime.StopSupport(s.Character):runtime.Stop(s.Character,s.Combo,s.Target);if(result.Blocked)blocked.Add(s.Character.Pid);if(result.Message!=null)note(result.Message);}catch(Exception e){blocked.Add(s.Character.Pid);note(s.Character.Name+": falha encerrando ataque; reinicie esse cliente. "+e.Message);}}
  public void Tick(CharacterRef primary,CharacterRef[] selected,bool enabled,bool automatic,bool request){Tick(primary,selected,enabled,automatic,request,new HashSet<int>());}
  // support: pids that heal/buff the leader with macro 2 while the others attack the monster.
@@ -99,9 +100,11 @@ sealed class AttackController {
   // 0.46.7: on a new target the attackable check runs together with the starts (no wait before the first skill).
   bool fresh=nextProbe==DateTime.MinValue;
   if(!fresh&&DateTime.UtcNow>=nextProbe){nextProbe=DateTime.UtcNow.AddSeconds(1);targetValid=ApplyProbe(ProbeTarget(primary,target));}
-  if(!fresh&&!targetValid){foreach(var s in sessions.Values.ToArray())Stop(s);sessions.Clear();manualTarget=0;if(request)note("Ataque: o alvo do principal não está disponível ou não é atacável.");return;}
+  // The leader supplies the monster target, but his temporary inability to attack must not stop the other clients.
+  // Each secondary validates attackability independently in NativeAttackRuntime.Start.
+  if(!fresh&&!targetValid)StopLeaderOnly(primary,request);
   var pending=new List<Tuple<CharacterRef,bool,bool>>();
-  foreach(var c in selected){if(blocked.Contains(c.Pid))continue;Session s;bool again=false;if(sessions.TryGetValue(c.Pid,out s)){if(!s.Completed){try{if(!(s.Support?runtime.RunningSupport(c,s.Combo):runtime.Running(c,s.Combo,s.Target))){s.Completed=true;stallRepeat.Remove(c.Pid);}else{int step=runtime.Step(c,s.Combo);int[] sr;if(stallRepeat.TryGetValue(c.Pid,out sr)&&step>sr[0])stallRepeat.Remove(c.Pid);if(step!=s.Step){s.Step=step;s.StepSince=DateTime.UtcNow;}else{double limit=StallLimit(c.Pid,step);if((DateTime.UtcNow-s.StepSince).TotalSeconds>=limit){note(c.Name+": macro travada no passo "+step+" por "+limit.ToString("0")+" s; reiniciada.");if(stallRepeat.TryGetValue(c.Pid,out sr)&&sr[0]==step)sr[1]++;else stallRepeat[c.Pid]=new[]{step,1};Stop(s);s.Completed=true;}}}}catch{Stop(s);s.Completed=true;}}if(!s.Completed)continue;if(automatic){if(DateTime.UtcNow<s.RetryAt)continue;again=true;}else if(!request)continue;sessions.Remove(c.Pid);}
+  foreach(var c in selected){if(blocked.Contains(c.Pid)||(c.Pid==primary.Pid&&!fresh&&!targetValid))continue;Session s;bool again=false;if(sessions.TryGetValue(c.Pid,out s)){if(!s.Completed){try{if(!(s.Support?runtime.RunningSupport(c,s.Combo):runtime.Running(c,s.Combo,s.Target))){s.Completed=true;stallRepeat.Remove(c.Pid);}else{int step=runtime.Step(c,s.Combo);int[] sr;if(stallRepeat.TryGetValue(c.Pid,out sr)&&step>sr[0])stallRepeat.Remove(c.Pid);if(step!=s.Step){s.Step=step;s.StepSince=DateTime.UtcNow;}else{double limit=StallLimit(c.Pid,step);if((DateTime.UtcNow-s.StepSince).TotalSeconds>=limit){note(c.Name+": macro travada no passo "+step+" por "+limit.ToString("0")+" s; reiniciada.");if(stallRepeat.TryGetValue(c.Pid,out sr)&&sr[0]==step)sr[1]++;else stallRepeat[c.Pid]=new[]{step,1};Stop(s);s.Completed=true;}}}}catch{Stop(s);s.Completed=true;}}if(!s.Completed)continue;if(automatic){if(DateTime.UtcNow<s.RetryAt)continue;again=true;}else if(!request)continue;sessions.Remove(c.Pid);}
    pending.Add(Tuple.Create(c,again,support.Contains(c.Pid)&&c.Pid!=primary.Pid));
   }
   if(pending.Count==0){if(fresh){nextProbe=DateTime.UtcNow.AddSeconds(1);targetValid=ApplyProbe(ProbeTarget(primary,target));}return;}
@@ -118,8 +121,9 @@ sealed class AttackController {
   if(probe!=null){nextProbe=DateTime.UtcNow.AddSeconds(1);targetValid=ApplyProbe(probe.Result);}
   for(int i=0;i<pending.Count;i++){var c=pending[i].Item1;bool again=pending[i].Item2,supporting=pending[i].Item3;var result=jobs[i].Result.Item1;var error=jobs[i].Result.Item2;
    // Repeated starts on the same target stay quiet in the log unless something goes wrong.
+   if(c.Pid==primary.Pid&&probe!=null&&!targetValid)continue;
    if(error==null){if(result.Blocked)blocked.Add(c.Pid);if(result.Message!=null&&(!again||result.Combo==0||result.Blocked))note(result.Message);sessions[c.Pid]=new Session{Character=c,Target=target,Combo=result.Combo,Completed=result.Combo==0,Support=supporting,SupportOn=supporting?SupportFor(c,primary,supportOn).Id:0,RetryAt=result.Combo==0?DateTime.UtcNow.AddSeconds(3):DateTime.MinValue};}
    else{if(!again)note(c.Name+": "+error.Message);sessions[c.Pid]=new Session{Character=c,Target=target,Completed=true,Support=supporting,SupportOn=supporting?SupportFor(c,primary,supportOn).Id:0,RetryAt=DateTime.UtcNow.AddSeconds(3)};}}
-  if(probe!=null&&!targetValid){foreach(var s in sessions.Values.ToArray())Stop(s);sessions.Clear();manualTarget=0;if(request)note("Ataque: o alvo do principal não está disponível ou não é atacável.");}
+  if(probe!=null&&!targetValid)StopLeaderOnly(primary,request);
  }
 }
