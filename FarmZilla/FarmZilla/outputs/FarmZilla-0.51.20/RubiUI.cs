@@ -32,14 +32,16 @@ partial class AvalonInterno : IParentPainter {
  updateSettingsButton=ButtonAt("Config.",286,558,90,Configure);
 #else
  updateSettingsButton=ButtonAt("Update",286,558,90,()=>{var task=CheckUpdate(true);});
-#endifupdateSettingsButton.Height=34;
+#endif
+updateSettingsButton.Height=34;
    foreach(var button in Controls.OfType<NeonButton>()){button.BackColor=Rubi.Panel;button.ForeColor=Rubi.Text;button.Primary=button==action;}
    foreach(var combo in Controls.OfType<ComboBox>()){combo.BackColor=Rubi.Field;combo.ForeColor=Rubi.Text;combo.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);combo.ItemHeight=21;combo.DropDownHeight=220;}
    #if FARMZILLA_STANDALONE
  hints.SetToolTip(updateSettingsButton,"Configurações do FarmZilla. Atualização automática removida.");
 #else
  hints.SetToolTip(updateSettingsButton,"Procura a versão mais nova do FarmZilla e instala.");
-#endifhints.SetToolTip(refresh,"Procura de novo os clientes do jogo abertos e atualiza os personagens.");Invalidate();
+#endif
+hints.SetToolTip(refresh,"Procura de novo os clientes do jogo abertos e atualiza os personagens.");Invalidate();
   }finally{ResumeLayout(false);}
  }
  Label RubiLabel(string text,int x,int y,int w,int h,float size,FontStyle style,Color color){var label=new Label{Text=text,Bounds=new Rectangle(x,y,w,h),Font=new Font("Segoe UI",(float)(size)*global::UiScale.F,style),ForeColor=color,BackColor=Color.Transparent,AutoEllipsis=true};Controls.Add(label);return label;}
