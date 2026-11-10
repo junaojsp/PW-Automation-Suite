@@ -335,7 +335,7 @@ emit("subindo",new{alvo=CruiseHeight,atual=Math.Round(s.Y/10,1)});
                 emit("missao_confirmada",new{point=index+1,quest=quest,attempt=attempt});Wait(1200);
                 bool chosen=false;var award=Stopwatch.StartNew();while(award.Elapsed.TotalSeconds<5&&!chosen){Read(client,character);try{NativeBridge.ConfirmSecondReward(client,quest,library);chosen=true;}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode!=259)throw;Wait(300);}}
                 if(!chosen){emit("recompensa_sem_janela",new{point=index+1,quest=quest,attempt=attempt});Wait(1000);continue;}
-                emit("segunda_opcao",new{point=index+1,quest=quest,attempt=attempt});Wait(1500);
+                emit("opcao_recompensa",new{point=index+1,quest=quest,opcao=quest==61548?1:2,attempt=attempt});Wait(1500);
                 var confirmation=Stopwatch.StartNew();DateTime again=DateTime.Now.AddSeconds(4);int repeats=0;
                 while(confirmation.Elapsed.TotalSeconds<14){Read(client,character);var now=client.ReadInventory();
                     // 0.51.19 (Esdras: CheirosoWR "pega a missão, não completa e sai voando"; 5 "missao_pendente_concluida" depois): any new
@@ -345,7 +345,7 @@ emit("subindo",new{alvo=CruiseHeight,atual=Math.Round(s.Y/10,1)});
                     bool rewarded=(reward!=null&&now.QuantityOf(reward.FinalItemId)>baseline)||(!pending&&GainedExcept(before,now,temporaryId));
                     if(rewarded){emit("recompensa_recebida",new{point=index+1,quest=quest,item=reward==null?0:reward.FinalItemId,before=baseline,after=reward==null?0:now.QuantityOf(reward.FinalItemId),attempt=attempt,repeticoes=repeats});return true;}
                     if(!pending&&confirmation.Elapsed.TotalSeconds>3)break;
-                    if(DateTime.Now>=again&&repeats<3&&pending){repeats++;try{NativeBridge.ConfirmSecondReward(client,quest,library);emit("segunda_opcao_repetida",new{point=index+1,quest=quest,vez=repeats});}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode!=259&&e.NativeErrorCode!=13&&e.NativeErrorCode!=50)throw;}again=DateTime.Now.AddSeconds(4);}
+                    if(DateTime.Now>=again&&repeats<3&&pending){repeats++;try{NativeBridge.ConfirmSecondReward(client,quest,library);emit("opcao_recompensa_repetida",new{point=index+1,quest=quest,opcao=quest==61548?1:2,vez=repeats});}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode!=259&&e.NativeErrorCode!=13&&e.NativeErrorCode!=50)throw;}again=DateTime.Now.AddSeconds(4);}
                     Wait(250);}
                 if(GainedExcept(before,client.ReadInventory(),temporaryId)&&!MissionPending(client,library)){emit("recompensa_recebida",new{point=index+1,quest=quest,attempt=attempt});return true;}
                 emit("missao_sem_confirmacao",new{point=index+1,quest=quest,attempt=attempt});Wait(1000);}
