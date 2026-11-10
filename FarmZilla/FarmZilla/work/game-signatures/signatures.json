@@ -1,0 +1,627 @@
+{
+ "sha256": "34fca82cafa1f38825228626aa3e8f98c56274c095cb46e317b2d665aaf69684",
+ "imageBase": 4194304,
+ "sizeOfImage": 19456000,
+ "text": {
+  "rva": 4096,
+  "size": 8517038
+ },
+ "targets": [
+  {
+   "name": "FollowPost",
+   "group": "function",
+   "rva": 4516080,
+   "prologue": "55 8B EC 6A FF 68",
+   "signatures": [
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? C7 45 FC FF FF FF FF 8B 06",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "AttackSelect",
+   "group": "function",
+   "rva": 4170688,
+   "prologue": "55 8B EC 53 8B D9",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 53 8B D9 56 57 F6 83 84 0B 00 00 0B",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 83 F8 01 75 95 FF 75 08 8B CE",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "AttackNormal",
+   "group": "function",
+   "rva": 4194384,
+   "prologue": "55 8B EC 83 EC 08",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 83 EC 08 53 56 57 6A 12 8B F9",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? C6 86 70 02 00 00 00 5F 5E",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "MacroStart",
+   "group": "function",
+   "rva": 4182080,
+   "prologue": "55 8B EC 51 56 8B",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 51 56 8B F1 8B 8E 3C 1D 00 00",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 84 C0 75 32 8B 4E 28 8D 41 01",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "MacroStop",
+   "group": "function",
+   "rva": 4182320,
+   "prologue": "56 8B F1 8B 8E 3C",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "56 8B F1 8B 8E 3C 1D 00 00 85 C9 74 10 8B 01 6A 01 FF 10 C7 86 3C 1D 00 00 00 00 00 00 5E",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 8B 5D 10 89 5D 10 85 DB 75 09",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "SendData",
+   "group": "function",
+   "rva": 5325376,
+   "prologue": "55 8B EC 6A FF 68",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 6A FF 68 ?? ?? ?? ?? 64 A1 00 00 00 00 50 83 EC 1C 53 56 57 A1 ?? ?? ?? ?? 33 C5 50 8D 45 F4 64 A3 00 00 00 00 8B F9 68 ?? ?? ?? ?? FF 15 ?? ?? ?? ??",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 8B 83 68 02 00 00 8B CB 6A 00",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "NpcClose",
+   "group": "function",
+   "rva": 7318256,
+   "prologue": "55 8B EC 6A FF 68",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 6A FF 68 ?? ?? ?? ?? 64 A1 00 00 00 00 50 83 EC 20 53 56 57 A1 ?? ?? ?? ?? 33 C5 50 8D 45 F4 64 A3 00 00 00 00 8B F1 FF 75 14",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 5D C2 0C 00 CC CC CC CC CC CC CC CC CC 55 8B EC 6A FF",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "NpcCancel",
+   "group": "function",
+   "rva": 2239424,
+   "prologue": "55 8B EC 51 56 57",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 51 56 57 8B F9 6A 01 6A 01 6A 00 8B 07 6A 00 FF 50 20 6A 00",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "TraceMatter",
+   "group": "function",
+   "rva": 4169840,
+   "prologue": "55 8B EC 51 53 56",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 51 53 56 57 8B F9 8B 87 D4 07 00 00",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 8B 56 2C 88 45 EF 8D 4A 01",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "TaskLookup",
+   "group": "function",
+   "rva": 5794560,
+   "prologue": "55 8B EC 83 EC 0C",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 83 EC 0C 56 8D 45 08 50 8D 71 1C 8D 45 F4 8B CE 50 E8 ?? ?? ?? ?? 8B 55 F4 8B 4D FC",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 85 C0 74 6F 8B 4C 24 14 57",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "HintCommand",
+   "group": "function",
+   "rva": 2840192,
+   "prologue": "56 6A 00 68 ?? ??",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "56 6A 00 68 ?? ?? ?? ?? 8B F1 68 ?? ?? ?? ?? 6A 00 FF 76 34 E8 ?? ?? ?? ?? 83 C4 14 8B 88 B0 06 00 00",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "TaskConfirmRefresh",
+   "group": "function",
+   "rva": 2839104,
+   "prologue": "55 8B EC 6A FF 68",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 6A FF 68 ?? ?? ?? ?? 64 A1 00 00 00 00 50 83 EC 2C 53 56 57 A1 ?? ?? ?? ?? 33 C5 50 8D 45 F4 64 A3 00 00 00 00 8B F9 89 7D E0",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 5F 5E 8B E5 5D C2 04 00 55 8B EC 83 EC 0C",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "TaskConfirmCommand",
+   "group": "function",
+   "rva": 2838736,
+   "prologue": "55 8B EC 51 8B 45",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 51 8B 45 08 53 56 83 C0 08",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "AwardSelect",
+   "group": "function",
+   "rva": 1085520,
+   "prologue": "8B 89 58 02 00 00",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "8B 89 58 02 00 00 80 79 7E 01 74 19",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "AwardConfirm",
+   "group": "function",
+   "rva": 1084912,
+   "prologue": "55 8B EC 83 E4 F8",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 83 E4 F8 83 EC 54 A1 ?? ?? ?? ?? 33 C4 89 44 24 50 53 56 57 51",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "KeyMove",
+   "group": "function",
+   "rva": 4027328,
+   "prologue": "55 8B EC 83 EC 14",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 83 EC 14 56 8B F1 57 6A 0A",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 56 E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 8B 46 0C 8D 8F 74 0A 00 00",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "AutoPolicyGet",
+   "group": "function",
+   "rva": 3225120,
+   "prologue": "64 A1 2C 00 00 00",
+   "signatures": [
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 8B F8 0F B6 4F 08 51 FF 77 04",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "AutoPolicyStop",
+   "group": "function",
+   "rva": 3225312,
+   "prologue": "55 8B EC 83 E4 F8",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 83 E4 F8 51 53 56 57 68 ?? ?? ?? ?? 8B D9",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 8B 15 ?? ?? ?? ?? 8B 75 08 F3 0F 10 2D ?? ?? ?? ??",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "AutoPolicyChange",
+   "group": "function",
+   "rva": 3225488,
+   "prologue": "55 8B EC 6A FF 68",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 6A FF 68 ?? ?? ?? ?? 64 A1 00 00 00 00 50 83 EC 50 53 56 57 A1 ?? ?? ?? ?? 33 C5 50 8D 45 F4 64 A3 00 00 00 00 8B F9 C7 45 A8 00 00 00 00",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 8B 46 24 C7 46 38 00 00 00 00",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "Navigate",
+   "group": "function",
+   "rva": 5111680,
+   "prologue": "55 8B EC 6A FF 68",
+   "signatures": [
+    {
+     "kind": "fn",
+     "pattern": "55 8B EC 6A FF 68 ?? ?? ?? ?? 64 A1 00 00 00 00 50 83 EC 28 53 56 57 A1 ?? ?? ?? ?? 33 C5 50 8D 45 F4 64 A3 00 00 00 00 8B F2",
+     "offset": 0
+    },
+    {
+     "kind": "rel",
+     "pattern": "E8 ?? ?? ?? ?? 83 C4 04 8B E5 5D C2 04 00",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "Root",
+   "group": "global",
+   "rva": 10192652,
+   "signatures": [
+    {
+     "kind": "abs",
+     "pattern": "8B 0D ?? ?? ?? ?? 8B 41 1C 83 B8 E8 00 00 00 01",
+     "offset": 2
+    },
+    {
+     "kind": "abs",
+     "pattern": "A1 ?? ?? ?? ?? 8B 40 20 8B B8 AC 00 00 00 8B CF",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "RotaRoot",
+   "group": "global",
+   "rva": 18277724,
+   "signatures": [
+    {
+     "kind": "abs",
+     "pattern": "A3 ?? ?? ?? ?? 85 C0 75 0F 68 F0 01 00 00 BA ?? ?? ?? ?? E9 ?? ?? ?? ??",
+     "offset": 1
+    },
+    {
+     "kind": "abs",
+     "pattern": "8B 0D ?? ?? ?? ?? 6A 01 E8 ?? ?? ?? ?? 84 C0 75 18 68 ?? ?? ?? ?? 6A 01",
+     "offset": 2
+    }
+   ]
+  },
+  {
+   "name": "TeleportTable",
+   "group": "global",
+   "rva": 10230016,
+   "signatures": [
+    {
+     "kind": "abs",
+     "pattern": "8B 0D ?? ?? ?? ?? 6B C0 58 8B 44 08 44 89 45 DC",
+     "offset": 2
+    },
+    {
+     "kind": "abs",
+     "pattern": "A1 ?? ?? ?? ?? 66 0F 1F 44 00 00 3B 38 74 11 41",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "TeleportCount",
+   "group": "global",
+   "rva": 10230028,
+   "signatures": [
+    {
+     "kind": "abs",
+     "pattern": "3B 3D ?? ?? ?? ?? 72 A3 8B 85 48 FB FF FF 89 06",
+     "offset": 2
+    },
+    {
+     "kind": "abs",
+     "pattern": "83 3D ?? ?? ?? ?? 00 C7 85 AC F6 FF FF 00 00 00 00",
+     "offset": 2
+    }
+   ]
+  },
+  {
+   "name": "AutoKillName",
+   "group": "global",
+   "rva": 8810456,
+   "signatures": [
+    {
+     "kind": "abs",
+     "pattern": "68 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 46 24 C7 46 38 00 00 00 00",
+     "offset": 1
+    }
+   ]
+  },
+  {
+   "name": "EmptyString",
+   "group": "global",
+   "rva": 18590064,
+   "signatures": [
+    {
+     "kind": "abs",
+     "pattern": "81 39 ?? ?? ?? ?? 0F 94 C0 C3 CC CC CC CC CC CC",
+     "offset": 2
+    },
+    {
+     "kind": "abs",
+     "pattern": "C7 45 F0 ?? ?? ?? ?? 0F CF C1 EF 08 0B F8 8B 45 EC",
+     "offset": 3
+    }
+   ]
+  },
+  {
+   "name": "FollowWork",
+   "group": "vtable",
+   "rva": 9337072,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECHPWorkFollow@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "ComboSkill",
+   "group": "vtable",
+   "rva": 9328264,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECComboSkill@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "DlgNpc",
+   "group": "vtable",
+   "rva": 9293192,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCDlgNPC@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "DlgTask",
+   "group": "vtable",
+   "rva": 9312760,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCDlgTask@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "DlgTaskConfirm",
+   "group": "vtable",
+   "rva": 9312916,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCDlgTaskConfirm@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "DlgTaskList",
+   "group": "vtable",
+   "rva": 9313072,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCDlgTaskList@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "Team",
+   "group": "vtable",
+   "rva": 9356216,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECTeam@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "TeamMember",
+   "group": "vtable",
+   "rva": 9356208,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECTeamMember@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "DlgMessageBox",
+   "group": "vtable",
+   "rva": 9291332,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCDlgMessageBox@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "TaskInterface",
+   "group": "vtable",
+   "rva": 9384568,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECTaskInterface@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "ItemTransmitScroll",
+   "group": "vtable",
+   "rva": 9340204,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECIvtrTransmitScroll@@",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "name": "ItemTaskDice",
+   "group": "vtable",
+   "rva": 9345412,
+   "signatures": [
+    {
+     "kind": "rtti",
+     "type": ".?AVCECIvtrTaskDice@@",
+     "offset": 0
+    }
+   ]
+  }
+ ],
+ "guards": [
+  {
+   "name": "HostMacro",
+   "value": 7484,
+   "function": "MacroStart",
+   "pattern": "8B 8E ?? ?? ?? ?? 85 C9 74 10 8B 01 6A 01 FF 10 C7 86 3C 1D 00 00 00 00 00 00 6A 34",
+   "offset": 2,
+   "within": 2048
+  },
+  {
+   "name": "HostTarget",
+   "value": 1532,
+   "function": "AttackSelect",
+   "pattern": "8B 86 ?? ?? ?? ?? 85 C0 0F 84 ?? ?? ?? ?? 3B 86 F0 04 00 00",
+   "offset": 2,
+   "within": 2048
+  },
+  {
+   "name": "HostVertical",
+   "value": 2936,
+   "function": "KeyMove",
+   "pattern": "83 8E ?? ?? ?? ?? 01 EB 4F 83 8E 78 0B 00 00 09",
+   "offset": 2,
+   "within": 2048
+  },
+  {
+   "name": "HostId",
+   "value": 1264,
+   "function": "AttackSelect",
+   "pattern": "3B B3 ?? ?? ?? ?? 0F 84 ?? ?? ?? ?? 8B 4A 20 6A 01 56",
+   "offset": 2,
+   "within": 2048
+  },
+  {
+   "name": "HostWork",
+   "value": 7452,
+   "function": "TraceMatter",
+   "pattern": "8B 8F ?? ?? ?? ?? 6A 04 E8 ?? ?? ?? ?? 84 C0 0F 85 ?? ?? ?? ?? 8B 5D 08",
+   "offset": 2,
+   "within": 2048
+  },
+  {
+   "name": "HostTasks",
+   "value": 7460,
+   "function": "TraceMatter",
+   "pattern": "8B 89 ?? ?? ?? ?? 50 E8 ?? ?? ?? ?? 84 C0 74 0B 5F 5E",
+   "offset": 2,
+   "within": 2048
+  }
+ ]
+}
