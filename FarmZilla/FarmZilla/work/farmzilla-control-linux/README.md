@@ -69,3 +69,44 @@ Verificar RustDesk sem interromper: `docker ps --format 'table {{.Names}}\t{{.St
 6. Verificar que as portas 8088 e 5432 nao estao publicadas ao mundo.
 
 **Estado:** código ainda não testado no servidor. A PR deve ser revisada antes da implantação.
+
+
+## HTTPS no dominio farmzilla.jrconect.com.br (PR de publicacao)
+
+Esta versao adiciona Caddy como proxy HTTPS automatico para `farmzilla.jrconect.com.br`, publicando **somente** portas 80/443 TCP; PostgreSQL continua privado e API web continua em `127.0.0.1:8088` para diagnostico local.
+
+### Pre-validacao obrigatoria
+
+1. Apontar o registro DNS A de `farmzilla.jrconect.com.br` para `138.204.112.19`. Nao adicionar AAAA sem confirmar IPv6/roteamento. Se o DNS for administrado pelo Cloudflare, usar inicialmente **DNS only** ate a primeira emissao do certificado.
+2. No host, conferir `getent ahostsv4 farmzilla.jrconect.com.br`. Para DNS sem proxy, o resultado deve conter `138.204.112.19`.
+3. Confirmar que as portas 80/443 nao estao ocupadas com `ss -lntp '( sport = :80 or sport = :443 )'` e que `docker ps` mostra o RustDesk ativo.
+4. Confirmar que os arquivos `.env` nao serao copiados para Git. O primeiro `bash prepare.sh` cria credenciais aleatorias.
+
+### Instalacao no Ubuntu, depois de revisar PR e aprovar merge
+
+```bash
+cd /opt/farmzilla-control
+if [ ! -d app/repository/.git ]; then
+  git clone --depth 1 https://github.com/junaojsp/PW-Automation-Suite.git app/repository
+else
+  git -C app/repository pull --ff-only
+fi
+cp -a app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/. ./
+bash prepare.sh
+docker compose config --quiet
+# Abrir somente as portas necessarias ao HTTPS. Nao alterar as regras existentes do SSH/RustDesk.
+ufw allow 80/tcp comment 'FarmZilla HTTPS ACME'
+ufw allow 443/tcp comment 'FarmZilla HTTPS'
+docker compose up -d --build
+docker compose ps
+curl -fsS http://127.0.0.1:8088/healthz
+docker compose logs --tail=80 proxy
+```
+
+Quando o DNS estiver correto e o certificado emitido pelo Caddy, acessar **https://farmzilla.jrconect.com.br**. O navegador pedira as credenciais que estao no arquivo local `/opt/farmzilla-control/.env`; **nao cole esse arquivo em chats nem em issues**. Verificar o certificado e a identidade do site antes de inserir a senha.
+
+Se o Caddy falhar para emitir certificado, **nao abrir HTTP administrativo sem TLS**; manter a administracao apenas via tunel SSH (`127.0.0.1:8088`) e verificar os logs. Nunca executar `docker compose down -v` ou parar os containers hbbs/hbbr.
+
+### Limites de seguranca desta publicacao
+
+O painel MVP usa autenticacao HTTP Basic com senha longa gerada aleatoriamente e criptografia TLS pelo Caddy. Antes de cadastrar clientes reais, implementaremos sessoes seguras, limitacao de tentativas, MFA, assinatura de arquivos, backups regulares e politicas de autorizacao. O upload de releases **armazena** o executavel, nao publica um endpoint de download nem instala atualizacoes em clientes.
