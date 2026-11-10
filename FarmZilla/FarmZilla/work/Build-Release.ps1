@@ -23,7 +23,9 @@ if(Test-Path -LiteralPath $resourcePath -PathType Container){
 }
 $defines=if($RequireLicense){@()}else{@('/define:FARMZILLA_STANDALONE')}
 Write-Host "Compilando FarmZilla de: $sourcePath (modo: $(if($RequireLicense){'licenciado'}else{'independente'}))"
-& $compiler /nologo /target:winexe /platform:x86 $defines $refs "/win32icon:$icon" "/out:$sourcePath\Bagaceira.exe" $resources $files
+$exeName=if($RequireLicense){'Bagaceira.exe'}else{'FarmZilla.exe'}
+$exePath=Join-Path $sourcePath $exeName
+& $compiler /nologo /target:winexe /platform:x86 $defines $refs "/win32icon:$icon" "/out:$exePath" $resources $files
 if($LASTEXITCODE -ne 0){throw 'Compilacao do cliente falhou.'}
 foreach($test in @('UpdateTests','OnlineLicenseTests')){
     $testFile=Join-Path $PSScriptRoot ($test+'.cs')
@@ -34,4 +36,4 @@ foreach($test in @('UpdateTests','OnlineLicenseTests')){
     & $testExe
     if($LASTEXITCODE -ne 0){throw "Falha em $test"}
 }
-Get-FileHash -LiteralPath (Join-Path $sourcePath 'Bagaceira.exe') -Algorithm SHA256
+Get-FileHash -LiteralPath $exePath -Algorithm SHA256
