@@ -34,12 +34,12 @@ try{
  & $zig cc -target x86-windows-gnu -shared -O2 -fno-stack-protector -o $newDll $native -luser32 -lkernel32
  if($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $newDll -PathType Leaf)){throw 'Compilacao nativa falhou.'}
  $newHash=(Get-FileHash -LiteralPath $newDll -Algorithm SHA256).Hash.ToLowerInvariant()
- if([IO.FileInfo]$dllInfo=(Get-Item -LiteralPath $newDll)){if($dllInfo.Length -lt 1000){throw 'DLL inesperadamente pequena.'}}
+ if((Get-Item -LiteralPath $newDll).Length -lt 1000){throw 'DLL inesperadamente pequena.'}
  $pattern='BridgeSha256="[0-9a-fA-F]{64}"'
  if([regex]::Matches($oldText,$pattern).Count -ne 1){throw 'Constante SHA-256 da ponte ausente ou duplicada; nada foi alterado.'}
  $newText=[regex]::Replace($oldText,$pattern,('BridgeSha256="'+$newHash+'"'))
  [IO.File]::Copy($newDll,$resource,$true)
- [IO.File]::WriteAllText($integration,$newText,[Text.UTF8Encoding]::new($false))
+ [IO.File]::WriteAllText($integration,$newText,(New-Object System.Text.UTF8Encoding($false)))
  $changed=$true
  Write-Host "Ponte compilada, embutida e SHA-256 atualizado: $newHash"
  Write-Host 'Compilando FarmZilla e executando testes de release...'
@@ -65,7 +65,7 @@ try{
 } catch {
  if($changed){
   [IO.File]::WriteAllBytes($resource,$oldDll)
-  [IO.File]::WriteAllText($integration,$oldText,[Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText($integration,$oldText,(New-Object System.Text.UTF8Encoding($false)))
   Write-Warning 'DLL e hash restaurados aos valores anteriores. O exe compilado deve ser reconstruido antes de usar.'
  }
  throw
