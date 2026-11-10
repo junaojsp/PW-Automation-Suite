@@ -14,7 +14,6 @@ partial class AvalonInterno {
 #if FARMZILLA_STANDALONE
   // Standalone builds do not contact the activation service or upload operational logs.
   Shown+=(s,e)=>ApplyFeatures();
-  return;
 #else
   // Online check every 30 minutes, only to pick up a block, deletion or tool change (lifetime license, 0.38.0): without
   // internet the PC keeps working; an explicit refusal from the server ends the operations by the normal flow.
@@ -32,8 +31,8 @@ partial class AvalonInterno {
   // Every minute, new log lines go to the administrator's panel (/admin > Registro), only when he turned it on for this PC.
   logTimer=new System.Windows.Forms.Timer{Interval=60000};logTimer.Tick+=async(s,e)=>{if(logSending||authorizationDenied||!AuthorizationSession.Log)return;string token=AuthorizationSession.Token,service=LicenseGate.ServiceUrl;logSending=true;try{await Task.Run(()=>RemoteLog.Upload(service,token));}catch{}finally{logSending=false;}};
   Shown+=(s,e)=>{ApplyFeatures();authorizationTimer.Start();logTimer.Start();};FormClosed+=(s,e)=>{authorizationTimer.Dispose();logTimer.Dispose();if(authorizationFailureReason!=null)MessageBox.Show(authorizationFailureReason+"\nAs operações do FarmZilla foram encerradas. O jogo continua aberto.","Autorização do FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Information);};
- }
 #endif
+ }
  void DenyAuthorization(string reason){if(authorizationDenied)return;authorizationDenied=true;authorizationFailureReason=reason;Enabled=false;shortcutActive=false;Bind();RequestAttackStop();missions.CancelAll();CancelParty();Note("Autorização encerrada: "+reason);Close();}
 }
 
