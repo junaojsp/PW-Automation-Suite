@@ -1,4 +1,4 @@
-param([string]$Source='outputs\FarmZilla-0.51.20')
+param([string]$Source='outputs\FarmZilla-0.51.20',[switch]$RequireLicense)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $sourceCandidate=Join-Path $root $Source
@@ -21,16 +21,19 @@ $resources=@()
 if(Test-Path -LiteralPath $resourcePath -PathType Container){
     $resources=@(Get-ChildItem -LiteralPath $resourcePath -File | ForEach-Object {'/resource:'+$_.FullName+','+[IO.Path]::GetFileNameWithoutExtension($_.Name)})
 }
-Write-Host "Compilando FarmZilla de: $sourcePath"
-& $compiler /nologo /target:winexe /platform:x86 $refs "/win32icon:$icon" "/out:$sourcePath\Bagaceira.exe" $resources $files
+$defines=if($RequireLicense){@()}else{@('/define:FARMZILLA_STANDALONE')}
+Write-Host "Compilando FarmZilla de: $sourcePath (modo: $(if($RequireLicense){'licenciado'}else{'independente'}))"
+$exeName=if($RequireLicense){'Bagaceira.exe'}else{'FarmZilla.exe'}
+$exePath=Join-Path $sourcePath $exeName
+& $compiler /nologo /target:winexe /platform:x86 $defines $refs "/win32icon:$icon" "/out:$exePath" $resources $files
 if($LASTEXITCODE -ne 0){throw 'Compilacao do cliente falhou.'}
 foreach($test in @('UpdateTests','OnlineLicenseTests')){
     $testFile=Join-Path $PSScriptRoot ($test+'.cs')
     if(-not (Test-Path -LiteralPath $testFile -PathType Leaf)){throw "Teste nao encontrado: $testFile"}
     $testExe=Join-Path $PSScriptRoot ($test+'.exe')
-    & $compiler /nologo /target:exe /platform:x86 $refs "/main:$test" "/out:$testExe" $testFile $resources $files
+    & $compiler /nologo /target:exe /platform:x86 $defines $refs "/main:$test" "/out:$testExe" $testFile $resources $files
     if($LASTEXITCODE -ne 0){throw "Falha compilando $test"}
     & $testExe
     if($LASTEXITCODE -ne 0){throw "Falha em $test"}
 }
-Get-FileHash -LiteralPath (Join-Path $sourcePath 'Bagaceira.exe') -Algorithm SHA256
+Get-FileHash -LiteralPath $exePath -Algorithm SHA256

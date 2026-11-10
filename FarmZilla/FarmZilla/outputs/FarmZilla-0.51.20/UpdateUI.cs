@@ -8,7 +8,12 @@ partial class AvalonInterno {
  string updateSummary="Atualizar aplicativo";Button updateSettingsButton;System.Windows.Forms.Timer updateTimer;bool updateChecking;string pendingUpdate;
  void InitUpdates(){
   updateTimer=new System.Windows.Forms.Timer{Interval=30*60*1000};updateTimer.Tick+=(s,e)=>{var task=CheckUpdate(false);};
+#if FARMZILLA_STANDALONE
+  // No startup request to the legacy activation/update service in portable builds.
+  Shown+=(s,e)=>{updateSummary="Atualizações gerenciadas pelo painel FarmZilla";};
+#else
   Shown+=async(s,e)=>{updateTimer.Start();await Task.Delay(3000);if(!IsDisposed)await CheckUpdate(false);};
+#endif
   FormClosed+=(s,e)=>{updateTimer.Dispose();if(pendingUpdate!=null)try{AppUpdate.LaunchInstaller(pendingUpdate,Application.ExecutablePath);}catch(Exception ex){MessageBox.Show("Atualização não iniciada: "+ex.Message+"\nAbra o aplicativo e tente novamente.","FarmZilla");}};
  }
  bool ConfigureRepository(){

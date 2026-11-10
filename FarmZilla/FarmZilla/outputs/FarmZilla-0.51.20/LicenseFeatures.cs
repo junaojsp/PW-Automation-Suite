@@ -5,7 +5,11 @@ using System;using System.Drawing;using System.Linq;using System.Windows.Forms;
 partial class AvalonInterno {
  bool controlLocked,featuresApplied;Label lockedNotice;
  void ApplyFeatures(){
+#if FARMZILLA_STANDALONE
+  bool control=true,rota=true;
+#else
   bool control=AuthorizationSession.Has("controle"),rota=AuthorizationSession.Has("rota");
+#endif
   if(sideRota!=null){sideRota.Text=rota?"Mat Farm":"Mat Farm · bloqueado";hints.SetToolTip(sideRota,rota?"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.":"O Mat Farm não está liberado para este computador. Fale com o administrador.");}
   if(!rota&&rotaWindows.Count>0){if(rotaView)ShowRotaView(false);var task=CloseRota();Note("Mat Farm retirado pelo administrador.");}
   if(control==!controlLocked&&featuresApplied)return;featuresApplied=true;controlLocked=!control;
