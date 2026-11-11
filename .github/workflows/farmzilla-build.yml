@@ -9,6 +9,9 @@ on:
       - 'FarmZilla/FarmZilla/work/*Tests.cs'
       - 'FarmZilla/FarmZilla/work/LayoutPreview.cs'
       - '.github/workflows/farmzilla-build.yml'
+      - '.github/workflows/farmzilla-publish.yml'
+      - 'FarmZilla/FarmZilla/work/ssh/**'
+      - 'FarmZilla/FarmZilla/work/farmzilla-control-linux/app/**'
   pull_request:
     paths:
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/**'
@@ -16,6 +19,9 @@ on:
       - 'FarmZilla/FarmZilla/work/*Tests.cs'
       - 'FarmZilla/FarmZilla/work/LayoutPreview.cs'
       - '.github/workflows/farmzilla-build.yml'
+      - '.github/workflows/farmzilla-publish.yml'
+      - 'FarmZilla/FarmZilla/work/ssh/**'
+      - 'FarmZilla/FarmZilla/work/farmzilla-control-linux/app/**'
 
 permissions:
   contents: read
@@ -55,9 +61,9 @@ jobs:
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash
           Write-Host "SHA-256: $hash"
           $meta = (Get-Item $exe).VersionInfo
-          if ($meta.FileVersion -ne '0.51.31.0') { throw "Versao inesperada: $($meta.FileVersion)" }
+          if ($meta.FileVersion -ne '0.51.32.0') { throw "Versao inesperada: $($meta.FileVersion)" }
           $lines = @(
-            'FarmZilla 0.51.31 - verificacao de artefato'
+            'FarmZilla 0.51.32 - verificacao de artefato'
             "SHA-256: $hash"
             "Versao: $($meta.FileVersion)"
             "Assinatura Authenticode: $($signature.Status)"
@@ -82,7 +88,7 @@ jobs:
       - name: Disponibilizar previa do layout
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-0.51.31-layout
+          name: FarmZilla-0.51.32-layout
           path: FarmZilla/FarmZilla/farmzilla-layout.png
           if-no-files-found: error
           retention-days: 14
@@ -91,7 +97,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-0.51.31-verificacao
+          name: FarmZilla-0.51.32-verificacao
           path: FarmZilla/FarmZilla/farmzilla-security-report.txt
           if-no-files-found: error
           retention-days: 14
@@ -100,7 +106,51 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-0.51.31-PUBLICAR
+          name: FarmZilla-0.51.32-PUBLICAR
           path: FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.exe
           if-no-files-found: error
           retention-days: 14
+
+  control-tests:
+    name: Validar publicação e PostgreSQL
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: farmzilla_test
+          POSTGRES_USER: fztest
+          POSTGRES_PASSWORD: fztest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fztest -d farmzilla_test"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: FarmZilla-0.51.32-PUBLICAR
+          path: test-artifact
+      - name: Testar PE real, cadastros equivalentes, publicação, backup e recuperação
+        working-directory: FarmZilla/FarmZilla/work/farmzilla-control-linux/app
+        env:
+          TEST_DATABASE_URL: postgres://fztest:fztest@localhost:5432/farmzilla_test
+          FZ_TEST_EXE: ${{ github.workspace }}/test-artifact/FarmZilla.exe
+          FZ_TEST_VERSION: 0.51.32.0
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node --check server.js
+          node --test release-store.test.js
+      - name: Conferir comandos SSH e scripts do workflow
+        run: |
+          bash -n FarmZilla/FarmZilla/work/ssh/farmzilla-github-ssh
+          bash -n FarmZilla/FarmZilla/work/ssh/setup-farmzilla-ssh.sh
+          bash -n FarmZilla/FarmZilla/work/ssh/install-publication.sh
+          node --check FarmZilla/FarmZilla/work/ssh/prepare-publication.cjs
+          node --check FarmZilla/FarmZilla/work/ssh/publish-stdin.cjs

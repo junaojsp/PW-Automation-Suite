@@ -9,6 +9,7 @@ const { Transform } = require('node:stream');
 const { Pool } = require('pg');
 const auth = require('./auth');
 const licenses = require('./licenses');
+const releases = require('./release-store');
 
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_USER = process.env.ADMIN_USER;
@@ -52,8 +53,9 @@ async function handle(req,res) {
     const check=await licenses.activate(pool,body.key,body.deviceHash,body.version);
     if(!check.ok)return response(res,403,{ok:false,reason:'license_unavailable'});
     if(!versionPattern.test(body.version||''))return response(res,400,{ok:false,error:'Versão inválida'});
-    const q=await pool.query('SELECT r.version,r.sha256,r.bytes FROM release_publication p JOIN releases r ON r.id=p.release_id WHERE p.id=1');
+    const q=await pool.query('SELECT r.version,r.filename,r.sha256,r.bytes FROM release_publication p JOIN releases r ON r.id=p.release_id WHERE p.id=1');
     const published=q.rows[0]||null;
+    if(published)await releases.validate(RELEASE_DIR,published);
     // Version numbers are compared as integer components, not lexicographic strings.
     const parts=v=>v.split('.').map(Number);
     const newer=(v,old)=>{const a=parts(v),b=parts(old);for(let i=0;i<4;i++){const x=a[i]||0,y=b[i]||0;if(x!==y)return x>y;}return false;};
@@ -83,6 +85,7 @@ async function handle(req,res) {
     const digest=crypto.createHash('sha256');
     for await(const chunk of fs.createReadStream(file))digest.update(chunk);
     if(digest.digest('hex')!==published.sha256.toLowerCase())return response(res,503,{ok:false,error:'Integridade do arquivo inválida'});
+    await releases.validate(RELEASE_DIR,published);
     res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':stat.size,
       'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Disposition':'attachment; filename="FarmZilla.exe"'});
     return pipeline(fs.createReadStream(file),res);
@@ -154,14 +157,10 @@ async function handle(req,res) {
   }
   const publishMatch=route.match(/^\/api\/releases\/([0-9]+)\/publish$/);
   if(publishMatch && req.method==='POST') {
-    const result=await pool.query(`INSERT INTO release_publication(id,release_id,published_at)
-      SELECT 1,id,NOW() FROM releases WHERE id=$1
-      ON CONFLICT(id) DO UPDATE SET release_id=EXCLUDED.release_id,published_at=NOW()
-      RETURNING release_id`,[publishMatch[1]]);
-    if(!result.rowCount)return notFound(res);
-    await audit('release.publish',{id:result.rows[0].release_id});
-    return response(res,200,{published:true,id:result.rows[0].release_id});
+    const row=await releases.publish(pool,RELEASE_DIR,publishMatch[1]);
+    return response(res,200,{published:true,id:row.id});
   }
+
   if(route==='/api/releases/publication' && req.method==='DELETE') {
     const result=await pool.query('DELETE FROM release_publication WHERE id=1 RETURNING release_id');
     if(result.rowCount)await audit('release.unpublish',{id:result.rows[0].release_id});
@@ -169,11 +168,13 @@ async function handle(req,res) {
   }
   if(route==='/api/releases' && req.method==='GET') {
     const q=await pool.query('SELECT r.id,r.version,r.filename,r.sha256,r.bytes,r.created_at,(p.release_id IS NOT NULL) AS published FROM releases r LEFT JOIN release_publication p ON p.release_id=r.id AND p.id=1 ORDER BY r.id DESC LIMIT 100');
+    for(const row of q.rows){try{row.internalVersion=(await releases.validate(RELEASE_DIR,row)).fileVersion;row.valid=true;}catch(e){row.valid=false;row.validationError=e.message;}}
     return response(res,200,{releases:q.rows});
   }
-  if(route==='/api/releases' && req.method==='POST') {
+  const repairMatch=route.match(/^\/api\/releases\/([0-9]+)\/repair$/);
+  if((route==='/api/releases'||repairMatch) && req.method==='POST') {
     const version=url.searchParams.get('version')||'';
-    if(!versionPattern.test(version)) return response(res,400,{error:'Versão inválida (ex.: 0.51.20)'});
+    if(!repairMatch&&!versionPattern.test(version)) return response(res,400,{error:'Versão inválida (ex.: 0.51.32)'});
     if(req.headers['content-type']!=='application/octet-stream') return response(res,415,{error:'Envie arquivo como application/octet-stream'});
     const length=Number(req.headers['content-length']);
     if(!Number.isSafeInteger(length)||length<1024||length>MAX_RELEASE) return response(res,413,{error:'Arquivo deve ter entre 1 KB e 32 MB'});
@@ -184,25 +185,10 @@ async function handle(req,res) {
     try {
       await pipeline(req,meter,fs.createWriteStream(temp,{flags:'wx',mode:0o600}));
       if(received!==length)throw Object.assign(Error('Tamanho do arquivo não confere'),{status:400});
-      // Windows PE MZ signature. This is a file-type check, not signature verification.
-      const handle=await fsp.open(temp,'r');const header=Buffer.alloc(2);
-      try{await handle.read(header,0,2,0);}finally{await handle.close();}
-      if(header.toString()!=='MZ')throw Object.assign(Error('Arquivo não parece ser um executável Windows'),{status:400});
-      const filename='FarmZilla-'+version+'.exe';
-      const dest=path.join(RELEASE_DIR,filename);
-      if(fs.existsSync(dest))throw Object.assign(Error('Essa versão já possui arquivo'),{status:409});
-      const digest=hash.digest('hex');
-      const client=await pool.connect();
-      let linked=false;
-      try {
-        await client.query('BEGIN');
-        await client.query('INSERT INTO releases(version,filename,sha256,bytes) VALUES ($1,$2,$3,$4)',[version,filename,digest,received]);
-        await fsp.link(temp,dest);linked=true;
-        await client.query('INSERT INTO audit_log(action,detail) VALUES ($1,$2)',['release.upload',JSON.stringify({version,sha256:digest,bytes:received})]);
-        await client.query('COMMIT');
-      } catch(err) {await client.query('ROLLBACK');if(linked)await fsp.rm(dest,{force:true});throw err;}
-      finally{client.release();}
-      return response(res,201,{release:{version,sha256:digest,bytes:received}});
+      const release=repairMatch
+        ?await releases.repair(pool,RELEASE_DIR,temp,repairMatch[1],url.searchParams.get('expectedSha256'))
+        :await releases.register(pool,RELEASE_DIR,temp,version);
+      return response(res,repairMatch?200:201,{release});
     } finally {await fsp.rm(temp,{force:true});}
   }
   if(route==='/api/audit' && req.method==='GET') {
