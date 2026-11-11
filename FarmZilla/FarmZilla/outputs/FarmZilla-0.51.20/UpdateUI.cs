@@ -22,6 +22,27 @@ partial class AvalonInterno {
  bool MatFarmRunning(){foreach(var w in rotaWindows)if(!w.IsDisposed&&w.FarmRunning)return true;return false;}
  async Task CheckUpdate(bool interactive){
   if(updateChecking||closeInProgress)return;
+  if(LicenseGate.ControlMode){
+   updateChecking=true;
+   try {
+    updateSummary="Consultando FarmZilla Control...";
+    string available=await Task.Run(()=>FarmZillaControlLicense.CheckPublishedUpdate(LicenseGate.Identity));
+    if(IsDisposed||closeInProgress)return;
+    if(String.IsNullOrEmpty(available)){
+     updateSummary="App atualizado · "+ReleaseInfo.Version;
+     if(interactive)MessageBox.Show(this,"Nenhuma atualização mais recente publicada no FarmZilla Control.","FarmZilla");
+    }else{
+     updateSummary="Disponível: "+available;
+     updateSettingsButton.Text="Update\\ndisponível";
+     Note("Versão "+available+" publicada no FarmZilla Control. Download automático ainda não habilitado.");
+     if(interactive)MessageBox.Show(this,"A versão "+available+" está publicada no FarmZilla Control.\\nA instalação automática ainda não foi habilitada por segurança. Consulte o administrador.","Atualização FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Information);
+    }
+   }catch(Exception ex){
+    if(!IsDisposed){updateSummary="Não foi possível consultar";Note("FarmZilla Control: "+ex.Message);
+     if(interactive)MessageBox.Show(this,"Não foi possível consultar a atualização: "+ex.Message,"FarmZilla");}
+   }finally{updateChecking=false;}
+   return;
+  }
   string repository=AppUpdate.Repository;
   if(repository==""){updateSummary="Atualizações privadas ainda não configuradas";if(!interactive||!ConfigureRepository())return;repository=AppUpdate.Repository;}
   updateChecking=true;
