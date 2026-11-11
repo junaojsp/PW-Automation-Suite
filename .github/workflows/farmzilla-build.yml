@@ -53,9 +53,9 @@ jobs:
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash
           Write-Host "SHA-256: $hash"
           $meta = (Get-Item $exe).VersionInfo
-          if ($meta.FileVersion -ne '0.51.21.0') { throw "Versao inesperada: $($meta.FileVersion)" }
+          if ($meta.FileVersion -ne '0.51.22.0') { throw "Versao inesperada: $($meta.FileVersion)" }
           $lines = @(
-            'FarmZilla 0.51.21 - verificacao de artefato'
+            'FarmZilla 0.51.22 - verificacao de artefato'
             "SHA-256: $hash"
             "Versao: $($meta.FileVersion)"
             "Assinatura Authenticode: $($signature.Status)"
