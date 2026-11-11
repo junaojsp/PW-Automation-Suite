@@ -41,6 +41,11 @@ async function handle(req,res) {
     try {await pool.query('SELECT 1');return response(res,200,{status:'ok'});}
     catch {return response(res,503,{status:'database_unavailable'});}
   }
+  if(route==='/api/bot/activate' && req.method==='POST') {
+    const body=await readJson(req);
+    const result=await licenses.activate(pool,body.key,body.deviceHash,body.version);
+    return response(res,result.ok?200:403,result);
+  }
   if(route.startsWith('/api/auth/')) {
     const result=await auth.route(pool,req,res,route);
     if(result===false)return notFound(res);
