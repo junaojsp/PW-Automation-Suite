@@ -8,6 +8,7 @@ const { pipeline } = require('node:stream/promises');
 const { Transform } = require('node:stream');
 const { Pool } = require('pg');
 const auth = require('./auth');
+const licenses = require('./licenses');
 
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_USER = process.env.ADMIN_USER;
@@ -77,6 +78,23 @@ async function handle(req,res) {
     await audit('device.status',{id:q.rows[0].id,status:body.status});
     return response(res,200,{device:q.rows[0]});
   }
+  if(route==='/api/licenses' && req.method==='GET') {
+    return response(res,200,{licenses:await licenses.list(pool)});
+  }
+  if(route==='/api/licenses' && req.method==='POST') {
+    const b=await readJson(req);
+    const license=await licenses.create(pool,b.label,b.expiresAt);
+    await audit('license.create',{id:license.id});
+    return response(res,201,{license});
+  }
+  const licenseMatch=route.match(/^\\/api\\/licenses\\/([0-9]+)$/);
+  if(licenseMatch && req.method==='PATCH') {
+    const b=await readJson(req);
+    const q=await licenses.change(pool,licenseMatch[1],b.action,b.expiresAt);
+    if(!q.rowCount)return notFound(res);
+    await audit('license.change',{id:q.rows[0].id,action:b.action});
+    return response(res,200,{license:q.rows[0]});
+  }
   if(route==='/api/releases' && req.method==='GET') {
     const q=await pool.query('SELECT id,version,filename,sha256,bytes,created_at FROM releases ORDER BY id DESC LIMIT 100');
     return response(res,200,{releases:q.rows});
@@ -127,5 +145,5 @@ const server=http.createServer((req,res)=>{handle(req,res).catch(err=>{
   response(res,err.status|| (err.code==='23505'?409:500),{error:err.status?err.message:err.code==='23505'?'Registro duplicado':'Falha interna'});
 });});
 server.headersTimeout=15000;server.requestTimeout=120000;
-auth.init(pool,ADMIN_USER,ADMIN_PASSWORD).then(()=>server.listen(PORT,'0.0.0.0',()=>console.log('FarmZilla Control ouvindo porta '+PORT))).catch(error=>{console.error('Falha inicializando autenticação:',error.message);process.exitCode=1;pool.end();});
+auth.init(pool,ADMIN_USER,ADMIN_PASSWORD).then(()=>licenses.init(pool)).then(()=>server.listen(PORT,'0.0.0.0',()=>console.log('FarmZilla Control ouvindo porta '+PORT))).catch(error=>{console.error('Falha inicializando autenticação:',error.message);process.exitCode=1;pool.end();});
 process.on('SIGTERM',()=>server.close(()=>pool.end()));
