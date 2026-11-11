@@ -89,7 +89,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FarmZilla-0.51.33-layout
-          path: FarmZilla/FarmZilla/farmzilla-layout.png
+          path: |
+            FarmZilla/FarmZilla/farmzilla-layout.png
+            FarmZilla/FarmZilla/farmzilla-frost-layout.png
           if-no-files-found: error
           retention-days: 14
 
