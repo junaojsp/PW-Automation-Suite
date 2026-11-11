@@ -17,7 +17,7 @@ sealed class SideItem : Control {
   TextRenderer.DrawText(g,Text,Font,new Rectangle(r.X+36,r.Y,r.Width-39,r.Height),selected?Rubi.Text:Rubi.Muted,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);}
 }
 partial class AvalonInterno {
- const int SideWidth=172,PanelWidth=390,PanelHeight=690;
+ const int SideWidth=172,PanelWidth=390,PanelHeight=654;
  SideItem sidePersonagens,sideRota,sideAjustes;Panel rotaHost;bool rotaView;Point? panelLocation;readonly List<Control> panelBody=new List<Control>();readonly Dictionary<Control,bool> panelVisible=new Dictionary<Control,bool>();
  Control minimizeButton,closeButton;
  void ApplySideMenu(){SuspendLayout();try{
