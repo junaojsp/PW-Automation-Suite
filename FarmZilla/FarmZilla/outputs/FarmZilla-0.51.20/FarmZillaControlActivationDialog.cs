@@ -3,8 +3,7 @@ using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-// Janela pronta para integrar ao fluxo de abertura após testes do novo servidor.
-// Não altera o mecanismo de autorização legado nesta fase.
+// Ativacao padrao pelo FarmZilla Control. Codigo do PC pode ser copiado para o painel.
 static class FarmZillaControlActivationDialog {
  internal static bool Ensure(OnlineIdentity identity) {
   string saved=null;
