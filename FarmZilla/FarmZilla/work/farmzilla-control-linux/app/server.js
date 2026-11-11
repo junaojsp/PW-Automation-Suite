@@ -100,6 +100,12 @@ async function handle(req,res) {
     await audit('license.change',{id:q.rows[0].id,action:b.action});
     return response(res,200,{license:q.rows[0]});
   }
+  if(licenseMatch && req.method==='DELETE') {
+    const q=await licenses.remove(pool,licenseMatch[1]);
+    if(!q.rowCount)return notFound(res);
+    await audit('license.delete',{id:q.rows[0].id,label:q.rows[0].label});
+    return response(res,200,{deleted:true});
+  }
   if(route==='/api/releases' && req.method==='GET') {
     const q=await pool.query('SELECT id,version,filename,sha256,bytes,created_at FROM releases ORDER BY id DESC LIMIT 100');
     return response(res,200,{releases:q.rows});

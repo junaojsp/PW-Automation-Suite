@@ -1,7 +1,8 @@
 using System;using System.Drawing;using System.Threading.Tasks;using System.Windows.Forms;
 static class LicenseGate {
  internal static string CurrentToken;internal static OnlineIdentity Identity;internal static string ServiceUrl;
- internal static bool ControlMode {get{return String.Equals(Environment.GetEnvironmentVariable("FARMZILLA_CONTROL_TEST"),"1",StringComparison.Ordinal);}}
+ // Default: new FarmZilla Control licensing; explicit rollback only via FARMZILLA_LEGACY_LICENSE=1.
+ internal static bool ControlMode {get{return !String.Equals(Environment.GetEnvironmentVariable("FARMZILLA_LEGACY_LICENSE"),"1",StringComparison.Ordinal);}}
  internal static bool Ensure(){
   if(ControlMode){
    try{Identity=OnlineIdentity.Load();}catch(Exception ex){MessageBox.Show(ex.Message,"Identificação FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Warning);return false;}
