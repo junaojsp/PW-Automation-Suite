@@ -1,0 +1,54 @@
+name: FarmZilla - Compilar Windows x86
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/**'
+      - 'FarmZilla/FarmZilla/work/Build-Release.ps1'
+      - 'FarmZilla/FarmZilla/work/*Tests.cs'
+      - '.github/workflows/farmzilla-build.yml'
+  pull_request:
+    paths:
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/**'
+      - 'FarmZilla/FarmZilla/work/Build-Release.ps1'
+      - 'FarmZilla/FarmZilla/work/*Tests.cs'
+      - '.github/workflows/farmzilla-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: FarmZilla .NET Framework Windows x86
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: FarmZilla/FarmZilla
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+
+      - name: Compilar e executar verificacoes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./work/Build-Release.ps1
+          if (-not $?) { throw 'Compilacao ou testes falharam' }
+          $output = './outputs/FarmZilla-0.51.20'
+          $a = (Get-FileHash "$output/FarmZilla.exe" -Algorithm SHA256).Hash
+          $b = (Get-FileHash "$output/Bagaceira.exe" -Algorithm SHA256).Hash
+          if ($a -ne $b) { throw 'Executaveis gerados nao conferem' }
+          Write-Host "FarmZilla.exe e Bagaceira.exe identicos: $a"
+
+      - name: Disponibilizar executavel para download
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarmZilla-Windows-x86
+          path: |
+            FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.exe
+            FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bagaceira.exe
+          if-no-files-found: error
+          retention-days: 14
