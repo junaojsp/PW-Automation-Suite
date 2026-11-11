@@ -4,13 +4,18 @@ using System.Drawing.Imaging;
 using System.Linq;
 using System.Windows.Forms;
 
-// Render the real Windows controls without showing the form: no Load/Shown,
+// Render the real Windows controls with startup events suppressed: no Load/Shown,
 // licensing, game discovery, hotkeys or background automation is started.
 static class LayoutPreview {
+ sealed class PreviewForm : AvalonInterno {
+  protected override void OnLoad(EventArgs e){}
+  protected override void OnShown(EventArgs e){}
+ }
  [STAThread] static void Main(){
   Win.SetProcessDPIAware();Application.EnableVisualStyles();
   Application.SetCompatibleTextRenderingDefault(false);
-  using(var form=new AvalonInterno()){
+  using(var form=new PreviewForm()){
+   form.Show();form.Update();
    if(form.ClientSize!=new Size(562,654))throw new Exception("Tamanho inesperado da janela");
    foreach(Control control in form.Controls){
     if(control.Bounds.Left<0||control.Bounds.Top<0||control.Bounds.Right>form.ClientSize.Width||control.Bounds.Bottom>form.ClientSize.Height)
