@@ -72,7 +72,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $compiler = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
           $sources = @(Get-ChildItem './outputs/FarmZilla-0.51.20' -Filter '*.cs' -File | ForEach-Object FullName)
-          & $compiler /nologo /target:exe /platform:x86 /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Management.dll /main:LayoutPreview /out:./layout-preview.exe ./work/LayoutPreview.cs $sources
+          $preview = (Resolve-Path './work/LayoutPreview.cs').Path
+          $previewExe = Join-Path (Get-Location) 'layout-preview.exe'
+          & $compiler /nologo /target:exe /platform:x86 /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Management.dll /main:LayoutPreview "/out:$previewExe" $preview $sources
           if ($LASTEXITCODE -ne 0) { throw 'Falha compilando previa' }
           & ./layout-preview.exe
           if ($LASTEXITCODE -ne 0) { throw 'Falha conferindo layout' }
@@ -102,4 +104,3 @@ jobs:
           path: FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.exe
           if-no-files-found: error
           retention-days: 14
-
