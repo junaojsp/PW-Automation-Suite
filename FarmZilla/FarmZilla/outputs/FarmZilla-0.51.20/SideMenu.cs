@@ -27,13 +27,23 @@ partial class AvalonInterno {
   var brand=RubiLabel("FARMZILLA",50,13,115,20,10,FontStyle.Bold,Rubi.Accent);EnableRubiDrag(brand);var engine=RubiLabel("MOTOR AVALON · x86",50,33,116,15,7,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(engine);
   RubiLabel("FERRAMENTAS",16,72,130,16,7,FontStyle.Bold,Rubi.Text);
   sidePersonagens=SideAt("Espelho",94,()=>ShowRotaView(false));sideRota=SideAt("Mat Farm",136,()=>ShowRotaView(true));
-  // 0.46.4 (owner): no Ajustes button any more; the tools stay on top.
+  // Reference layout: reserve the four tools without attaching game operations.
+  PendingTool("Vm Farm",178);PendingTool("Token Farm",220);
+  PendingTool("Frost Farm",262);PendingTool("Skill Sender",304);
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
   var footer=RubiLabel("FarmZilla · Rubi",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);
   sidePersonagens.Selected=true;Invalidate();
  }finally{ResumeLayout(false);}}
  SideItem SideAt(string text,int y,Action action){var item=new SideItem(text){Bounds=new Rectangle(12,y,SideWidth-24,38)};item.Click+=(s,e)=>{if(!authorizationDenied||item==sidePersonagens)action();};Controls.Add(item);return item;}
+ void PendingTool(string title,int y){
+  var button=SideAt(title,y,()=>MessageBox.Show(this,
+   title+" está em preparação e ainda não executa automações.",
+   title,MessageBoxButtons.OK,MessageBoxIcon.Information));
+  button.AccessibleName=title;
+  button.AccessibleDescription="Em preparação; ferramenta ainda indisponível";
+  hints.SetToolTip(button,title+": em preparação; ainda indisponível.");
+ }
  void ShowRotaView(bool show){
   if(show==rotaView){if(show&&rotaWindow!=null)rotaWindow.Focus();return;}
   if(show){if(closeInProgress)return;if(!AuthorizationSession.Has("rota")){Note("Mat Farm não liberado para este computador. Fale com o administrador.");return;}if(!EnsureRota())return;}
