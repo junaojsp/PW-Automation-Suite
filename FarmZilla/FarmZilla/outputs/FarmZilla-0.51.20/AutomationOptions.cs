@@ -18,8 +18,8 @@ partial class AvalonInterno {
   catch(Exception ex){Note("Não foi possível salvar "+name+": "+ex.Message);}
  }
  CheckBox AutomationBox(CheckBox box,string title,string name,int y,string hint,Action<bool> change){
-  box.SetBounds(17,y,148,24);
-  box.Text=title;box.Font=new Font("Segoe UI",(float)(9)*global::UiScale.F);
+  box.SetBounds(239,y,136,21);
+  box.Text=title;box.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);
   box.ForeColor=Rubi.Muted;box.BackColor=Color.Transparent;
   box.FlatStyle=FlatStyle.Flat;
   box.AccessibleName=title;box.Checked=ReadAutomationFlag(name);
@@ -31,14 +31,14 @@ partial class AvalonInterno {
   Controls.Add(box);hints.SetToolTip(box,hint);return box;
  }
  void InitAutomationOptions(){
-  RubiLabel("AUTOMAÇÕES",17,197,148,17,8,FontStyle.Bold,Rubi.Text);
-  AutomationBox(autoPotOption,"Auto Pot","auto-pot",220,
+  // In the right command panel; left sidebar is reserved for farm tools.
+  AutomationBox(autoPotOption,"Auto Pot","auto-pot",405,
    "Configuração preservada. Uso de poções ainda não habilitado: falta confirmar slots/atalhos e comandos do cliente.",
    enabled=>autoPotWanted=enabled);
-  AutomationBox(recallOption,"Aceitar Recall","aceitar-recall",250,
+  AutomationBox(recallOption,"Aceitar Recall","aceitar-recall",428,
    "Somente convites de Recall enviados pelo líder aos secundários. Aceite automático depende de identificação confirmada do convite.",
    enabled=>recallWanted=enabled);
-  AutomationBox(epBuffOption,"EP buff PT","ep-buff-pt",280,
+  AutomationBox(epBuffOption,"EP buff PT","ep-buff-pt",451,
    "Apenas membros da PT sem buffs. Identificação de efeitos e comando de buff ainda dependem de validação do cliente.",
    enabled=>epBuffWanted=enabled);
  }
