@@ -23,6 +23,7 @@ test -s "$(ls -t backups/farmzilla-antes-login-*.sql | head -1)" || { echo "Back
 git -C app/repository pull --ff-only
 cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/server.js app/server.js
 cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/auth.js app/auth.js
+cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/licenses.js app/licenses.js
 cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/index.html app/index.html
 docker compose up -d --build web
 docker compose ps

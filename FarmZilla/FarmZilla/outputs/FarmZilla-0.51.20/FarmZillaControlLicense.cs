@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
@@ -8,8 +9,10 @@ using System.Web.Script.Serialization;
 // FarmZilla Control licensing transport. Not yet connected to the startup gate.
 static class FarmZillaControlLicense {
  const string Endpoint="https://farmzilla.jrconect.com.br/api/bot/activate";
+ const string LogEndpoint="https://farmzilla.jrconect.com.br/api/bot/log";
  const string FileName="farmzilla-control-license.dat";
- sealed class Reply {public bool ok {get;set;} public string reason {get;set;} public string expiresAt {get;set;}}
+ sealed class Reply {public bool ok {get;set;} public string reason {get;set;} public string expiresAt {get;set;} public bool log {get;set;}}
+ internal static bool LastLog;
  internal static string DeviceHash(OnlineIdentity identity) {
   if(identity==null||String.IsNullOrEmpty(identity.Code))throw new InvalidOperationException("Identificação indisponível.");
   using(var sha=SHA256.Create())return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(identity.Code))).Replace("-","").ToLowerInvariant();
@@ -78,14 +81,50 @@ static class FarmZillaControlLicense {
     if(response.StatusCode!=HttpStatusCode.OK){message="Resposta inesperada do servidor.";return false;}
     using(var reader=new StreamReader(response.GetResponseStream())) {
      var result=new JavaScriptSerializer().Deserialize<Reply>(reader.ReadToEnd());
-     if(result!=null&&result.ok){message="Licença autorizada até "+result.expiresAt;return true;}
+     if(result!=null&&result.ok){LastLog=result.log;message="Licença autorizada até "+result.expiresAt;return true;}
     }
    }
   }catch(WebException ex){
    var response=ex.Response as HttpWebResponse;
-   if(response!=null){using(response){if(response.StatusCode==HttpStatusCode.Forbidden){message="Licença indisponível, vencida ou vinculada a outro computador.";return false;}}}
+   if(response!=null){using(response){if(response.StatusCode==HttpStatusCode.Forbidden){LastLog=false;message="Licença indisponível, vencida ou vinculada a outro computador.";return false;}}}
    unavailable=true;message="Servidor indisponível. Verifique a conexão e tente novamente.";return false;
   }
   return false;
+ }
+ internal static void UploadLog(OnlineIdentity identity){
+  if(!AuthorizationSession.Log||identity==null)return;
+  string key=LoadKey();
+  if(String.IsNullOrWhiteSpace(key))return;
+  string hash=DeviceHash(identity);
+  for(int round=0;round<5;round++){
+   var batch=DiagnosticLog.Take(200,12000);
+   if(batch.Count==0)return;
+   try{PostLog(key,hash,batch);}
+   catch(OnlineDenied){LastLog=false;AuthorizationSession.SetControlLog(false);DiagnosticLog.PutBack(batch);return;}
+   catch{DiagnosticLog.PutBack(batch);return;}
+  }
+ }
+ static void PostLog(string key,string deviceHash,List<string> lines){
+  ServicePointManager.SecurityProtocol|=(SecurityProtocolType)3072;
+  var req=(HttpWebRequest)WebRequest.Create(LogEndpoint);
+  req.Method="POST";req.ContentType="application/json; charset=utf-8";req.Timeout=12000;req.ReadWriteTimeout=12000;req.AllowAutoRedirect=false;
+  byte[] data=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new{key=key.Trim(),deviceHash=deviceHash,version=ReleaseInfo.Version,lines=lines}));
+  req.ContentLength=data.Length;
+  try{
+   using(var stream=req.GetRequestStream())stream.Write(data,0,data.Length);
+   using(var response=(HttpWebResponse)req.GetResponse())
+   using(var reader=new StreamReader(response.GetResponseStream())){
+    if(response.StatusCode!=HttpStatusCode.OK)throw new IOException("Resposta inválida do registro.");
+    var result=new JavaScriptSerializer().Deserialize<Reply>(reader.ReadToEnd());
+    if(result==null||!result.ok)throw new IOException("Registro recusado.");
+   }
+  }catch(WebException ex){
+   var response=ex.Response as HttpWebResponse;
+   if(response!=null)using(response){
+    if(response.StatusCode==HttpStatusCode.Forbidden)throw new OnlineDenied("Registro desligado ou licença indisponível.");
+    throw new IOException("Falha HTTP ao enviar registro.");
+   }
+   throw new IOException("Servidor de registro indisponível.",ex);
+  }
  }
 }

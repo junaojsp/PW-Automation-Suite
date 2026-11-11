@@ -27,9 +27,9 @@ function response(res, code, data, extra={}) {
   res.writeHead(code, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY',...extra});
   res.end(JSON.stringify(data));
 }
-async function readJson(req) {
+async function readJson(req, max=MAX_JSON) {
   const chunks=[];let total=0;
-  for await (const chunk of req) { total+=chunk.length; if(total>MAX_JSON) throw Object.assign(Error('JSON excedeu limite'),{status:413});chunks.push(chunk);}
+  for await (const chunk of req) { total+=chunk.length; if(total>max) throw Object.assign(Error('JSON excedeu limite'),{status:413});chunks.push(chunk);}
   try {return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
   catch {throw Object.assign(Error('JSON inválido'),{status:400});}
 }
@@ -46,6 +46,12 @@ async function handle(req,res) {
     const body=await readJson(req);
     const result=await licenses.activate(pool,body.key,body.deviceHash,body.version);
     return response(res,result.ok?200:403,result);
+  }
+  if(route==='/api/bot/log' && req.method==='POST') {
+    const body=await readJson(req,16384);
+    const result=await licenses.ingest(pool,body.key,body.deviceHash,body.version,body.lines);
+    if(!result.ok)return response(res,result.status||403,{ok:false,reason:result.reason,error:result.error,log:result.log});
+    return response(res,200,{ok:true});
   }
   // Authenticated, read-only update discovery. Never serve an unsigned EXE here.
   if(route==='/api/bot/update-check' && req.method==='POST') {
@@ -149,6 +155,10 @@ async function handle(req,res) {
     if(!q.rowCount)return notFound(res);
     await audit('license.delete',{id:q.rows[0].id,label:q.rows[0].label});
     return response(res,200,{deleted:true});
+  }
+  const logMatch=route.match(/^\/api\/licenses\/([0-9]+)\/logs$/);
+  if(logMatch && req.method==='GET') {
+    return response(res,200,await licenses.listLogs(pool,logMatch[1],url.searchParams.get('limit')));
   }
   // Only one version is the official release. Uploads remain drafts until published.
   if(route==='/api/releases/publication' && req.method==='GET') {

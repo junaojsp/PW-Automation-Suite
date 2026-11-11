@@ -3,7 +3,8 @@ static class AuthorizationSession {
  internal static string Token;static Stopwatch clock;static long remaining;static long highUtc;static bool lifetime;static bool controlMode;static string[] features=new string[0];
  // Whether this PC sends its log to the panel (turned on per PC by the administrator; off by default).
  internal static bool Log;
- internal static void BeginControl(){controlMode=true;Token=null;features=new[]{"controle","rota"};Log=false;clock=Stopwatch.StartNew();}
+ internal static void BeginControl(){controlMode=true;Token=null;features=new[]{"controle","rota"};Log=FarmZillaControlLicense.LastLog;clock=Stopwatch.StartNew();}
+ internal static void SetControlLog(bool on){if(controlMode)Log=on;}
  internal static bool Has(string feature){return features.Contains(feature);}
  internal static void Begin(string token){controlMode=false;if(Token==token&&clock!=null)return;long now=OnlineLicense.Millis(DateTime.UtcNow);var data=OnlineLicense.Verify(token,LicenseGate.Identity.Code,LicenseCore.PublicKey,now);Token=token;lifetime=data.kind=="lifetime";features=data.features??new string[0];Log=lifetime&&data.log;remaining=lifetime?long.MaxValue:Math.Min(86400000,data.expires-now);clock=Stopwatch.StartNew();highUtc=now;}
  // A lifetime license has no expiry, so clock changes do not matter; an old 24 h one keeps the previous checks.
@@ -26,7 +27,7 @@ partial class AvalonInterno {
      string key=FarmZillaControlLicense.LoadKey();
      var result=await Task.Run(()=>{string message;bool unavailable;bool ok=FarmZillaControlLicense.Activate(key,LicenseGate.Identity,out message,out unavailable);return Tuple.Create(ok,message,unavailable);});
      if(IsDisposed||closeInProgress)return;
-     if(result.Item1){controlOfflineClock=null;nextAuthorizationCheck=DateTime.UtcNow.AddMinutes(5);}
+     if(result.Item1){controlOfflineClock=null;AuthorizationSession.SetControlLog(FarmZillaControlLicense.LastLog);nextAuthorizationCheck=DateTime.UtcNow.AddMinutes(5);}
      else if(result.Item3){
       if(controlOfflineClock==null)controlOfflineClock=Stopwatch.StartNew();
       if(controlOfflineClock.Elapsed>=TimeSpan.FromMinutes(30)){DenyAuthorization("Servidor indisponível por mais de 30 minutos. Abra novamente com internet.");return;}
@@ -40,8 +41,8 @@ partial class AvalonInterno {
    catch{DenyAuthorization("Não foi possível validar a autorização local com segurança.");}
    finally{authorizationChecking=false;}
   };
-  // Every minute, new log lines go to the administrator's panel (/admin > Registro), only when he turned it on for this PC.
-  logTimer=new System.Windows.Forms.Timer{Interval=60000};logTimer.Tick+=async(s,e)=>{if(logSending||authorizationDenied||!AuthorizationSession.Log)return;string token=AuthorizationSession.Token,service=LicenseGate.ServiceUrl;logSending=true;try{await Task.Run(()=>RemoteLog.Upload(service,token));}catch{}finally{logSending=false;}};
+  // Every minute, new log lines go to farmzilla.jrconect.com.br (Licenças → Ver registro), only when Enviar registro is on.
+  logTimer=new System.Windows.Forms.Timer{Interval=60000};logTimer.Tick+=async(s,e)=>{if(logSending||authorizationDenied||!AuthorizationSession.Log)return;logSending=true;try{if(LicenseGate.ControlMode)await Task.Run(()=>FarmZillaControlLicense.UploadLog(LicenseGate.Identity));else{string token=AuthorizationSession.Token,service=LicenseGate.ServiceUrl;await Task.Run(()=>RemoteLog.Upload(service,token));}}catch{}finally{logSending=false;}};
   Shown+=(s,e)=>{ApplyFeatures();authorizationTimer.Start();logTimer.Start();};FormClosed+=(s,e)=>{authorizationTimer.Dispose();logTimer.Dispose();if(authorizationFailureReason!=null)MessageBox.Show(authorizationFailureReason+"\nAs operações do FarmZilla foram encerradas. O jogo continua aberto.","Autorização do FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Information);};
  }
  void DenyAuthorization(string reason){if(authorizationDenied)return;authorizationDenied=true;authorizationFailureReason=reason;Enabled=false;shortcutActive=false;Bind();RequestAttackStop();missions.CancelAll();CancelParty();Note("Autorização encerrada: "+reason);Close();}

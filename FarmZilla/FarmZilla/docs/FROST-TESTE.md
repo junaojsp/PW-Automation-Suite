@@ -1,4 +1,4 @@
-# Frost Farm — captura, catálogo e trajeto (0.51.34)
+# Frost Farm — captura, catálogo e trajeto (0.51.35)
 
 O botão Frost Farm abre a ferramenta nativa do FarmZilla. Ela lê o cliente Avalon, lista os comandos que o próprio FarmZilla já valida e transforma a captura de coordenadas num trajeto `.txt` do Mat Farm. Não copia lógica de outro executável e não envia pacotes sozinha.
 
@@ -13,7 +13,7 @@ O botão Frost Farm abre a ferramenta nativa do FarmZilla. Ela lê o cliente Ava
 1. Abra o cliente PW Avalon, entre no personagem e abra FarmZilla.
 2. Clique em Frost Farm e Atualizar. Confira nome e PID. Os erros de descoberta entram no log.
 3. Na aba Comandos Avalon, confira a lista (códigos 0x6D, 0x28, 0x31, 0x25, 0x11, 0x2A, 0x08, 0x04, 0x57, 0x50, 0x29, 0x64, 0x14A).
-4. Volte à captura, selecione o personagem e clique em Iniciar captura de coordenadas.
+4. No painel https://farmzilla.jrconect.com.br → Licenças, ligue Enviar registro neste PC. Volte à captura, selecione o personagem e clique em Iniciar captura de coordenadas.
 5. Mova o personagem por um trecho conhecido. Compare mapa e altura com o jogo. A amostragem é a cada segundo.
 6. Clique em Parar captura. Se houver movimento suficiente, o FarmZilla grava um `.txt` ao lado do CSV. Senão, o log registra TRAJETO_ADIADO.
 7. Clique em Gerar trajeto Mat Farm se quiser forçar a exportação. Abra a pasta das capturas e confira CSV + trajeto.
@@ -21,7 +21,7 @@ O botão Frost Farm abre a ferramenta nativa do FarmZilla. Ela lê o cliente Ava
 9. Feche o cliente durante a captura: deve parar com LEITURA_ERRO. Trocar de personagem só com a captura parada.
 10. Confirme que Espelho e Mat Farm continuam abrindo normalmente.
 
-Dados locais: `%LOCALAPPDATA%\AvalonInterno\Frost` (CSV e trajeto) e `%LOCALAPPDATA%\AvalonInterno\logs`. O CSV completo fica local; eventos resumidos seguem pelo log existente quando o serviço está disponível.
+Dados locais: `%LOCALAPPDATA%\AvalonInterno\Frost` (CSV e trajeto) e `%LOCALAPPDATA%\AvalonInterno\logs`. O CSV completo fica local. Com **Enviar registro** ligado no painel https://farmzilla.jrconect.com.br (Licenças), os eventos resumidos (`Frost: CAPTURA_INICIO`, amostras, erros) aparecem em **Ver registro**.
 
 ## Limites
 
