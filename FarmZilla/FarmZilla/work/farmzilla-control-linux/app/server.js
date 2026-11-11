@@ -60,6 +60,33 @@ async function handle(req,res) {
     return response(res,200,{ok:true,updateAvailable:!!published&&newer(published.version,body.version),
       release:published?{version:published.version,sha256:published.sha256,bytes:Number(published.bytes)}:null});
   }
+  // Licensed bot downloads ONLY the currently published release. No admin session cookie is exposed.
+  if(route==='/api/bot/update-download' && req.method==='POST') {
+    const body=await readJson(req);
+    if(!versionPattern.test(body.version||'')||!versionPattern.test(body.expectedVersion||'')||
+       !/^[0-9a-f]{64}$/i.test(body.expectedSha256||''))return response(res,400,{ok:false,error:'Parâmetros de versão inválidos'});
+    const check=await licenses.activate(pool,body.key,body.deviceHash,body.version);
+    if(!check.ok)return response(res,403,{ok:false,reason:'license_unavailable'});
+    const q=await pool.query('SELECT r.version,r.filename,r.sha256,r.bytes FROM release_publication p JOIN releases r ON r.id=p.release_id WHERE p.id=1');
+    const published=q.rows[0];
+    if(!published||published.version!==body.expectedVersion||
+       published.sha256.toLowerCase()!==body.expectedSha256.toLowerCase())return response(res,409,{ok:false,error:'A publicação mudou. Consulte novamente'});
+    const parts=v=>v.split('.').map(Number);
+    const newer=(a,b)=>{const x=parts(a),y=parts(b);for(let i=0;i<4;i++){if((x[i]||0)!==(y[i]||0))return (x[i]||0)>(y[i]||0);}return false;};
+    if(!newer(published.version,body.version))return response(res,409,{ok:false,error:'Versão não é mais recente'});
+    if(published.filename!=='FarmZilla-'+published.version+'.exe'||Number(published.bytes)<1024||
+       Number(published.bytes)>MAX_RELEASE)return response(res,500,{ok:false,error:'Publicação inválida'});
+    const file=path.join(RELEASE_DIR,published.filename);
+    const stat=await fsp.stat(file);
+    if(!stat.isFile()||stat.size!==Number(published.bytes))return response(res,503,{ok:false,error:'Arquivo indisponível'});
+    // Hash the disk file again before serving: a stale or modified upload must never be delivered.
+    const digest=crypto.createHash('sha256');
+    for await(const chunk of fs.createReadStream(file))digest.update(chunk);
+    if(digest.digest('hex')!==published.sha256.toLowerCase())return response(res,503,{ok:false,error:'Integridade do arquivo inválida'});
+    res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':stat.size,
+      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Disposition':'attachment; filename="FarmZilla.exe"'});
+    return pipeline(fs.createReadStream(file),res);
+  }
   if(route.startsWith('/api/auth/')) {
     const result=await auth.route(pool,req,res,route);
     if(result===false)return notFound(res);
