@@ -23,7 +23,7 @@ sealed class FrostDiagnosticsForm : Form {
  readonly ComboBox leader=new ComboBox();readonly TextBox log=new TextBox();readonly Label state=new Label();
  readonly Button start=new NeonButton(),refresh=new NeonButton();readonly Timer timer=new Timer();
  readonly Func<bool> allowed;GameClient client;StreamWriter capture;string capturePath;int samples;bool active;
- public FrostDiagnosticsForm(Func<bool> allowed){
+ public FrostDiagnosticsForm(Func<bool> allowed,bool discoverOnShow=true){
   this.allowed=allowed;Text="FarmZilla · Frost Farm · diagnóstico";ClientSize=new Size(430,610);MinimumSize=Size;BackColor=Rubi.Background;ForeColor=Rubi.Text;StartPosition=FormStartPosition.CenterParent;
   Font=new Font("Segoe UI",9);LabelAt("BOT FROST · TESTE AVALON",12,12,400,24,Rubi.Accent);
   LabelAt("Captura de coordenadas e diagnóstico; sem comandos ao jogo.",12,42,405,36,Rubi.Muted);
@@ -35,7 +35,7 @@ sealed class FrostDiagnosticsForm : Form {
   state.SetBounds(12,234,406,52);state.Text="Parado. Mova o personagem manualmente durante a captura.";Controls.Add(state);
   log.SetBounds(12,294,406,254);log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.BackColor=Rubi.Panel;log.ForeColor=Rubi.Text;log.Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;Controls.Add(log);
   var folder=new NeonButton{Text="Abrir pasta das capturas"};folder.SetBounds(12,560,406,36);folder.Anchor=AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;folder.Click+=(s,e)=>{try{Directory.CreateDirectory(Folder);Process.Start("explorer.exe",Folder);}catch(Exception ex){Write("PASTA_ERRO "+ex.Message);}};Controls.Add(folder);
-  timer.Interval=1000;timer.Tick+=(s,e)=>Sample();Shown+=(s,e)=>RefreshCharacters();FormClosing+=(s,e)=>Stop("Janela Frost fechada.");
+  timer.Interval=1000;timer.Tick+=(s,e)=>Sample();Shown+=(s,e)=>{if(discoverOnShow)RefreshCharacters();};FormClosing+=(s,e)=>Stop("Janela Frost fechada.");
  }
  static string Folder{get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno","Frost");}}
  Label LabelAt(string text,int x,int y,int w,int h,Color color){var l=new Label{Text=text,ForeColor=color,Bounds=new Rectangle(x,y,w,h)};Controls.Add(l);return l;}

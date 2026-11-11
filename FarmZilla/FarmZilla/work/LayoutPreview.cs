@@ -32,7 +32,8 @@ static class LayoutPreview {
     bitmap.Save("farmzilla-layout.png",ImageFormat.Png);
    }
   }
-  using(var frost=new FrostDiagnosticsForm(()=>false)){
+  using(var frost=new FrostDiagnosticsForm(()=>false,false)){
+   frost.Show();frost.Update();
    foreach(Control control in frost.Controls)if(control.Right>frost.ClientSize.Width||control.Bottom>frost.ClientSize.Height)throw new Exception("Controle Frost fora da janela: "+control.Text);
    using(var bitmap=new Bitmap(frost.Width,frost.Height)){frost.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save("farmzilla-frost-layout.png",ImageFormat.Png);}
   }
