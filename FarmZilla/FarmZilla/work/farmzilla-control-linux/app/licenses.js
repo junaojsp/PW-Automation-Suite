@@ -49,5 +49,20 @@ async function change(pool,id,action,expiresAt) {
   return pool.query('UPDATE bot_licenses SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status,expires_at',[action,id]);
 }
 
-// Future bot integration must use a separate authenticated endpoint; never expose keys in list.
-module.exports={init,create,list,change,KEY_RE,DEVICE_RE,digest};
+// Atomic compare-and-bind: a license can be claimed by exactly one device.
+async function activate(pool,key,deviceHash,version) {
+  if(typeof key!=='string'||!KEY_RE.test(key)||typeof deviceHash!=='string'||!DEVICE_RE.test(deviceHash)||
+     typeof version!=='string'||version.length>40) return {ok:false,reason:'invalid_request'};
+  const result=await pool.query(`
+    UPDATE bot_licenses
+       SET device_hash=COALESCE(device_hash,$2),
+           last_seen_at=NOW(),client_version=$3,updated_at=NOW()
+     WHERE key_hash=$1 AND status='active' AND expires_at>NOW()
+       AND (device_hash IS NULL OR device_hash=$2)
+     RETURNING id,expires_at`,[digest(key),deviceHash,version]);
+  if(result.rowCount)return {ok:true,expiresAt:result.rows[0].expires_at};
+  // Do not reveal whether the key exists, is expired, suspended, or bound to another PC.
+  return {ok:false,reason:'license_unavailable'};
+}
+
+module.exports={init,create,list,change,activate,KEY_RE,DEVICE_RE,digest};
