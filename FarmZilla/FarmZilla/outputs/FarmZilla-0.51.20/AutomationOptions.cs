@@ -29,7 +29,7 @@ partial class AvalonInterno {
   change(box.Checked);
   box.CheckedChanged+=(s,e)=>{
    change(box.Checked);WriteAutomationFlag(name,box.Checked);
-   Note(title+(box.Checked?": habilitado.":": desligado."));
+   Note(title+(box.Checked?(name=="auto-pot"?": Auto Pot habilitado, configure teclas com botão direito.":": opção registrada; protocolo ainda não validado."):": desligado."));
   };
   Controls.Add(box);hints.SetToolTip(box,hint);return box;
  }
@@ -99,7 +99,6 @@ partial class AvalonInterno {
    var m=new NumericUpDown{Left=110,Top=96,Width=58,Minimum=1,Maximum=99,Value=potMp};
    var hk=new ComboBox{Left=185,Top=57,Width=119,DropDownStyle=ComboBoxStyle.DropDownList};
    var mk=new ComboBox{Left=185,Top=96,Width=119,DropDownStyle=ComboBoxStyle.DropDownList};
-   for(Keys k=Keys.None;k<=Keys.None;k++){} // no-op; choices explicitly enumerated below
    Keys[] keys={Keys.None,Keys.F1,Keys.F2,Keys.F3,Keys.F4,Keys.F5,Keys.F6,Keys.F7,Keys.F8,Keys.F9,Keys.F10,Keys.F11,Keys.F12};
    foreach(var k in keys){hk.Items.Add(k);mk.Items.Add(k);}
    hk.SelectedItem=potHpKey;mk.SelectedItem=potMpKey;
