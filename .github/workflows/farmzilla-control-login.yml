@@ -17,6 +17,7 @@ jobs:
         run: |
           node --check FarmZilla/FarmZilla/work/farmzilla-control-linux/app/server.js
           node --check FarmZilla/FarmZilla/work/farmzilla-control-linux/app/auth.js
+          node --check FarmZilla/FarmZilla/work/farmzilla-control-linux/app/licenses.js
       - name: Validate browser JavaScript
         run: |
           node - <<'NODE'

@@ -61,9 +61,9 @@ jobs:
           $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash
           Write-Host "SHA-256: $hash"
           $meta = (Get-Item $exe).VersionInfo
-          if ($meta.FileVersion -ne '0.51.34.0') { throw "Versao inesperada: $($meta.FileVersion)" }
+          if ($meta.FileVersion -ne '0.51.35.0') { throw "Versao inesperada: $($meta.FileVersion)" }
           $lines = @(
-            'FarmZilla 0.51.34 - verificacao de artefato'
+            'FarmZilla 0.51.35 - verificacao de artefato'
             "SHA-256: $hash"
             "Versao: $($meta.FileVersion)"
             "Assinatura Authenticode: $($signature.Status)"
@@ -88,7 +88,7 @@ jobs:
       - name: Disponibilizar previa do layout
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-0.51.34-layout
+          name: FarmZilla-0.51.35-layout
           path: |
             FarmZilla/FarmZilla/farmzilla-layout.png
             FarmZilla/FarmZilla/farmzilla-frost-layout.png
@@ -99,7 +99,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-0.51.34-verificacao
+          name: FarmZilla-0.51.35-verificacao
           path: FarmZilla/FarmZilla/farmzilla-security-report.txt
           if-no-files-found: error
           retention-days: 14
@@ -108,7 +108,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-0.51.34-PUBLICAR
+          name: FarmZilla-0.51.35-PUBLICAR
           path: FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.exe
           if-no-files-found: error
           retention-days: 14
@@ -137,18 +137,18 @@ jobs:
           node-version: '22'
       - uses: actions/download-artifact@v4
         with:
-          name: FarmZilla-0.51.34-PUBLICAR
+          name: FarmZilla-0.51.35-PUBLICAR
           path: test-artifact
       - name: Testar PE real, cadastros equivalentes, publicação, backup e recuperação
         working-directory: FarmZilla/FarmZilla/work/farmzilla-control-linux/app
         env:
           TEST_DATABASE_URL: postgres://fztest:fztest@localhost:5432/farmzilla_test
           FZ_TEST_EXE: ${{ github.workspace }}/test-artifact/FarmZilla.exe
-          FZ_TEST_VERSION: 0.51.34.0
+          FZ_TEST_VERSION: 0.51.35.0
         run: |
           npm install --ignore-scripts --no-audit --no-fund
           node --check server.js
-          node --test release-store.test.js
+          node --test release-store.test.js licenses.test.js
       - name: Conferir comandos SSH e scripts do workflow
         run: |
           bash -n FarmZilla/FarmZilla/work/ssh/farmzilla-github-ssh

@@ -45,6 +45,25 @@ Nao abra `8088` no UFW. Nao publique 80/443 ate haver dominio e configuracao HTT
 
 Este MVP **nao implementa** licenciamento real, ativacao por hardware, assinaturas de releases, instalacao remota nem distribui versoes aos clientes. O status bloqueado e **apenas registro administrativo**. Antes de disponibilizar o painel externamente: hostname, TLS valido, autenticacao por sessao/MFA, rate limit, backup e restore de banco/releases, politicas de retencao, escaneamento e assinatura de executaveis, gateway de distribuicao com manifestos assinados e testes de seguranca. Nenhum segredo de painel legado precisa ser migrado.
 
+## Registro do bot no painel atual (farmzilla.jrconect.com.br)
+
+O leitor de log sai do domínio antigo (`bagaceira-control.viacaomimo.workers.dev`) e passa a ficar em **Licenças → Ver registro**. Depois do merge na `main`:
+
+```bash
+cd /opt/farmzilla-control
+git -C app/repository fetch origin main
+git -C app/repository checkout main
+git -C app/repository pull --ff-only origin main
+cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/server.js app/server.js
+cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/licenses.js app/licenses.js
+cp app/repository/FarmZilla/FarmZilla/work/farmzilla-control-linux/app/index.html app/index.html
+docker compose up -d --build web
+docker compose ps
+curl -fsS http://127.0.0.1:8088/healthz
+```
+
+Não rode `docker compose down`, não mexa no UFW/SSH e não reinicie hbbs/hbbr. A tabela de logs é criada na subida do serviço. Em **Licenças**, clique em **Enviar registro** e **Ver registro**. O FarmZilla 0.51.35 (ou mais novo) envia as linhas a cada minuto; o CSV da Frost continua só no PC.
+
 ## Operacao segura
 
 ```bash

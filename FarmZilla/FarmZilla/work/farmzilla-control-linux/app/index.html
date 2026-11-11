@@ -44,6 +44,15 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 #password-form label{display:grid;gap:7px;color:#b9c8d8}
 #password-form input{width:100%}
 #password-form button{align-self:end;height:40px}
+#logview{position:fixed;inset:0;z-index:40;background:#0009;display:grid;place-items:center;padding:18px}
+#logview[hidden]{display:none!important}
+.log-box{width:min(960px,100%);height:min(80vh,720px);background:#141b27;border:1px solid #344255;border-radius:16px;display:flex;flex-direction:column;box-shadow:0 24px 80px #0008}
+.log-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+.log-head h2{margin:0;flex:1;font-size:16px}
+.log-head .field{max-width:220px}
+#log{flex:1;overflow:auto;padding:10px 0;font:12.5px/1.55 ui-monospace,Consolas,monospace;background:#0a0b0e;border-radius:0 0 16px 16px}
+#log div{padding:1px 16px;white-space:pre-wrap;overflow-wrap:anywhere}
+#log .t{color:var(--muted)}#log .err{color:#ff9494}#log .info{color:var(--muted)}
 @media(max-width:900px){#workspace{padding-left:0}.sidebar{position:static;width:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding:12px}.sidebar .brand{margin:0 14px}.sidebar button{width:auto}.sidebar .bottom{display:none}#workspace header{padding:18px}#workspace main{padding:0 14px}}
 </style></head><body>
 <div id="auth-screen"><form class="login-box" id="login-form"><div class="brand-mark">FZ</div><h2>Bem-vindo ao FarmZilla</h2><p>Entre com as credenciais administrativas para acessar o painel de controle.</p><label for="login-user">Usuário</label><input id="login-user" autocomplete="username" required value="admin"><label for="login-password">Senha</label><input id="login-password" type="password" autocomplete="current-password" required><button class="primary">Entrar no painel</button><p id="auth-error" role="alert"></p><small>Acesso seguro pelo domínio farmzilla.jrconect.com.br</small></form></div>
@@ -51,19 +60,20 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 <header><div><h1>FarmZilla <span style="color:var(--accent)">Control</span></h1><small>Painel administrativo interno · MVP Linux</small></div><div style="display:flex;gap:8px;align-items:center"><button id="reload">Atualizar</button><button id="logout">Sair</button></div></header>
 <main>
 <div id="notice" role="status"></div>
-<div class="cards"><div class="card"><small>Computadores cadastrados</small><div class="stat" id="total-devices">—</div></div><div class="card"><small>Computadores bloqueados</small><div class="stat" id="blocked-devices">—</div></div><div class="card"><small>Versões armazenadas</small><div class="stat" id="total-releases">—</div></div></div>
+<div class="cards"><div class="card"><small>Computadores cadastrados</small><div class="stat" id="total-devices">—</div></div><div class="card"><small>Computadores bloqueados</small><div class="stat" id="blocked-devices">—</div></div><div class="card"><small>Bots online agora</small><div class="stat" id="online-bots">—</div></div><div class="card"><small>Versões armazenadas</small><div class="stat" id="total-releases">—</div></div></div>
 <section id="devices"><h2>Computadores</h2><small>Cadastro administrativo. Ainda não ativa nem bloqueia o executável standalone já distribuído.</small>
 <form id="device-form"><input id="device-name" maxlength="120" placeholder="Identificação do computador" required><input id="device-note" maxlength="1000" placeholder="Observação" style="flex:1;min-width:170px"><button class="primary">Cadastrar</button></form>
 <div class="scroll"><table><thead><tr><th>Computador</th><th>Observação</th><th>Estado</th><th>Cadastrado</th><th>Ação</th></tr></thead><tbody id="device-rows"></tbody></table></div></section>
-<section id="licenses" hidden><h2>Licenças do bot</h2><p class="muted">A chave aparece somente ao gerar. O bot reconhece automaticamente uma licença salva e válida. Ativar, suspender ou excluir uma chave neste painel altera o resultado da próxima validação.</p>
+<section id="licenses" hidden><h2>Licenças do bot</h2><p class="muted">A chave aparece somente ao gerar. O bot reconhece automaticamente uma licença salva e válida. Ativar, suspender ou excluir uma chave neste painel altera o resultado da próxima validação. O registro do FarmZilla (Frost, Espelho, Mat Farm) só aparece aqui com Enviar registro ligado; o CSV completo da Frost permanece no PC.</p>
 <form id="license-form"><input id="license-label" placeholder="Cliente / identificação" maxlength="120" required><input id="license-expiry" type="datetime-local" required><input id="license-device-code" maxlength="64" minlength="64" pattern="[a-f0-9]{64}" placeholder="Código do PC (opcional)" title="Cole o código de 64 caracteres exibido pelo bot"><button class="primary">Gerar licença</button></form>
 <div id="new-license" hidden><p>Nova chave (exibida somente agora):</p><code id="new-license-key"></code> <button id="copy-license-key" type="button">Copiar chave</button></div>
-<div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Situação</th><th>Vencimento</th><th>PC vinculado</th><th>Último acesso</th><th>Versão</th><th>Ações</th></tr></thead><tbody id="license-rows"></tbody></table></div></section>
+<div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Situação</th><th>Presença</th><th>Vencimento</th><th>PC vinculado</th><th>Último acesso</th><th>Versão</th><th>Registro</th><th>Ações</th></tr></thead><tbody id="license-rows"></tbody></table></div></section>
 <section id="releases"><h2>Versões do FarmZilla</h2><small>Envie FarmZilla.exe. A versão interna é conferida antes do cadastro; o app instala a versão publicada pelo botão Update.</small>
 <form id="release-form"><input id="release-version" placeholder="Versão: 0.51.20" pattern="[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" required><input id="release-file" type="file" accept=".exe" required><button class="primary">Enviar versão</button></form>
 <p class="muted">Enviar não publica automaticamente. Escolha uma versão e clique em Publicar. Somente uma versão fica publicada por vez.</p><button id="unpublish-release" type="button">Retirar versão publicada</button><div class="scroll"><table><thead><tr><th>Versão</th><th>Estado</th><th>Tamanho</th><th>SHA-256</th><th>Registrada em</th><th>Ação</th></tr></thead><tbody id="release-rows"></tbody></table></div></section>
 <section id="security" hidden><h2>Segurança da conta</h2><p class="muted">Altere sua senha administrativa. Ao salvar, todas as sessões serão encerradas e será necessário entrar novamente.</p><form id="password-form"><label>Senha atual<input id="current-password" type="password" autocomplete="current-password" required></label><label>Nova senha (mínimo 8 caracteres)<input id="new-password" type="password" autocomplete="new-password" minlength="8" required></label><label>Confirme a nova senha<input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required></label><button class="primary">Alterar senha</button></form></section><section id="audit"><h2>Auditoria</h2><div class="scroll"><table><thead><tr><th>Data</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="audit-rows"></tbody></table></div></section>
 </main><footer>FarmZilla Control · Acesso administrativo HTTPS. A versão independente do aplicativo não é bloqueada remotamente.</footer>
+<div id="logview" hidden><div class="log-box"><div class="log-head"><h2 id="logtitle">Registro</h2><input id="logsearch" placeholder="Filtrar texto"><label class="muted"><input id="onlyerr" type="checkbox"> Só falhas</label><button id="logreload" type="button">Atualizar registro</button><button id="logclose" type="button">Fechar</button></div><div id="log"></div></div></div>
 <script>
 const $=id=>document.getElementById(id);
 let csrf='';
@@ -96,7 +106,7 @@ function formatted(date){return d.format(new Date(date));}
 async function refresh(){
  try{
   const [stats,devs,rels,audit,licenseData]=await Promise.all([api('/api/overview'),api('/api/devices'),api('/api/releases'),api('/api/audit'),api('/api/licenses')]);
-  $('total-devices').textContent=stats.devices.total;$('blocked-devices').textContent=stats.devices.blocked;$('total-releases').textContent=stats.releases.total;
+  $('total-devices').textContent=stats.devices.total;$('blocked-devices').textContent=stats.devices.blocked;$('online-bots').textContent=(stats.bots&&stats.bots.online)||0;$('total-releases').textContent=stats.releases.total;
   const rows=$('device-rows');rows.replaceChildren();
   for(const v of devs.devices){
    const row=document.createElement('tr');cells(row,[v.name,v.note,'',formatted(v.created_at)]);
@@ -107,9 +117,12 @@ async function refresh(){
   const licenseRows=$('license-rows');licenseRows.replaceChildren();
   for(const v of licenseData.licenses){
    const row=el('tr','');const status=v.status==='active'&&new Date(v.expires_at)<=new Date()?'Expirada':v.status;
-   cells(row,[v.id,v.label,status,formatted(v.expires_at),v.linked?'Sim':'Não',v.last_seen_at?formatted(v.last_seen_at):'—',v.client_version||'—']);
+   cells(row,[v.id,v.label,status,'',formatted(v.expires_at),v.linked?'Sim':'Não',v.last_seen_at?formatted(v.last_seen_at):'—',v.client_version||'—',v.send_log?'Ligado':'Desligado']);
+   const presence=row.children[3];const online=el('span',v.online?'Online':'Offline');online.className='pill'+(v.online?'':' blocked');presence.appendChild(online);
    const td=el('td','');const actions=[['active','Ativar'],['suspended','Suspender'],['revoked','Revogar'],['release-device','Liberar PC'],['renew','Renovar']];
    for(const [action,label] of actions){if(action===v.status||action==='release-device'&&!v.linked)continue;const btn=el('button',label);btn.onclick=async()=>{let expiresAt;if(action==='renew'){expiresAt=prompt('Nova validade (AAAA-MM-DD):');if(!expiresAt)return;expiresAt+='T23:59:59';}else if(!confirm('Confirmar '+label.toLowerCase()+' da licença #'+v.id+'?'))return;btn.disabled=true;try{await api('/api/licenses/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,expiresAt})});await refresh();notify('Licença atualizada');}catch(e){notify(e.message,true);btn.disabled=false;}};td.appendChild(btn);}
+   const logToggle=el('button',v.send_log?'Parar envio':'Enviar registro');logToggle.onclick=async()=>{logToggle.disabled=true;try{await api('/api/licenses/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:v.send_log?'log-off':'log-on'})});await refresh();notify('Registro '+(v.send_log?'desligado':'ligado')+' para '+v.label);}catch(e){notify(e.message,true);logToggle.disabled=false;}};td.appendChild(logToggle);
+   const viewLog=el('button','Ver registro');viewLog.onclick=()=>showLog(v.id,v.label);td.appendChild(viewLog);
    const remove=el('button','Excluir chave');remove.onclick=async()=>{if(!confirm('Excluir DEFINITIVAMENTE a licença #'+v.id+'? A chave deixará de funcionar e não poderá ser recuperada.'))return;remove.disabled=true;try{await api('/api/licenses/'+v.id,{method:'DELETE'});await refresh();notify('Chave excluída');}catch(e){notify(e.message,true);remove.disabled=false;}};td.appendChild(remove);
    row.appendChild(td);licenseRows.appendChild(row);
   }
@@ -137,5 +150,16 @@ $('device-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/devic
 $('release-form').onsubmit=async e=>{e.preventDefault();const file=$('release-file').files[0];if(!file)return;const btn=e.target.querySelector('button');btn.disabled=true;notify('Enviando versão...');try{await api('/api/releases?version='+encodeURIComponent($('release-version').value),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});e.target.reset();await refresh();notify('Arquivo armazenado e SHA-256 registrado');}catch(err){notify(err.message,true);}finally{btn.disabled=false;}};
 $('license-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;try{const result=await api('/api/licenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:$('license-label').value,expiresAt:$('license-expiry').value,deviceHash:$('license-device-code').value.trim()||null})});$('new-license-key').textContent=result.license.key;$('new-license').hidden=false;e.target.reset();await refresh();notify('Licença gerada. Copie a chave agora.');}catch(err){notify(err.message,true);}finally{btn.disabled=false;}};
 $('copy-license-key').onclick=async()=>{try{await navigator.clipboard.writeText($('new-license-key').textContent);notify('Chave copiada');}catch{notify('Selecione e copie a chave manualmente',true);}};
+let logLicense=0,logName='',logLines=[];const fail=/não|falh|erro|inválid|indisponível|recus|bloquead|cancelad|sem |expir|Diagnóstico|LEITURA_ERRO|INICIO_ERRO/i;
+function logNote(cls,text){const d=document.createElement('div');d.className=cls;d.textContent=text;return d;}
+function renderLog(){const q=$('logsearch').value.trim().toLowerCase();const lines=logLines.filter(l=>(!$('onlyerr').checked||fail.test(l.line))&&(!q||l.line.toLowerCase().includes(q)));$('log').replaceChildren();
+ if(!logLines.length){$('log').append(logNote('info','Nenhuma linha recebida desta licença. Ligue Enviar registro; o FarmZilla 0.51.35 ou mais novo envia a cada minuto.'));return;}
+ if(!lines.length){$('log').append(logNote('info','Nenhuma linha com esse filtro.'));return;}
+ for(const l of lines){const row=document.createElement('div');if(fail.test(l.line))row.className='err';const t=document.createElement('span');t.className='t';t.textContent=new Date(Number(l.at)).toLocaleString('pt-BR')+' v'+l.version+'  ';row.append(t,document.createTextNode(l.line));$('log').append(row);}
+ $('log').scrollTop=$('log').scrollHeight;}
+async function showLog(id,label){logLicense=id;logName=label;$('logview').hidden=false;$('logtitle').textContent='Registro · '+label;$('log').replaceChildren(logNote('info','Carregando…'));try{logLines=(await api('/api/licenses/'+id+'/logs?limit=2000')).lines;renderLog();}catch(e){$('log').replaceChildren(logNote('err',e.message));}}
+$('logreload').onclick=()=>showLog(logLicense,logName);$('onlyerr').onchange=renderLog;$('logsearch').oninput=renderLog;$('logclose').onclick=()=>{$('logview').hidden=true;};
+$('logview').onclick=e=>{if(e.target===$('logview'))$('logview').hidden=true;};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('logview').hidden=true;});
+setInterval(()=>{if($('workspace').hidden||!$('logview').hidden)return;if(document.activeElement&&document.activeElement.matches('input,textarea,select'))return;refresh();},30000);
 checkSession();
 </script></div></body></html>

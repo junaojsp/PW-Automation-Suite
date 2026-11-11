@@ -26,5 +26,14 @@ class OnlineLicenseTests {
    lease.issued=now-86400001;lease.expires=now-1;OnlineLicense.Save(new LeaseCache{Token=Token(lease,rsa),LastUtc=now,Service=service});Assert(!OnlineLicense.Evaluate(identity,service,offline,pub).Allowed,"cache vencido não libera offline");
   }finally{if(File.Exists(OnlineLicense.CacheFileOverride))File.Delete(OnlineLicense.CacheFileOverride);OnlineLicense.CacheFileOverride=null;}
  }
+ FarmZillaControlLicense.LastLog=false;
+ AuthorizationSession.BeginControl();
+ Assert(!AuthorizationSession.Log,"log Control começa desligado até o painel ligar");
+ FarmZillaControlLicense.LastLog=true;
+ AuthorizationSession.BeginControl();
+ Assert(AuthorizationSession.Log,"activate com log=true liga o envio para farmzilla.jrconect.com.br");
+ AuthorizationSession.SetControlLog(false);
+ Assert(!AuthorizationSession.Log,"painel desliga o envio de registro");
+ FarmZillaControlLicense.LastLog=false;
  Console.WriteLine(count+" verificações de cliente online aprovadas.");}
 }
