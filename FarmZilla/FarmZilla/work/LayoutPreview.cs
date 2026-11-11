@@ -21,8 +21,8 @@ static class LayoutPreview {
     if(control.Bounds.Left<0||control.Bounds.Top<0||control.Bounds.Right>form.ClientSize.Width||control.Bounds.Bottom>form.ClientSize.Height)
      throw new Exception("Controle fora da janela: "+control.Text);
    }
-   var tools=form.Controls.OfType<SideItem>().Where(b=>b.AccessibleDescription!=null&&b.AccessibleDescription.StartsWith("Em preparação")).ToArray();
-   if(tools.Length!=4)throw new Exception("Menu de ferramentas incompleto");
+   var tools=form.Controls.OfType<SideItem>().ToArray();
+   if(tools.Length!=6)throw new Exception("Menu de ferramentas incompleto");
    foreach(var tool in tools){
     if(tool.Right>=172)throw new Exception("Ferramenta invade painel Espelho");
     if(tools.Any(other=>other!=tool&&other.Bounds.IntersectsWith(tool.Bounds)))throw new Exception("Ferramentas sobrepostas");
@@ -31,6 +31,11 @@ static class LayoutPreview {
     form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));
     bitmap.Save("farmzilla-layout.png",ImageFormat.Png);
    }
+  }
+  using(var frost=new FrostDiagnosticsForm(()=>false,false)){
+   frost.Show();frost.Update();
+   foreach(Control control in frost.Controls)if(control.Right>frost.ClientSize.Width||control.Bottom>frost.ClientSize.Height)throw new Exception("Controle Frost fora da janela: "+control.Text);
+   using(var bitmap=new Bitmap(frost.Width,frost.Height)){frost.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save("farmzilla-frost-layout.png",ImageFormat.Png);}
   }
   Console.WriteLine("Layout Windows capturado; controles dentro da janela e menu sem sobreposições.");
  }

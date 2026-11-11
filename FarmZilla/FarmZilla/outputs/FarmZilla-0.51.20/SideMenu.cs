@@ -29,7 +29,7 @@ partial class AvalonInterno {
   sidePersonagens=SideAt("Espelho",94,()=>ShowRotaView(false));sideRota=SideAt("Mat Farm",136,()=>ShowRotaView(true));
   // Reference layout: reserve the four tools without attaching game operations.
   PendingTool("Vm Farm",178);PendingTool("Token Farm",220);
-  PendingTool("Frost Farm",262);PendingTool("Skill Sender",304);
+  var frostButton=SideAt("Frost Farm",262,OpenFrostDiagnostics);frostButton.AccessibleName="Frost Farm";frostButton.AccessibleDescription="Diagnóstico Avalon e captura de coordenadas";PendingTool("Skill Sender",304);
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
   var footer=RubiLabel("FarmZilla · Rubi",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);
