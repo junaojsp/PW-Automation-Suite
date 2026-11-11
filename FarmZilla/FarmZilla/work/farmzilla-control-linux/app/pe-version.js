@@ -35,7 +35,36 @@ function inspect(b){
    const key=Buffer.from('VS_VERSION_INFO\0','utf16le');need(o+6,key.length,o+length);if(!b.subarray(o+6,o+6+key.length).equals(key))throw fail('Chave VS_VERSION_INFO ausente');
    const fixed=o+((6+key.length+3)&~3);need(fixed,52,o+length);if(u32(fixed)!==0xfeef04bd||u32(fixed+4)!==0x10000)throw fail('Versão fixa inválida');
    const version=p=>[u32(p)>>>16,u32(p)&65535,u32(p+4)>>>16,u32(p+4)&65535].join('.');
-   values.push({fileVersion:version(fixed+8),productVersion:version(fixed+16)});
+   const fileVersion=version(fixed+8),productVersion=version(fixed+16);
+   // .NET FileVersionInfo reads StringFileInfo as well as the fixed numeric fields.
+   // Both representations must agree, or Windows can reject a server-approved file.
+   function block(offset,limit){
+    need(offset,6,limit);const length=u16(offset),chars=u16(offset+2),type=u16(offset+4);
+    if(length<8||offset+length>limit)throw fail('Bloco de versão inválido');
+    let cursor=offset+6;while(cursor+2<=offset+length&&u16(cursor)!==0)cursor+=2;
+    if(cursor+2>offset+length)throw fail('Nome de bloco sem terminador');
+    const key=b.subarray(offset+6,cursor).toString('utf16le');const value=offset+((cursor+2-offset+3)&~3),bytes=chars*(type===1?2:1);
+    need(value,bytes,offset+length);return {key,type,chars,value,children:(value+bytes+3)&~3,end:offset+length};
+   }
+   function children(start,limit){const result=[];for(let cursor=start;cursor<limit;){
+    if(limit-cursor<6){if(b.subarray(cursor,limit).some(v=>v!==0))throw fail('Padding inválido');break;}
+    const child=block(cursor,limit);result.push(child);cursor=(child.end+3)&~3;
+   }return result;}
+   const strings=[];
+   for(const info of children((fixed+52+3)&~3,o+length))if(info.key==='StringFileInfo'){
+    for(const table of children(info.children,info.end)){
+     if(!/^[a-f0-9]{8}$/i.test(table.key))throw fail('Tabela de idioma inválida');
+     const fields={};for(const field of children(table.children,table.end))if(['FileVersion','ProductVersion'].includes(field.key)){
+      if(field.type!==1||!field.chars||fields[field.key])throw fail('Texto de versão inválido');
+      const text=b.subarray(field.value,field.value+field.chars*2).toString('utf16le').replace(/\0+$/,'').trim();
+      fields[field.key]=normalize(text);
+     }
+     if(fields.FileVersion!==fileVersion||fields.ProductVersion!==productVersion)throw fail('Texto de versão diverge da versão numérica');
+     strings.push(fields);
+    }
+   }
+   if(!strings.length)throw fail('Textos FileVersion e ProductVersion ausentes');
+   values.push({fileVersion,productVersion});
   }
  }}
  const types=entries(0).filter(e=>e.id===16);if(types.length!==1||!(types[0].target&0x80000000))throw fail('RT_VERSION ausente');
