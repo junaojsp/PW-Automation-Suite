@@ -17,10 +17,10 @@ partial class AvalonInterno {
   try{Directory.CreateDirectory(Path.GetDirectoryName(settings));File.WriteAllText(AutomationFlagPath(name),enabled?"1":"0");}
   catch(Exception ex){Note("Não foi possível salvar "+name+": "+ex.Message);}
  }
- CheckBox AutomationBox(CheckBox box,string title,string name,int y,string hint,Action<bool> change){
-  box.SetBounds(239,y,136,21);
+ CheckBox AutomationBox(CheckBox box,string title,string name,int x,int y,int width,string hint,Action<bool> change){
+  box.SetBounds(x,y,width,19);
   box.Text=title;box.Font=new Font("Segoe UI",(float)(8)*global::UiScale.F);
-  box.ForeColor=Rubi.Muted;box.BackColor=Color.Transparent;
+  box.ForeColor=Rubi.Muted;box.BackColor=CardTone(137,310,y);
   box.FlatStyle=FlatStyle.Flat;
   box.AccessibleName=title;box.Checked=ReadAutomationFlag(name);
   change(box.Checked);
@@ -31,14 +31,14 @@ partial class AvalonInterno {
   Controls.Add(box);hints.SetToolTip(box,hint);return box;
  }
  void InitAutomationOptions(){
-  // In the right command panel; left sidebar is reserved for farm tools.
-  AutomationBox(autoPotOption,"Auto Pot","auto-pot",405,
+  // Compact CheckBoxes, same Flat style as Meditacao/Reviver; no buttons.
+  AutomationBox(autoPotOption,"Auto Pot","auto-pot",238,402,74,
    "Configuração preservada. Uso de poções ainda não habilitado: falta confirmar slots/atalhos e comandos do cliente.",
    enabled=>autoPotWanted=enabled);
-  AutomationBox(recallOption,"Aceitar Recall","aceitar-recall",428,
+  AutomationBox(recallOption,"Aceitar Recall","aceitar-recall",238,424,138,
    "Somente convites de Recall enviados pelo líder aos secundários. Aceite automático depende de identificação confirmada do convite.",
    enabled=>recallWanted=enabled);
-  AutomationBox(epBuffOption,"EP buff PT","ep-buff-pt",451,
+  AutomationBox(epBuffOption,"EP buff PT","ep-buff-pt",312,402,64,
    "Apenas membros da PT sem buffs. Identificação de efeitos e comando de buff ainda dependem de validação do cliente.",
    enabled=>epBuffWanted=enabled);
  }
