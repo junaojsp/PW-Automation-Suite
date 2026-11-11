@@ -68,11 +68,24 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 const $=id=>document.getElementById(id);
 let csrf='';
 const showLogin=(error='')=>{$('workspace').hidden=true;$('auth-screen').hidden=false;$('auth-error').textContent=error;csrf='';};
-const showWorkspace=()=>{$('workspace').hidden=false;$('auth-screen').hidden=true;};
+const showWorkspace=()=>{$('workspace').hidden=false;$('auth-screen').hidden=true;selectTab();};
 async function checkSession(){try{const r=await fetch('/api/auth/session',{cache:'no-store'});if(!r.ok)throw Error();const j=await r.json();csrf=j.csrf;showWorkspace();await refresh();}catch{showLogin();}}
 $('login-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;$('auth-error').textContent='';try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('login-user').value,password:$('login-password').value})});const j=await r.json();if(!r.ok)throw Error(j.error||'Não foi possível entrar');csrf=j.csrf;$('login-password').value='';showWorkspace();await refresh();}catch(err){showLogin(err.message);}finally{btn.disabled=false;}};
 $('password-form').onsubmit=async e=>{e.preventDefault();if($('new-password').value!==$('confirm-password').value){notify('Confirmação da senha não confere',true);return;}try{await api('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:$('current-password').value,newPassword:$('new-password').value})});e.target.reset();showLogin('Senha atualizada. Entre novamente.');}catch(err){notify(err.message,true);}};
-document.querySelectorAll('[data-nav]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active',b===btn));const key=btn.dataset.nav;for(const id of ['devices','licenses','releases','audit','security'])$(id).hidden=key==='overview'?id==='security':key!==id;window.scrollTo({top:0,behavior:'smooth'});});
+const allowedTabs=new Set(['overview','devices','licenses','releases','audit','security']);
+function currentTab(){const tab=window.location.hash.slice(1);return allowedTabs.has(tab)?tab:'overview';}
+function selectTab(scroll=false){
+ const key=currentTab();
+ document.querySelectorAll('[data-nav]').forEach(btn=>btn.classList.toggle('active',btn.dataset.nav===key));
+ for(const id of ['devices','licenses','releases','audit','security'])$(id).hidden=key==='overview'?id==='security':key!==id;
+ if(scroll)window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('[data-nav]').forEach(btn=>btn.onclick=()=>{
+ const hash='#'+btn.dataset.nav;
+ if(window.location.hash===hash)selectTab(true);
+ else window.location.hash=hash;
+});
+window.addEventListener('hashchange',()=>selectTab(true));
 
 const d=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'});
 const notify=(message,err=false)=>{const n=$('notice');n.textContent=message;n.className=err?'error':'';};
