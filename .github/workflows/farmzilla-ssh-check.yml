@@ -10,8 +10,33 @@ jobs:
   ssh-check:
     name: Diagnóstico da VPS por chave restrita
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 12
     steps:
+      - name: Mostrar IP e aguardar liberação da porta 22
+        shell: bash
+        run: |
+          set -euo pipefail
+          fz_runner_ip=$(curl -4 --fail --silent --show-error --connect-timeout 10 --max-time 20 https://api.ipify.org)
+          python3 -c 'import ipaddress,sys; ipaddress.IPv4Address(sys.argv[1])' "$fz_runner_ip"
+          echo "IP DO EXECUTOR: $fz_runner_ip"
+          echo "Na VPS, libere somente este IP:"
+          echo "ufw allow from $fz_runner_ip to any port 22 proto tcp comment 'FarmZilla GitHub temporario'"
+          echo "Após o teste, remova a regra com:"
+          echo "ufw delete allow from $fz_runner_ip to any port 22 proto tcp"
+          python3 -u - <<'PY'
+          import socket,time
+          deadline=time.monotonic()+480
+          while time.monotonic()<deadline:
+              try:
+                  with socket.create_connection(("138.204.112.19",22),timeout=3):
+                      print("Porta 22 acessível. Iniciando autenticação SSH.")
+                      break
+              except OSError:
+                  print("Aguardando liberação no firewall...")
+                  time.sleep(10)
+          else:
+              raise SystemExit("Tempo esgotado aguardando a porta 22; nenhuma autenticação foi tentada.")
+          PY
       - name: Verificar conexão com FarmZilla
         shell: bash
         env:
