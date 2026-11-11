@@ -38,7 +38,7 @@ try {
 
     $gate=Get-Content -LiteralPath (Join-Path $sourcePath 'LicenseGate.cs') -Raw
     $dialog=Get-Content -LiteralPath (Join-Path $sourcePath 'FarmZillaControlActivationDialog.cs') -Raw
-    if($gate -notmatch 'FARMZILLA_LEGACY_LICENSE' -or $gate -notmatch 'FarmZillaControlActivationDialog.Ensure' -or $dialog -notmatch 'DeviceHash\\(identity\\)' -or $dialog -notmatch 'Copiar'){
+    if($gate -notmatch 'FARMZILLA_LEGACY_LICENSE' -or $gate -notmatch 'FarmZillaControlActivationDialog.Ensure' -or $dialog -notmatch 'DeviceHash\(identity\)' -or $dialog -notmatch 'Copiar'){
         throw 'Novo licenciamento ausente da fonte. Publicacao cancelada.'
     }
     foreach($name in @('FarmZilla.exe','Bagaceira.exe')){
