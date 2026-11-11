@@ -26,7 +26,7 @@ $stage=Join-Path $sourcePath 'FarmZilla.build.exe'
 try {
     & $compiler /nologo /target:winexe /platform:x86 $refs "/win32icon:$icon" "/out:$stage" $resources $files
     if($LASTEXITCODE -ne 0){throw 'Compilacao do cliente falhou.'}
-    foreach($test in @('UpdateTests','OnlineLicenseTests')){
+    foreach($test in @('UpdateTests','OnlineLicenseTests','FrostTests')){
         $testFile=Join-Path $PSScriptRoot ($test+'.cs')
         if(-not (Test-Path -LiteralPath $testFile -PathType Leaf)){throw "Teste nao encontrado: $testFile"}
         $testExe=Join-Path $PSScriptRoot ($test+'.exe')
