@@ -40,7 +40,7 @@ static class LayoutPreview {
    if(tabs.TabPages.Count!=2)throw new Exception("Frost Farm precisa das abas de captura e comandos");
    foreach(TabPage page in tabs.TabPages){
     tabs.SelectedTab=page;frost.Update();
-    foreach(Control control in page.Controls)if(control.Right>page.ClientSize.Width||control.Bottom>page.ClientSize.Height)throw new Exception("Controle Frost fora da aba "+page.Text+": "+control.Text);
+    foreach(Control control in page.Controls)if(control.Right>page.ClientSize.Width||control.Bottom>page.ClientSize.Height)throw new Exception("Controle Frost fora da aba "+page.Text+": "+control.GetType().Name+" \""+control.Text+"\" "+control.Bounds+" em "+page.ClientSize);
    }
    tabs.SelectedIndex=0;frost.Update();
    using(var bitmap=new Bitmap(frost.Width,frost.Height)){frost.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save("farmzilla-frost-layout.png",ImageFormat.Png);}
