@@ -39,6 +39,10 @@ async function list(pool) {
   return r.rows;
 }
 
+async function remove(pool,id) {
+  return pool.query('DELETE FROM bot_licenses WHERE id=$1 RETURNING id,label,status',[id]);
+}
+
 async function change(pool,id,action,expiresAt) {
   if(!['active','suspended','revoked','release-device','renew'].includes(action)) throw Object.assign(Error('Ação inválida'),{status:400});
   if(action==='renew') {
@@ -66,4 +70,4 @@ async function activate(pool,key,deviceHash,version) {
   return {ok:false,reason:'license_unavailable'};
 }
 
-module.exports={init,create,list,change,activate,KEY_RE,DEVICE_RE,digest};
+module.exports={init,create,list,change,remove,activate,KEY_RE,DEVICE_RE,digest};
