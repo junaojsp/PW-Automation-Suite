@@ -6,7 +6,7 @@ const attempts=new Map();
 const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const safe=(a,b)=>{const x=Buffer.from(a||''),y=Buffer.from(b||'');return x.length===y.length&&crypto.timingSafeEqual(x,y);};
 const derive=(password,salt)=>crypto.scryptSync(password,salt,64,{N:16384,r:8,p:1}).toString('hex');
-const validPass=p=>typeof p==='string'&&p.length>=16&&p.length<=128;
+const validPass=p=>typeof p==='string'&&p.length>=8&&p.length<=128;
 function json(res,code,data,headers={}){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Frame-Options':'DENY',...headers});res.end(JSON.stringify(data));}
 function cookie(value,maxAge){return COOKIE+'='+value+'; Path=/; Max-Age='+maxAge+'; HttpOnly; Secure; SameSite=Strict';}
 function token(req){const m=(req.headers.cookie||'').match(/(?:^|;\s*)__Host-fz_session=([a-f0-9]{64})(?:;|$)/);return m?.[1]||null;}
@@ -16,7 +16,7 @@ async function init(pool,user,password){
  await pool.query(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash CHAR(64) PRIMARY KEY, username TEXT NOT NULL REFERENCES admin_credentials(username) ON DELETE CASCADE, csrf_hash CHAR(64) NOT NULL, expires_at TIMESTAMPTZ NOT NULL)`);
  await pool.query('CREATE INDEX IF NOT EXISTS admin_sessions_expire ON admin_sessions(expires_at)');
  const exists=await pool.query('SELECT username FROM admin_credentials LIMIT 1');
- if(!exists.rowCount){if(!validPass(password))throw Error('Senha de bootstrap precisa de pelo menos 16 caracteres');const salt=crypto.randomBytes(16).toString('hex');await pool.query('INSERT INTO admin_credentials(username,salt,password_hash) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[user,salt,derive(password,salt)]);}
+ if(!exists.rowCount){if(!validPass(password))throw Error('Senha de bootstrap precisa de pelo menos 8 caracteres');const salt=crypto.randomBytes(16).toString('hex');await pool.query('INSERT INTO admin_credentials(username,salt,password_hash) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[user,salt,derive(password,salt)]);}
 }
 async function session(pool,req){const raw=token(req);if(!raw)return null;const found=await pool.query('SELECT username,csrf_hash FROM admin_sessions WHERE token_hash=$1 AND expires_at>NOW()',[hash(raw)]);return found.rows[0]||null;}
 async function createSession(pool,username){const t=crypto.randomBytes(32).toString('hex'),csrf=crypto.createHmac('sha256',t).update('csrf').digest('hex');await pool.query('DELETE FROM admin_sessions WHERE expires_at < NOW()');await pool.query('INSERT INTO admin_sessions(token_hash,username,csrf_hash,expires_at) VALUES($1,$2,$3,NOW()+INTERVAL \'12 hours\')',[hash(t),username,hash(csrf)]);return {t,csrf};}
@@ -50,7 +50,7 @@ async function route(pool,req,res,pathname){
   const s=await session(pool,req);if(!s)return json(res,401,{error:'Sessão expirada'});
   if(!await authorized(pool,req,s))return json(res,403,{error:'Requisição não autorizada'});
   const b=await body(req);
-  if(!validPass(b.newPassword)||b.newPassword===b.currentPassword)return json(res,400,{error:'Nova senha precisa ter 16 a 128 caracteres e ser diferente'});
+  if(!validPass(b.newPassword)||b.newPassword===b.currentPassword)return json(res,400,{error:'Nova senha precisa ter 8 a 128 caracteres e ser diferente'});
   const old=await pool.query('SELECT salt,password_hash FROM admin_credentials WHERE username=$1',[s.username]);
   if(!old.rowCount||!safe(derive(String(b.currentPassword||''),old.rows[0].salt),old.rows[0].password_hash))return json(res,403,{error:'Senha atual incorreta'});
   const salt=crypto.randomBytes(16).toString('hex');
