@@ -41,6 +41,38 @@ jobs:
           $a = (Get-FileHash "$output/FarmZilla.exe" -Algorithm SHA256).Hash
           Write-Host "FarmZilla.exe compilado: $a"
 
+      - name: Validar PE, assinatura e gerar relatorio de seguranca
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = './outputs/FarmZilla-0.51.20/FarmZilla.exe'
+          $bytes = [IO.File]::ReadAllBytes((Resolve-Path $exe))
+          if ($bytes.Length -lt 1024 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) { throw 'Arquivo nao e executavel PE valido' }
+          $signature = Get-AuthenticodeSignature -FilePath $exe
+          Write-Host "Assinatura Authenticode: $($signature.Status)"
+          $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash
+          Write-Host "SHA-256: $hash"
+          $meta = (Get-Item $exe).VersionInfo
+          if ($meta.FileVersion -ne '0.51.21.0') { throw "Versao inesperada: $($meta.FileVersion)" }
+          $lines = @(
+            'FarmZilla 0.51.21 - verificacao de artefato'
+            "SHA-256: $hash"
+            "Versao: $($meta.FileVersion)"
+            "Assinatura Authenticode: $($signature.Status)"
+            'Aviso: build e hash nao comprovam ausencia de malware.'
+            'Uma assinatura digital de fornecedor verificado deve ser configurada antes da distribuicao ampla.'
+          )
+          Set-Content -Path './farmzilla-security-report.txt' -Value $lines -Encoding UTF8
+
+      - name: Publicar relatorio de verificacao
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarmZilla-verificacao
+          path: FarmZilla/FarmZilla/farmzilla-security-report.txt
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Disponibilizar executavel para download
         if: success()
         uses: actions/upload-artifact@v4
