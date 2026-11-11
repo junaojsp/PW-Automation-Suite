@@ -46,6 +46,20 @@ async function handle(req,res) {
     const result=await licenses.activate(pool,body.key,body.deviceHash,body.version);
     return response(res,result.ok?200:403,result);
   }
+  // Authenticated, read-only update discovery. Never serve an unsigned EXE here.
+  if(route==='/api/bot/update-check' && req.method==='POST') {
+    const body=await readJson(req);
+    const check=await licenses.activate(pool,body.key,body.deviceHash,body.version);
+    if(!check.ok)return response(res,403,{ok:false,reason:'license_unavailable'});
+    if(!versionPattern.test(body.version||''))return response(res,400,{ok:false,error:'Versão inválida'});
+    const q=await pool.query('SELECT r.version,r.sha256,r.bytes FROM release_publication p JOIN releases r ON r.id=p.release_id WHERE p.id=1');
+    const published=q.rows[0]||null;
+    // Version numbers are compared as integer components, not lexicographic strings.
+    const parts=v=>v.split('.').map(Number);
+    const newer=(v,old)=>{const a=parts(v),b=parts(old);for(let i=0;i<4;i++){const x=a[i]||0,y=b[i]||0;if(x!==y)return x>y;}return false;};
+    return response(res,200,{ok:true,updateAvailable:!!published&&newer(published.version,body.version),
+      release:published?{version:published.version,sha256:published.sha256,bytes:Number(published.bytes)}:null});
+  }
   if(route.startsWith('/api/auth/')) {
     const result=await auth.route(pool,req,res,route);
     if(result===false)return notFound(res);
