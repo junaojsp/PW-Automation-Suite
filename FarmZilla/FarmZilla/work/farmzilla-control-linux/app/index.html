@@ -15,26 +15,66 @@ code{font-size:12px;color:#c3d6e6;overflow-wrap:anywhere}
 .pill{padding:4px 8px;border-radius:12px;background:#253c38;color:#8fdfbd}.pill.blocked{background:#48252b;color:#f3a3ad}
 #notice{min-height:25px;color:#9edbba;font-size:13px}#notice.error{color:#ff9494}
 footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;margin:auto}
+
+#auth-screen{position:fixed;inset:0;z-index:30;background:radial-gradient(circle at 75% 15%,#32222c,transparent 42%),#090e16;display:grid;place-items:center;padding:18px}
+#auth-screen[hidden],#workspace[hidden]{display:none!important}
+.login-box{width:min(420px,100%);background:#141b27;border:1px solid #344255;border-radius:20px;padding:34px;box-shadow:0 30px 90px #0008}
+.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:45px;height:45px;border-radius:13px;background:#aa303a;color:white;font-weight:800;font-size:22px;margin-bottom:18px}
+.login-box h2{font-size:25px;letter-spacing:-.5px;margin:0 0 8px}
+.login-box p{color:var(--muted);line-height:1.5}
+.login-box label{display:block;margin:18px 0 6px;font-weight:600}
+.login-box input{width:100%;height:43px}.login-box button{width:100%;margin-top:22px;height:45px}
+#auth-error{min-height:20px;color:#ff9999;margin-top:12px}
+#workspace{min-height:100vh;padding-left:240px}
+.sidebar{width:240px;position:fixed;top:0;bottom:0;left:0;background:#121925;border-right:1px solid #293649;padding:24px 16px;z-index:5;display:flex;flex-direction:column;gap:7px}
+.sidebar .brand{font-weight:800;font-size:20px;letter-spacing:-.6px;margin:8px 10px 26px}
+.sidebar .brand span{color:#e25762}
+.sidebar button{width:100%;text-align:left;background:transparent;border:0;padding:12px 14px;font-weight:600;color:#a7b8cb}
+.sidebar button.active,.sidebar button:hover{background:#302532;color:#fff}
+.sidebar .bottom{margin-top:auto;color:var(--muted);font-size:12px;padding:10px 12px}
+#workspace header{padding:24px 34px;background:#101723}
+#workspace main{max-width:1380px;padding:0 34px}
+#workspace section{box-shadow:0 5px 24px #0002}
+#workspace .cards{margin-top:26px}
+#workspace .card{border-top:2px solid #bd404c}
+#workspace h1{font-size:23px}
+#workspace footer{max-width:1380px}
+#workspace section[hidden]{display:none}
+#password-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;align-items:end}
+#password-form label{display:grid;gap:7px;color:#b9c8d8}
+#password-form input{width:100%}
+#password-form button{align-self:end;height:40px}
+@media(max-width:900px){#workspace{padding-left:0}.sidebar{position:static;width:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding:12px}.sidebar .brand{margin:0 14px}.sidebar button{width:auto}.sidebar .bottom{display:none}#workspace header{padding:18px}#workspace main{padding:0 14px}}
 </style></head><body>
-<header><div><h1>FarmZilla <span style="color:var(--accent)">Control</span></h1><small>Painel administrativo interno · MVP Linux</small></div><button id="reload">Atualizar</button></header>
+<div id="auth-screen"><form class="login-box" id="login-form"><div class="brand-mark">FZ</div><h2>Bem-vindo ao FarmZilla</h2><p>Entre com as credenciais administrativas para acessar o painel de controle.</p><label for="login-user">Usuário</label><input id="login-user" autocomplete="username" required value="admin"><label for="login-password">Senha</label><input id="login-password" type="password" autocomplete="current-password" required><button class="primary">Entrar no painel</button><p id="auth-error" role="alert"></p><small>Acesso seguro pelo domínio farmzilla.jrconect.com.br</small></form></div>
+<div id="workspace" hidden><aside class="sidebar"><div class="brand">FarmZilla <span>Control</span></div><button class="active" data-nav="overview">Visão geral</button><button data-nav="devices">Computadores</button><button data-nav="releases">Versões</button><button data-nav="audit">Auditoria</button><button data-nav="security">Segurança</button><div class="bottom">FarmZilla Control · Administração</div></aside>
+<header><div><h1>FarmZilla <span style="color:var(--accent)">Control</span></h1><small>Painel administrativo interno · MVP Linux</small></div><div style="display:flex;gap:8px;align-items:center"><button id="reload">Atualizar</button><button id="logout">Sair</button></div></header>
 <main>
 <div id="notice" role="status"></div>
 <div class="cards"><div class="card"><small>Computadores cadastrados</small><div class="stat" id="total-devices">—</div></div><div class="card"><small>Computadores bloqueados</small><div class="stat" id="blocked-devices">—</div></div><div class="card"><small>Versões armazenadas</small><div class="stat" id="total-releases">—</div></div></div>
-<section><h2>Computadores</h2><small>Cadastro administrativo. Ainda não ativa nem bloqueia o executável standalone já distribuído.</small>
+<section id="devices"><h2>Computadores</h2><small>Cadastro administrativo. Ainda não ativa nem bloqueia o executável standalone já distribuído.</small>
 <form id="device-form"><input id="device-name" maxlength="120" placeholder="Identificação do computador" required><input id="device-note" maxlength="1000" placeholder="Observação" style="flex:1;min-width:170px"><button class="primary">Cadastrar</button></form>
 <div class="scroll"><table><thead><tr><th>Computador</th><th>Observação</th><th>Estado</th><th>Cadastrado</th><th>Ação</th></tr></thead><tbody id="device-rows"></tbody></table></div></section>
-<section><h2>Versões do FarmZilla</h2><small>Upload manual de executáveis Windows. Arquivos ficam armazenados localmente; não são publicados para clientes nem instalados automaticamente.</small>
+<section id="releases"><h2>Versões do FarmZilla</h2><small>Upload manual de executáveis Windows. Arquivos ficam armazenados localmente; não são publicados para clientes nem instalados automaticamente.</small>
 <form id="release-form"><input id="release-version" placeholder="Versão: 0.51.20" pattern="[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" required><input id="release-file" type="file" accept=".exe" required><button class="primary">Enviar versão</button></form>
 <div class="scroll"><table><thead><tr><th>Versão</th><th>Tamanho</th><th>SHA-256</th><th>Registrada em</th></tr></thead><tbody id="release-rows"></tbody></table></div></section>
-<section><h2>Auditoria</h2><div class="scroll"><table><thead><tr><th>Data</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="audit-rows"></tbody></table></div></section>
-</main><footer>Acesso local via 127.0.0.1:8088. Antes de publicar na internet: configurar HTTPS, domínio e camada de segurança adicional.</footer>
+<section id="security" hidden><h2>Segurança da conta</h2><p class="muted">Altere sua senha administrativa. Ao salvar, todas as sessões serão encerradas e será necessário entrar novamente.</p><form id="password-form"><label>Senha atual<input id="current-password" type="password" autocomplete="current-password" required></label><label>Nova senha (mínimo 16 caracteres)<input id="new-password" type="password" autocomplete="new-password" minlength="16" required></label><label>Confirme a nova senha<input id="confirm-password" type="password" autocomplete="new-password" minlength="16" required></label><button class="primary">Alterar senha</button></form></section><section id="audit"><h2>Auditoria</h2><div class="scroll"><table><thead><tr><th>Data</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="audit-rows"></tbody></table></div></section>
+</main><footer>FarmZilla Control · Acesso administrativo HTTPS. A versão independente do aplicativo não é bloqueada remotamente.</footer>
 <script>
 const $=id=>document.getElementById(id);
+let csrf='';
+const showLogin=(error='')=>{$('workspace').hidden=true;$('auth-screen').hidden=false;$('auth-error').textContent=error;csrf='';};
+const showWorkspace=()=>{$('workspace').hidden=false;$('auth-screen').hidden=true;};
+async function checkSession(){try{const r=await fetch('/api/auth/session',{cache:'no-store'});if(!r.ok)throw Error();const j=await r.json();csrf=j.csrf;showWorkspace();await refresh();}catch{showLogin();}}
+$('login-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;$('auth-error').textContent='';try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('login-user').value,password:$('login-password').value})});const j=await r.json();if(!r.ok)throw Error(j.error||'Não foi possível entrar');csrf=j.csrf;$('login-password').value='';showWorkspace();await refresh();}catch(err){showLogin(err.message);}finally{btn.disabled=false;}};
+$('password-form').onsubmit=async e=>{e.preventDefault();if($('new-password').value!==$('confirm-password').value){notify('Confirmação da senha não confere',true);return;}try{await api('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:$('current-password').value,newPassword:$('new-password').value})});e.target.reset();showLogin('Senha atualizada. Entre novamente.');}catch(err){notify(err.message,true);}};
+document.querySelectorAll('[data-nav]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active',b===btn));const key=btn.dataset.nav;for(const id of ['devices','releases','audit','security'])$(id).hidden=key==='overview'?id==='security':key!==id;window.scrollTo({top:0,behavior:'smooth'});});
+
 const d=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'});
 const notify=(message,err=false)=>{const n=$('notice');n.textContent=message;n.className=err?'error':'';};
 const el=(name,text)=>{const e=document.createElement(name);e.textContent=String(text??'');return e;};
 function cells(row,values){for(const value of values)row.appendChild(el('td',value));}
-async function api(url,options){const r=await fetch(url,{cache:'no-store',...options});const j=await r.json();if(!r.ok)throw Error(j.error||'Falha HTTP '+r.status);return j;}
+async function api(url,options={}){const headers={...(options.headers||{})};if(options.method&&!['GET','HEAD'].includes(options.method))headers['X-FZ-CSRF']=csrf;const r=await fetch(url,{cache:'no-store',...options,headers});const j=await r.json();if(r.status===401){showLogin('Sessão expirada. Entre novamente.');throw Error('Sessão expirada');}if(!r.ok)throw Error(j.error||'Falha HTTP '+r.status);return j;}
 function formatted(date){return d.format(new Date(date));}
 async function refresh(){
  try{
@@ -54,7 +94,8 @@ async function refresh(){
  }catch(e){notify(e.message,true);}
 }
 $('reload').onclick=refresh;
+$('logout').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});}catch{}showLogin('Sessão encerrada.');};
 $('device-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('device-name').value,note:$('device-note').value})});e.target.reset();await refresh();notify('Computador registrado');}catch(err){notify(err.message,true);}};
 $('release-form').onsubmit=async e=>{e.preventDefault();const file=$('release-file').files[0];if(!file)return;const btn=e.target.querySelector('button');btn.disabled=true;notify('Enviando versão...');try{await api('/api/releases?version='+encodeURIComponent($('release-version').value),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});e.target.reset();await refresh();notify('Arquivo armazenado e SHA-256 registrado');}catch(err){notify(err.message,true);}finally{btn.disabled=false;}};
-refresh();
-</script></body></html>
+checkSession();
+</script></div></body></html>

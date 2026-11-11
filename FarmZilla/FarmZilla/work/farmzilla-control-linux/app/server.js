@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { pipeline } = require('node:stream/promises');
 const { Transform } = require('node:stream');
 const { Pool } = require('pg');
+const auth = require('./auth');
 
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_USER = process.env.ADMIN_USER;
@@ -20,20 +21,6 @@ const MAX_JSON = 8192;
 const MAX_RELEASE = 32 * 1024 * 1024;
 const versionPattern = /^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,5}(?:\.[0-9]{1,5})?$/;
 const safeName = v => typeof v === 'string' && v.trim().length >= 1 && v.trim().length <= 120;
-function equal(a,b) {
-  const x = crypto.createHash('sha256').update(a).digest();
-  const y = crypto.createHash('sha256').update(b).digest();
-  return crypto.timingSafeEqual(x,y);
-}
-function authenticate(req) {
-  const header = req.headers.authorization || '';
-  if (!header.startsWith('Basic ')) return false;
-  let decoded;
-  try {decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');}
-  catch {return false;}
-  const index = decoded.indexOf(':');
-  return index > 0 && equal(decoded.slice(0,index), ADMIN_USER) && equal(decoded.slice(index+1), ADMIN_PASSWORD);
-}
 function response(res, code, data, extra={}) {
   res.writeHead(code, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY',...extra});
   res.end(JSON.stringify(data));
@@ -53,12 +40,19 @@ async function handle(req,res) {
     try {await pool.query('SELECT 1');return response(res,200,{status:'ok'});}
     catch {return response(res,503,{status:'database_unavailable'});}
   }
-  if(!authenticate(req)) return response(res,401,{error:'Autenticação administrativa necessária'},{'WWW-Authenticate':'Basic realm="FarmZilla Control", charset="UTF-8"'});
+  if(route.startsWith('/api/auth/')) {
+    const result=await auth.route(pool,req,res,route);
+    if(result===false)return notFound(res);
+    return;
+  }
+  const active=await auth.session(pool,req);
   if(route==='/' && req.method==='GET') {
     const html = await fsp.readFile(path.join(__dirname,'index.html'));
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'self'",'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY'});
     return res.end(html);
   }
+  if(!active)return response(res,401,{error:'Faça login no FarmZilla Control'});
+  if(!['GET','HEAD','OPTIONS'].includes(req.method)&&!await auth.authorized(pool,req,active))return response(res,403,{error:'Sessão ou origem inválida'});
   if(route==='/api/overview' && req.method==='GET') {
     const [devices,releases] = await Promise.all([pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE status='blocked')::int AS blocked FROM devices"),pool.query('SELECT count(*)::int AS total FROM releases')]);
     return response(res,200,{devices:devices.rows[0],releases:releases.rows[0]});
@@ -133,5 +127,5 @@ const server=http.createServer((req,res)=>{handle(req,res).catch(err=>{
   response(res,err.status|| (err.code==='23505'?409:500),{error:err.status?err.message:err.code==='23505'?'Registro duplicado':'Falha interna'});
 });});
 server.headersTimeout=15000;server.requestTimeout=120000;
-server.listen(PORT,'0.0.0.0',()=>console.log('FarmZilla Control ouvindo porta '+PORT));
+auth.init(pool,ADMIN_USER,ADMIN_PASSWORD).then(()=>server.listen(PORT,'0.0.0.0',()=>console.log('FarmZilla Control ouvindo porta '+PORT))).catch(error=>{console.error('Falha inicializando autenticação:',error.message);process.exitCode=1;pool.end();});
 process.on('SIGTERM',()=>server.close(()=>pool.end()));
