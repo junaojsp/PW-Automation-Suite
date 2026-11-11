@@ -24,12 +24,13 @@ function newKey() {
   return 'FZ' + crypto.randomBytes(24).toString('hex').toUpperCase();
 }
 
-async function create(pool,label,expiresAt) {
+async function create(pool,label,expiresAt,deviceHash) {
+  if(deviceHash!=null && (typeof deviceHash!=='string' || !DEVICE_RE.test(deviceHash))) throw Object.assign(Error('Código do computador inválido'),{status:400});
   if(typeof label !== 'string' || !label.trim() || label.length > 120) throw Object.assign(Error('Descrição inválida'),{status:400});
   const date = new Date(expiresAt);
   if(!Number.isFinite(date.getTime()) || date <= new Date()) throw Object.assign(Error('Validade inválida'),{status:400});
   const key = newKey();
-  const result = await pool.query('INSERT INTO bot_licenses(key_hash,label,expires_at) VALUES($1,$2,$3) RETURNING id,label,status,expires_at,created_at',[digest(key),label.trim(),date]);
+  const result = await pool.query('INSERT INTO bot_licenses(key_hash,label,expires_at,device_hash) VALUES($1,$2,$3,$4) RETURNING id,label,status,expires_at,created_at',[digest(key),label.trim(),date,deviceHash||null]);
   return {...result.rows[0],key};
 }
 

@@ -88,7 +88,7 @@ async function handle(req,res) {
   }
   if(route==='/api/licenses' && req.method==='POST') {
     const b=await readJson(req);
-    const license=await licenses.create(pool,b.label,b.expiresAt);
+    const license=await licenses.create(pool,b.label,b.expiresAt,b.deviceHash);
     await audit('license.create',{id:license.id});
     return response(res,201,{license});
   }
