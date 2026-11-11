@@ -110,8 +110,12 @@ async function handle(req,res) {
   if(!active)return response(res,401,{error:'Faça login no FarmZilla Control'});
   if(!['GET','HEAD','OPTIONS'].includes(req.method)&&!await auth.authorized(pool,req,active))return response(res,403,{error:'Sessão ou origem inválida'});
   if(route==='/api/overview' && req.method==='GET') {
-    const [devices,releases] = await Promise.all([pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE status='blocked')::int AS blocked FROM devices"),pool.query('SELECT count(*)::int AS total FROM releases')]);
-    return response(res,200,{devices:devices.rows[0],releases:releases.rows[0]});
+    const [devices,releases,bots] = await Promise.all([
+      pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE status='blocked')::int AS blocked FROM devices"),
+      pool.query('SELECT count(*)::int AS total FROM releases'),
+      pool.query("SELECT count(*) FILTER (WHERE status='active' AND last_seen_at>NOW()-INTERVAL '15 minutes')::int AS online FROM bot_licenses")
+    ]);
+    return response(res,200,{devices:devices.rows[0],releases:releases.rows[0],bots:bots.rows[0]});
   }
   if(route==='/api/devices' && req.method==='GET') {
     const rows=await pool.query('SELECT id,name,note,status,created_at,updated_at FROM devices ORDER BY id DESC LIMIT 500');

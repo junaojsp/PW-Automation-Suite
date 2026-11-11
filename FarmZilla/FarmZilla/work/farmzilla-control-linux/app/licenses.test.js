@@ -12,6 +12,7 @@ test('bot log ingest, toggle and admin read',{skip:!process.env.TEST_DATABASE_UR
   const device='ab'.repeat(32);
   const first=await licenses.activate(pool,created.key,device,'0.51.35');
   assert.equal(first.ok,true);assert.equal(first.log,false);
+  assert.equal((await licenses.list(pool))[0].online,true);
   const off=await licenses.ingest(pool,created.key,device,'0.51.35',['22:00:00 Frost: CAPTURA_INICIO']);
   assert.equal(off.ok,false);assert.equal(off.status,403);assert.equal(off.log,false);
   await licenses.change(pool,created.id,'log-on');

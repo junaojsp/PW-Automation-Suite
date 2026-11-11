@@ -44,7 +44,9 @@ async function create(pool,label,expiresAt,deviceHash) {
 }
 
 async function list(pool) {
-  const r=await pool.query('SELECT id,label,status,device_hash IS NOT NULL AS linked,expires_at,created_at,updated_at,last_seen_at,client_version,send_log FROM bot_licenses ORDER BY id DESC LIMIT 500');
+  const r=await pool.query(`SELECT id,label,status,device_hash IS NOT NULL AS linked,expires_at,created_at,updated_at,last_seen_at,client_version,send_log,
+    (status='active' AND last_seen_at IS NOT NULL AND last_seen_at>NOW()-INTERVAL '15 minutes') AS online
+    FROM bot_licenses ORDER BY id DESC LIMIT 500`);
   return r.rows;
 }
 

@@ -60,14 +60,14 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 <header><div><h1>FarmZilla <span style="color:var(--accent)">Control</span></h1><small>Painel administrativo interno · MVP Linux</small></div><div style="display:flex;gap:8px;align-items:center"><button id="reload">Atualizar</button><button id="logout">Sair</button></div></header>
 <main>
 <div id="notice" role="status"></div>
-<div class="cards"><div class="card"><small>Computadores cadastrados</small><div class="stat" id="total-devices">—</div></div><div class="card"><small>Computadores bloqueados</small><div class="stat" id="blocked-devices">—</div></div><div class="card"><small>Versões armazenadas</small><div class="stat" id="total-releases">—</div></div></div>
+<div class="cards"><div class="card"><small>Computadores cadastrados</small><div class="stat" id="total-devices">—</div></div><div class="card"><small>Computadores bloqueados</small><div class="stat" id="blocked-devices">—</div></div><div class="card"><small>Bots online agora</small><div class="stat" id="online-bots">—</div></div><div class="card"><small>Versões armazenadas</small><div class="stat" id="total-releases">—</div></div></div>
 <section id="devices"><h2>Computadores</h2><small>Cadastro administrativo. Ainda não ativa nem bloqueia o executável standalone já distribuído.</small>
 <form id="device-form"><input id="device-name" maxlength="120" placeholder="Identificação do computador" required><input id="device-note" maxlength="1000" placeholder="Observação" style="flex:1;min-width:170px"><button class="primary">Cadastrar</button></form>
 <div class="scroll"><table><thead><tr><th>Computador</th><th>Observação</th><th>Estado</th><th>Cadastrado</th><th>Ação</th></tr></thead><tbody id="device-rows"></tbody></table></div></section>
 <section id="licenses" hidden><h2>Licenças do bot</h2><p class="muted">A chave aparece somente ao gerar. O bot reconhece automaticamente uma licença salva e válida. Ativar, suspender ou excluir uma chave neste painel altera o resultado da próxima validação. O registro do FarmZilla (Frost, Espelho, Mat Farm) só aparece aqui com Enviar registro ligado; o CSV completo da Frost permanece no PC.</p>
 <form id="license-form"><input id="license-label" placeholder="Cliente / identificação" maxlength="120" required><input id="license-expiry" type="datetime-local" required><input id="license-device-code" maxlength="64" minlength="64" pattern="[a-f0-9]{64}" placeholder="Código do PC (opcional)" title="Cole o código de 64 caracteres exibido pelo bot"><button class="primary">Gerar licença</button></form>
 <div id="new-license" hidden><p>Nova chave (exibida somente agora):</p><code id="new-license-key"></code> <button id="copy-license-key" type="button">Copiar chave</button></div>
-<div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Situação</th><th>Vencimento</th><th>PC vinculado</th><th>Último acesso</th><th>Versão</th><th>Registro</th><th>Ações</th></tr></thead><tbody id="license-rows"></tbody></table></div></section>
+<div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Situação</th><th>Presença</th><th>Vencimento</th><th>PC vinculado</th><th>Último acesso</th><th>Versão</th><th>Registro</th><th>Ações</th></tr></thead><tbody id="license-rows"></tbody></table></div></section>
 <section id="releases"><h2>Versões do FarmZilla</h2><small>Envie FarmZilla.exe. A versão interna é conferida antes do cadastro; o app instala a versão publicada pelo botão Update.</small>
 <form id="release-form"><input id="release-version" placeholder="Versão: 0.51.20" pattern="[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" required><input id="release-file" type="file" accept=".exe" required><button class="primary">Enviar versão</button></form>
 <p class="muted">Enviar não publica automaticamente. Escolha uma versão e clique em Publicar. Somente uma versão fica publicada por vez.</p><button id="unpublish-release" type="button">Retirar versão publicada</button><div class="scroll"><table><thead><tr><th>Versão</th><th>Estado</th><th>Tamanho</th><th>SHA-256</th><th>Registrada em</th><th>Ação</th></tr></thead><tbody id="release-rows"></tbody></table></div></section>
@@ -106,7 +106,7 @@ function formatted(date){return d.format(new Date(date));}
 async function refresh(){
  try{
   const [stats,devs,rels,audit,licenseData]=await Promise.all([api('/api/overview'),api('/api/devices'),api('/api/releases'),api('/api/audit'),api('/api/licenses')]);
-  $('total-devices').textContent=stats.devices.total;$('blocked-devices').textContent=stats.devices.blocked;$('total-releases').textContent=stats.releases.total;
+  $('total-devices').textContent=stats.devices.total;$('blocked-devices').textContent=stats.devices.blocked;$('online-bots').textContent=(stats.bots&&stats.bots.online)||0;$('total-releases').textContent=stats.releases.total;
   const rows=$('device-rows');rows.replaceChildren();
   for(const v of devs.devices){
    const row=document.createElement('tr');cells(row,[v.name,v.note,'',formatted(v.created_at)]);
@@ -117,7 +117,8 @@ async function refresh(){
   const licenseRows=$('license-rows');licenseRows.replaceChildren();
   for(const v of licenseData.licenses){
    const row=el('tr','');const status=v.status==='active'&&new Date(v.expires_at)<=new Date()?'Expirada':v.status;
-   cells(row,[v.id,v.label,status,formatted(v.expires_at),v.linked?'Sim':'Não',v.last_seen_at?formatted(v.last_seen_at):'—',v.client_version||'—',v.send_log?'Ligado':'Desligado']);
+   cells(row,[v.id,v.label,status,'',formatted(v.expires_at),v.linked?'Sim':'Não',v.last_seen_at?formatted(v.last_seen_at):'—',v.client_version||'—',v.send_log?'Ligado':'Desligado']);
+   const presence=row.children[3];const online=el('span',v.online?'Online':'Offline');online.className='pill'+(v.online?'':' blocked');presence.appendChild(online);
    const td=el('td','');const actions=[['active','Ativar'],['suspended','Suspender'],['revoked','Revogar'],['release-device','Liberar PC'],['renew','Renovar']];
    for(const [action,label] of actions){if(action===v.status||action==='release-device'&&!v.linked)continue;const btn=el('button',label);btn.onclick=async()=>{let expiresAt;if(action==='renew'){expiresAt=prompt('Nova validade (AAAA-MM-DD):');if(!expiresAt)return;expiresAt+='T23:59:59';}else if(!confirm('Confirmar '+label.toLowerCase()+' da licença #'+v.id+'?'))return;btn.disabled=true;try{await api('/api/licenses/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,expiresAt})});await refresh();notify('Licença atualizada');}catch(e){notify(e.message,true);btn.disabled=false;}};td.appendChild(btn);}
    const logToggle=el('button',v.send_log?'Parar envio':'Enviar registro');logToggle.onclick=async()=>{logToggle.disabled=true;try{await api('/api/licenses/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:v.send_log?'log-off':'log-on'})});await refresh();notify('Registro '+(v.send_log?'desligado':'ligado')+' para '+v.label);}catch(e){notify(e.message,true);logToggle.disabled=false;}};td.appendChild(logToggle);
@@ -159,5 +160,6 @@ function renderLog(){const q=$('logsearch').value.trim().toLowerCase();const lin
 async function showLog(id,label){logLicense=id;logName=label;$('logview').hidden=false;$('logtitle').textContent='Registro · '+label;$('log').replaceChildren(logNote('info','Carregando…'));try{logLines=(await api('/api/licenses/'+id+'/logs?limit=2000')).lines;renderLog();}catch(e){$('log').replaceChildren(logNote('err',e.message));}}
 $('logreload').onclick=()=>showLog(logLicense,logName);$('onlyerr').onchange=renderLog;$('logsearch').oninput=renderLog;$('logclose').onclick=()=>{$('logview').hidden=true;};
 $('logview').onclick=e=>{if(e.target===$('logview'))$('logview').hidden=true;};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('logview').hidden=true;});
+setInterval(()=>{if($('workspace').hidden||!$('logview').hidden)return;if(document.activeElement&&document.activeElement.matches('input,textarea,select'))return;refresh();},30000);
 checkSession();
 </script></div></body></html>
