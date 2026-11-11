@@ -30,7 +30,7 @@ if [[ ! -f $key ]]; then
  ssh-keygen -q -t ed25519 -N '' -C farmzilla-github-actions -f "$key"
 fi
 chmod 600 "$key"
-public_key=$(ssh-keygen -y -f "$key")
+public_key=$(ssh-keygen -y -f "$key" | awk '{print $1 " " $2}')
 if [[ -e /usr/local/sbin/farmzilla-github-ssh ]] && ! grep -q '^# FARMZILLA_GITHUB_SSH_V1' /usr/local/sbin/farmzilla-github-ssh; then
  echo 'Já existe outro comando no destino; nada será sobrescrito' >&2; exit 1
 fi
@@ -47,7 +47,15 @@ entry="restrict,command=\"/usr/local/sbin/farmzilla-github-ssh\" $public_key far
 # Refuse an existing occurrence with different options; never leave a broad copy.
 key_body=$(awk '{print $2}' <<< "$public_key")
 if grep -Fq "$key_body" "$authorized"; then
- grep -Fxq "$entry" "$authorized" || { echo 'Chave já cadastrada com opções diferentes; revise antes de continuar' >&2; exit 1; }
+ python3 - "$authorized" "$public_key" <<'PYKEY'
+from pathlib import Path
+import sys
+key_type,body=sys.argv[2].split()
+expected=['restrict,command="/usr/local/sbin/farmzilla-github-ssh"',key_type,body]
+found=[line.split() for line in Path(sys.argv[1]).read_text().splitlines() if body in line.split()]
+if not found or any(line[:3]!=expected for line in found):
+ raise SystemExit('Chave já cadastrada com opções diferentes; revise antes de continuar')
+PYKEY
 else
  printf '\n%s\n' "$entry" >> "$authorized"
 fi
