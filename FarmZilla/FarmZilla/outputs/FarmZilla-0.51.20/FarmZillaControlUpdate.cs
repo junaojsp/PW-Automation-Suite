@@ -92,6 +92,25 @@ static class FarmZillaControlUpdate {
   File.WriteAllText(request,Json.Serialize(data),Encoding.UTF8);
   return request;
  }
+ // The helper is a copy of the current FarmZilla.exe. Match it to the on-disk
+ // original before any replacement, even when Windows has already released the PID.
+ internal static bool SameOriginalBinary(string helper,string target){
+  if(String.IsNullOrEmpty(helper)||String.IsNullOrEmpty(target)||!File.Exists(helper)||!File.Exists(target))return false;
+  var a=new FileInfo(helper);var b=new FileInfo(target);
+  if(a.Length!=b.Length||a.Length<1024||a.Length>AppUpdate.MaxExe)return false;
+  using(var sha=SHA256.Create()){
+   byte[] first,second;
+   using(var input=File.OpenRead(helper))first=sha.ComputeHash(input);
+   sha.Initialize();
+   using(var input=File.OpenRead(target))second=sha.ComputeHash(input);
+   return CryptographicEquals(first,second);
+  }
+ }
+ static bool CryptographicEquals(byte[] a,byte[] b){
+  if(a==null||b==null||a.Length!=b.Length)return false;
+  int difference=0;for(int i=0;i<a.Length;i++)difference|=a[i]^b[i];
+  return difference==0;
+ }
  internal static bool RunInstaller(string[] args){
   if(args.Length==0||args[0]!="--apply-control-update")return false;
   try {
@@ -114,14 +133,20 @@ static class FarmZillaControlUpdate {
    Version v;if(!Version.TryParse(FileVersionInfo.GetVersionInfo(staged).FileVersion,out v)||
        v.Major!=next.Major||v.Minor!=next.Minor||v.Build!=next.Build)
     throw new InvalidDataException("Versão do arquivo não corresponde à publicação.");
-   Process parent;
-   try{parent=Process.GetProcessById(data.parentId);}catch(ArgumentException){throw new InvalidDataException("Processo de origem não identificado.");}
-   using(parent){
+   // The parent can legitimately exit before the helper gets scheduled.
+   // In that case verify the still-installed EXE is byte-for-byte the helper's origin.
+   // Never skip this check for a live PID, reused PID, or a modified target.
+   Process parent=null;bool parentAlreadyGone=false;
+   try{parent=Process.GetProcessById(data.parentId);}
+   catch(ArgumentException){parentAlreadyGone=true;}
+   if(!parentAlreadyGone)using(parent){
     if(parent.StartTime.ToUniversalTime().Ticks!=data.parentStart||
        !String.Equals(Path.GetFullPath(parent.MainModule.FileName),data.target,StringComparison.OrdinalIgnoreCase))
      throw new InvalidDataException("Processo de origem diferente.");
     if(!parent.WaitForExit(60000))throw new IOException("FarmZilla ainda está encerrando.");
    }
+   if(!SameOriginalBinary(Process.GetCurrentProcess().MainModule.FileName,data.target))
+    throw new InvalidDataException("Arquivo de origem foi alterado desde o fechamento.");
    AppUpdate.ApplyFile(data.target,bytes,path=>Process.Start(new ProcessStartInfo(path){UseShellExecute=true,WorkingDirectory=Path.GetDirectoryName(path)}));
    File.Delete(staged);File.Delete(request);
   }catch(Exception ex){
