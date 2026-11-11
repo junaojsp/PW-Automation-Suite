@@ -5,11 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 partial class AvalonInterno {
- string updateSummary="Atualizar aplicativo";Button updateSettingsButton;System.Windows.Forms.Timer updateTimer;bool updateChecking;string pendingUpdate;
+ string updateSummary="Atualizar aplicativo";Button updateSettingsButton;System.Windows.Forms.Timer updateTimer;bool updateChecking;string pendingUpdate;string pendingControlUpdate;
  void InitUpdates(){
   updateTimer=new System.Windows.Forms.Timer{Interval=30*60*1000};updateTimer.Tick+=(s,e)=>{var task=CheckUpdate(false);};
   Shown+=async(s,e)=>{updateTimer.Start();await Task.Delay(3000);if(!IsDisposed)await CheckUpdate(false);};
-  FormClosed+=(s,e)=>{updateTimer.Dispose();if(pendingUpdate!=null)try{AppUpdate.LaunchInstaller(pendingUpdate,Application.ExecutablePath);}catch(Exception ex){MessageBox.Show("Atualização não iniciada: "+ex.Message+"\nAbra o aplicativo e tente novamente.","FarmZilla");}};
+  FormClosed+=(s,e)=>{updateTimer.Dispose();if(pendingControlUpdate!=null)try{FarmZillaControlUpdate.LaunchInstaller(pendingControlUpdate,Application.ExecutablePath);}catch(Exception ex){MessageBox.Show("Atualização não iniciada: "+ex.Message,"FarmZilla");}if(pendingUpdate!=null)try{AppUpdate.LaunchInstaller(pendingUpdate,Application.ExecutablePath);}catch(Exception ex){MessageBox.Show("Atualização não iniciada: "+ex.Message+"\nAbra o aplicativo e tente novamente.","FarmZilla");}};
  }
  bool ConfigureRepository(){
   using(var dialog=new Form{Text="Atualizações do aplicativo",ClientSize=new Size(350,160),FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false}){
@@ -24,22 +24,39 @@ partial class AvalonInterno {
   if(updateChecking||closeInProgress)return;
   if(LicenseGate.ControlMode){
    updateChecking=true;
-   try {
+   try{
     updateSummary="Consultando FarmZilla Control...";
-    string available=await Task.Run(()=>FarmZillaControlLicense.CheckPublishedUpdate(LicenseGate.Identity));
+    var available=await Task.Run(()=>FarmZillaControlUpdate.Check(LicenseGate.Identity));
     if(IsDisposed||closeInProgress)return;
-    if(String.IsNullOrEmpty(available)){
+    if(available==null){
      updateSummary="App atualizado · "+ReleaseInfo.Version;
-     if(interactive)MessageBox.Show(this,"Nenhuma atualização mais recente publicada no FarmZilla Control.","FarmZilla");
-    }else{
-     updateSummary="Disponível: "+available;
-     updateSettingsButton.Text="Update\\ndisponível";
-     Note("Versão "+available+" publicada no FarmZilla Control. Download automático ainda não habilitado.");
-     if(interactive)MessageBox.Show(this,"A versão "+available+" está publicada no FarmZilla Control.\\nA instalação automática ainda não foi habilitada por segurança. Consulte o administrador.","Atualização FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Information);
+     if(interactive)MessageBox.Show(this,"Nenhuma versão mais recente publicada no FarmZilla Control.","FarmZilla");
+     return;
     }
+    updateSummary="Disponível: "+available.version;
+    updateSettingsButton.Text="Update\ndisponível";
+    Note("Nova versão publicada no FarmZilla Control: "+available.version+".");
+    if(!interactive)return; // Never interrupt a farm with the automatic periodic check.
+    if(busy||teleport.Working||missions.Working||MatFarmRunning()||closeInProgress){
+     MessageBox.Show(this,"Finalize as operações de farm, ataque, missões e teleporte antes da atualização.","FarmZilla");
+     return;
+    }
+    if(MessageBox.Show(this,"Baixar e instalar FarmZilla "+available.version+" pelo FarmZilla Control?\n"+
+       "O aplicativo será encerrado e reaberto. Configurações e licença serão preservadas.",
+       "Atualizar FarmZilla",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)return;
+    updateSummary="Baixando e verificando...";
+    string request=await Task.Run(()=>FarmZillaControlUpdate.Stage(available,LicenseGate.Identity,Application.ExecutablePath));
+    if(IsDisposed||closeInProgress)return;
+    if(busy||teleport.Working||missions.Working||MatFarmRunning()){
+     MessageBox.Show(this,"Uma operação começou durante o download. Tente novamente quando terminar.","FarmZilla");
+     return;
+    }
+    pendingControlUpdate=request;
+    Note("Download conferido. Encerrando o FarmZilla com segurança para instalar.");
+    Close();
    }catch(Exception ex){
-    if(!IsDisposed){updateSummary="Não foi possível consultar";Note("FarmZilla Control: "+ex.Message);
-     if(interactive)MessageBox.Show(this,"Não foi possível consultar a atualização: "+ex.Message,"FarmZilla");}
+    if(!IsDisposed){updateSummary="Não foi possível atualizar";Note("Update FarmZilla Control: "+ex.Message);
+     if(interactive)MessageBox.Show(this,"Atualização não concluída: "+ex.Message,"FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
    }finally{updateChecking=false;}
    return;
   }
