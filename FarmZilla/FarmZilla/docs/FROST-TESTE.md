@@ -1,4 +1,4 @@
-# Frost Farm — captura, catálogo e trajeto (0.51.33)
+# Frost Farm — captura, catálogo e trajeto (0.51.34)
 
 O botão Frost Farm abre a ferramenta nativa do FarmZilla. Ela lê o cliente Avalon, lista os comandos que o próprio FarmZilla já valida e transforma a captura de coordenadas num trajeto `.txt` do Mat Farm. Não copia lógica de outro executável e não envia pacotes sozinha.
 
