@@ -47,7 +47,7 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 @media(max-width:900px){#workspace{padding-left:0}.sidebar{position:static;width:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding:12px}.sidebar .brand{margin:0 14px}.sidebar button{width:auto}.sidebar .bottom{display:none}#workspace header{padding:18px}#workspace main{padding:0 14px}}
 </style></head><body>
 <div id="auth-screen"><form class="login-box" id="login-form"><div class="brand-mark">FZ</div><h2>Bem-vindo ao FarmZilla</h2><p>Entre com as credenciais administrativas para acessar o painel de controle.</p><label for="login-user">Usuário</label><input id="login-user" autocomplete="username" required value="admin"><label for="login-password">Senha</label><input id="login-password" type="password" autocomplete="current-password" required><button class="primary">Entrar no painel</button><p id="auth-error" role="alert"></p><small>Acesso seguro pelo domínio farmzilla.jrconect.com.br</small></form></div>
-<div id="workspace" hidden><aside class="sidebar"><div class="brand">FarmZilla <span>Control</span></div><button class="active" data-nav="overview">Visão geral</button><button data-nav="devices">Computadores</button><button data-nav="releases">Versões</button><button data-nav="audit">Auditoria</button><button data-nav="security">Segurança</button><div class="bottom">FarmZilla Control · Administração</div></aside>
+<div id="workspace" hidden><aside class="sidebar"><div class="brand">FarmZilla <span>Control</span></div><button class="active" data-nav="overview">Visão geral</button><button data-nav="devices">Computadores</button><button data-nav="licenses">Licenças</button><button data-nav="releases">Versões</button><button data-nav="audit">Auditoria</button><button data-nav="security">Segurança</button><div class="bottom">FarmZilla Control · Administração</div></aside>
 <header><div><h1>FarmZilla <span style="color:var(--accent)">Control</span></h1><small>Painel administrativo interno · MVP Linux</small></div><div style="display:flex;gap:8px;align-items:center"><button id="reload">Atualizar</button><button id="logout">Sair</button></div></header>
 <main>
 <div id="notice" role="status"></div>
@@ -55,6 +55,10 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 <section id="devices"><h2>Computadores</h2><small>Cadastro administrativo. Ainda não ativa nem bloqueia o executável standalone já distribuído.</small>
 <form id="device-form"><input id="device-name" maxlength="120" placeholder="Identificação do computador" required><input id="device-note" maxlength="1000" placeholder="Observação" style="flex:1;min-width:170px"><button class="primary">Cadastrar</button></form>
 <div class="scroll"><table><thead><tr><th>Computador</th><th>Observação</th><th>Estado</th><th>Cadastrado</th><th>Ação</th></tr></thead><tbody id="device-rows"></tbody></table></div></section>
+<section id="licenses" hidden><h2>Licenças do bot</h2><p class="muted">Uma licença por computador. A chave aparece somente ao criar: copie e guarde em local seguro.</p>
+<form id="license-form"><input id="license-label" placeholder="Cliente / identificação" maxlength="120" required><input id="license-expiry" type="datetime-local" required><button class="primary">Gerar licença</button></form>
+<div id="new-license" hidden><p>Nova chave (exibida somente agora):</p><code id="new-license-key"></code> <button id="copy-license-key" type="button">Copiar chave</button></div>
+<div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Situação</th><th>Vencimento</th><th>PC vinculado</th><th>Último acesso</th><th>Versão</th><th>Ações</th></tr></thead><tbody id="license-rows"></tbody></table></div></section>
 <section id="releases"><h2>Versões do FarmZilla</h2><small>Upload manual de executáveis Windows. Arquivos ficam armazenados localmente; não são publicados para clientes nem instalados automaticamente.</small>
 <form id="release-form"><input id="release-version" placeholder="Versão: 0.51.20" pattern="[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" required><input id="release-file" type="file" accept=".exe" required><button class="primary">Enviar versão</button></form>
 <div class="scroll"><table><thead><tr><th>Versão</th><th>Tamanho</th><th>SHA-256</th><th>Registrada em</th></tr></thead><tbody id="release-rows"></tbody></table></div></section>
@@ -68,7 +72,7 @@ const showWorkspace=()=>{$('workspace').hidden=false;$('auth-screen').hidden=tru
 async function checkSession(){try{const r=await fetch('/api/auth/session',{cache:'no-store'});if(!r.ok)throw Error();const j=await r.json();csrf=j.csrf;showWorkspace();await refresh();}catch{showLogin();}}
 $('login-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;$('auth-error').textContent='';try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('login-user').value,password:$('login-password').value})});const j=await r.json();if(!r.ok)throw Error(j.error||'Não foi possível entrar');csrf=j.csrf;$('login-password').value='';showWorkspace();await refresh();}catch(err){showLogin(err.message);}finally{btn.disabled=false;}};
 $('password-form').onsubmit=async e=>{e.preventDefault();if($('new-password').value!==$('confirm-password').value){notify('Confirmação da senha não confere',true);return;}try{await api('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:$('current-password').value,newPassword:$('new-password').value})});e.target.reset();showLogin('Senha atualizada. Entre novamente.');}catch(err){notify(err.message,true);}};
-document.querySelectorAll('[data-nav]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active',b===btn));const key=btn.dataset.nav;for(const id of ['devices','releases','audit','security'])$(id).hidden=key==='overview'?id==='security':key!==id;window.scrollTo({top:0,behavior:'smooth'});});
+document.querySelectorAll('[data-nav]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active',b===btn));const key=btn.dataset.nav;for(const id of ['devices','licenses','releases','audit','security'])$(id).hidden=key==='overview'?id==='security':key!==id;window.scrollTo({top:0,behavior:'smooth'});});
 
 const d=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'});
 const notify=(message,err=false)=>{const n=$('notice');n.textContent=message;n.className=err?'error':'';};
@@ -78,7 +82,7 @@ async function api(url,options={}){const headers={...(options.headers||{})};if(o
 function formatted(date){return d.format(new Date(date));}
 async function refresh(){
  try{
-  const [stats,devs,rels,audit]=await Promise.all([api('/api/overview'),api('/api/devices'),api('/api/releases'),api('/api/audit')]);
+  const [stats,devs,rels,audit,licenseData]=await Promise.all([api('/api/overview'),api('/api/devices'),api('/api/releases'),api('/api/audit'),api('/api/licenses')]);
   $('total-devices').textContent=stats.devices.total;$('blocked-devices').textContent=stats.devices.blocked;$('total-releases').textContent=stats.releases.total;
   const rows=$('device-rows');rows.replaceChildren();
   for(const v of devs.devices){
@@ -87,6 +91,14 @@ async function refresh(){
    const td=el('td','');const btn=el('button',v.status==='blocked'?'Reativar':'Bloquear');btn.onclick=async()=>{if(!confirm('Alterar o estado administrativo deste computador?'))return;btn.disabled=true;try{await api('/api/devices/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:v.status==='blocked'?'registered':'blocked'})});await refresh();notify('Estado atualizado');}catch(e){notify(e.message,true);btn.disabled=false;}};td.appendChild(btn);row.appendChild(td);rows.appendChild(row);
   }
   if(!devs.devices.length)rows.appendChild(el('tr',''));
+  const licenseRows=$('license-rows');licenseRows.replaceChildren();
+  for(const v of licenseData.licenses){
+   const row=el('tr','');const status=v.status==='active'&&new Date(v.expires_at)<=new Date()?'Expirada':v.status;
+   cells(row,[v.id,v.label,status,formatted(v.expires_at),v.linked?'Sim':'Não',v.last_seen_at?formatted(v.last_seen_at):'—',v.client_version||'—']);
+   const td=el('td','');const actions=[['active','Ativar'],['suspended','Suspender'],['revoked','Revogar'],['release-device','Liberar PC'],['renew','Renovar']];
+   for(const [action,label] of actions){if(action===v.status||action==='release-device'&&!v.linked)continue;const btn=el('button',label);btn.onclick=async()=>{let expiresAt;if(action==='renew'){expiresAt=prompt('Nova validade (AAAA-MM-DD):');if(!expiresAt)return;expiresAt+='T23:59:59';}else if(!confirm('Confirmar '+label.toLowerCase()+' da licença #'+v.id+'?'))return;btn.disabled=true;try{await api('/api/licenses/'+v.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,expiresAt})});await refresh();notify('Licença atualizada');}catch(e){notify(e.message,true);btn.disabled=false;}};td.appendChild(btn);}
+   row.appendChild(td);licenseRows.appendChild(row);
+  }
   const releases=$('release-rows');releases.replaceChildren();
   for(const v of rels.releases){const row=el('tr','');cells(row,[v.version,(Number(v.bytes)/1048576).toFixed(2)+' MB',v.sha256,formatted(v.created_at)]);releases.appendChild(row);}
   const logs=$('audit-rows');logs.replaceChildren();
@@ -97,5 +109,7 @@ $('reload').onclick=refresh;
 $('logout').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});}catch{}showLogin('Sessão encerrada.');};
 $('device-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('device-name').value,note:$('device-note').value})});e.target.reset();await refresh();notify('Computador registrado');}catch(err){notify(err.message,true);}};
 $('release-form').onsubmit=async e=>{e.preventDefault();const file=$('release-file').files[0];if(!file)return;const btn=e.target.querySelector('button');btn.disabled=true;notify('Enviando versão...');try{await api('/api/releases?version='+encodeURIComponent($('release-version').value),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});e.target.reset();await refresh();notify('Arquivo armazenado e SHA-256 registrado');}catch(err){notify(err.message,true);}finally{btn.disabled=false;}};
+$('license-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;try{const result=await api('/api/licenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:$('license-label').value,expiresAt:$('license-expiry').value})});$('new-license-key').textContent=result.license.key;$('new-license').hidden=false;e.target.reset();await refresh();notify('Licença gerada. Copie a chave agora.');}catch(err){notify(err.message,true);}finally{btn.disabled=false;}};
+$('copy-license-key').onclick=async()=>{try{await navigator.clipboard.writeText($('new-license-key').textContent);notify('Chave copiada');}catch{notify('Selecione e copie a chave manualmente',true);}};
 checkSession();
 </script></div></body></html>
