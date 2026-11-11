@@ -66,6 +66,25 @@ jobs:
           )
           Set-Content -Path './farmzilla-security-report.txt' -Value $lines -Encoding UTF8
 
+      - name: Conferir e capturar layout Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compiler = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          $sources = @(Get-ChildItem './outputs/FarmZilla-0.51.20' -Filter '*.cs' -File | ForEach-Object FullName)
+          & $compiler /nologo /target:exe /platform:x86 /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Management.dll /main:LayoutPreview /out:./layout-preview.exe ./work/LayoutPreview.cs $sources
+          if ($LASTEXITCODE -ne 0) { throw 'Falha compilando previa' }
+          & ./layout-preview.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Falha conferindo layout' }
+
+      - name: Disponibilizar previa do layout
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarmZilla-0.51.31-layout
+          path: FarmZilla/FarmZilla/farmzilla-layout.png
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publicar relatorio de verificacao
         if: success()
         uses: actions/upload-artifact@v4
@@ -84,20 +103,3 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Conferir e capturar layout Windows
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $compiler = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-          & $compiler /nologo /target:exe /platform:x86 /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Management.dll /main:LayoutPreview /out:./layout-preview.exe ./work/LayoutPreview.cs ./outputs/FarmZilla-0.51.20/*.cs
-          if ($LASTEXITCODE -ne 0) { throw 'Falha compilando previa' }
-          & ./layout-preview.exe
-          if ($LASTEXITCODE -ne 0) { throw 'Falha conferindo layout' }
-
-      - name: Disponibilizar previa do layout
-        uses: actions/upload-artifact@v4
-        with:
-          name: FarmZilla-0.51.31-layout
-          path: FarmZilla/FarmZilla/farmzilla-layout.png
-          if-no-files-found: error
-          retention-days: 14
