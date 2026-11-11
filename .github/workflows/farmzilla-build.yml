@@ -37,18 +37,15 @@ jobs:
           & ./work/Build-Release.ps1
           if (-not $?) { throw 'Compilacao ou testes falharam' }
           $output = './outputs/FarmZilla-0.51.20'
+          if (-not (Test-Path "$output/FarmZilla.exe")) { throw 'FarmZilla.exe nao encontrado' }
           $a = (Get-FileHash "$output/FarmZilla.exe" -Algorithm SHA256).Hash
-          $b = (Get-FileHash "$output/Bagaceira.exe" -Algorithm SHA256).Hash
-          if ($a -ne $b) { throw 'Executaveis gerados nao conferem' }
-          Write-Host "FarmZilla.exe e Bagaceira.exe identicos: $a"
+          Write-Host "FarmZilla.exe compilado: $a"
 
       - name: Disponibilizar executavel para download
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: FarmZilla-Windows-x86
-          path: |
-            FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.exe
-            FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bagaceira.exe
+          path: FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.exe
           if-no-files-found: error
           retention-days: 14

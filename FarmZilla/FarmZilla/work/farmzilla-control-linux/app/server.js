@@ -106,8 +106,28 @@ async function handle(req,res) {
     await audit('license.delete',{id:q.rows[0].id,label:q.rows[0].label});
     return response(res,200,{deleted:true});
   }
+  // Only one version is the official release. Uploads remain drafts until published.
+  if(route==='/api/releases/publication' && req.method==='GET') {
+    const q=await pool.query('SELECT r.id,r.version,r.filename,r.sha256,r.bytes,r.created_at FROM release_publication p JOIN releases r ON r.id=p.release_id WHERE p.id=1');
+    return response(res,200,{release:q.rows[0]||null});
+  }
+  const publishMatch=route.match(/^\/api\/releases\/([0-9]+)\/publish$/);
+  if(publishMatch && req.method==='POST') {
+    const result=await pool.query(`INSERT INTO release_publication(id,release_id,published_at)
+      SELECT 1,id,NOW() FROM releases WHERE id=$1
+      ON CONFLICT(id) DO UPDATE SET release_id=EXCLUDED.release_id,published_at=NOW()
+      RETURNING release_id`,[publishMatch[1]]);
+    if(!result.rowCount)return notFound(res);
+    await audit('release.publish',{id:result.rows[0].release_id});
+    return response(res,200,{published:true,id:result.rows[0].release_id});
+  }
+  if(route==='/api/releases/publication' && req.method==='DELETE') {
+    const result=await pool.query('DELETE FROM release_publication WHERE id=1 RETURNING release_id');
+    if(result.rowCount)await audit('release.unpublish',{id:result.rows[0].release_id});
+    return response(res,200,{published:false});
+  }
   if(route==='/api/releases' && req.method==='GET') {
-    const q=await pool.query('SELECT id,version,filename,sha256,bytes,created_at FROM releases ORDER BY id DESC LIMIT 100');
+    const q=await pool.query('SELECT r.id,r.version,r.filename,r.sha256,r.bytes,r.created_at,(p.release_id IS NOT NULL) AS published FROM releases r LEFT JOIN release_publication p ON p.release_id=r.id AND p.id=1 ORDER BY r.id DESC LIMIT 100');
     return response(res,200,{releases:q.rows});
   }
   if(route==='/api/releases' && req.method==='POST') {
@@ -156,5 +176,5 @@ const server=http.createServer((req,res)=>{handle(req,res).catch(err=>{
   response(res,err.status|| (err.code==='23505'?409:500),{error:err.status?err.message:err.code==='23505'?'Registro duplicado':'Falha interna'});
 });});
 server.headersTimeout=15000;server.requestTimeout=120000;
-auth.init(pool,ADMIN_USER,ADMIN_PASSWORD).then(()=>licenses.init(pool)).then(()=>server.listen(PORT,'0.0.0.0',()=>console.log('FarmZilla Control ouvindo porta '+PORT))).catch(error=>{console.error('Falha inicializando autenticação:',error.message);process.exitCode=1;pool.end();});
+auth.init(pool,ADMIN_USER,ADMIN_PASSWORD).then(()=>licenses.init(pool)).then(()=>pool.query('CREATE TABLE IF NOT EXISTS release_publication (id INTEGER PRIMARY KEY CHECK(id=1),release_id BIGINT NOT NULL REFERENCES releases(id),published_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')).then(()=>server.listen(PORT,'0.0.0.0',()=>console.log('FarmZilla Control ouvindo porta '+PORT))).catch(error=>{console.error('Falha inicializando autenticação:',error.message);process.exitCode=1;pool.end();});
 process.on('SIGTERM',()=>server.close(()=>pool.end()));
