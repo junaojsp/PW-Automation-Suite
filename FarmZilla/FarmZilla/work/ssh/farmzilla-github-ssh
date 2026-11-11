@@ -2,9 +2,38 @@
 # FARMZILLA_GITHUB_SSH_V1 -- fixed commands only; never evaluate remote input.
 set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-if [[ ${SSH_ORIGINAL_COMMAND:-} != farmzilla-check ]]; then
-  echo 'Comando não autorizado. Permitido: farmzilla-check' >&2
-  exit 126
+request=${SSH_ORIGINAL_COMMAND:-}
+if [[ $request =~ ^farmzilla-publish\ ([0-9]{1,5}\.[0-9]{1,5}\.[0-9]{1,5}(\.[0-9]{1,5})?)\ ([a-f0-9]{64})\ ([0-9]{4,8})$ ]]; then
+ version=${BASH_REMATCH[1]};digest=${BASH_REMATCH[3]};size=${BASH_REMATCH[4]}
+ ((10#$size >= 1024 && 10#$size <= 33554432)) || { echo 'Tamanho inválido' >&2; exit 1; }
+ exec 9>/opt/farmzilla-control/releases/.ssh-publication.lock
+ flock -w 120 9 || exit 1
+ stage=$(mktemp /opt/farmzilla-control/releases/.ssh-upload-XXXXXXXXXXXX.exe)
+ trap 'rm -f -- "$stage"' EXIT
+ # Bound the incoming stream and verify its metadata before it reaches the container.
+ timeout 120 python3 - "$stage" "$digest" "$size" 3<&0 <<'PYDATA'
+import hashlib,os,sys
+file,digest,size=sys.argv[1:];expected=int(size);total=0;sha=hashlib.sha256()
+with os.fdopen(3,'rb') as source,open(file,'wb') as target:
+ while True:
+  chunk=source.read(min(65536,expected-total+1))
+  if not chunk:break
+  total+=len(chunk)
+  if total>expected:raise SystemExit('Upload maior que o declarado')
+  sha.update(chunk);target.write(chunk)
+ target.flush();os.fsync(target.fileno())
+if total!=expected or sha.hexdigest()!=digest:raise SystemExit('Hash ou tamanho do upload divergente')
+PYDATA
+ chmod 644 "$stage"
+ timeout 120 docker exec -i \
+  -e FZ_PUBLISH_FILE="$(basename -- "$stage")" \
+  -e FZ_PUBLISH_VERSION="$version" -e FZ_PUBLISH_SHA="$digest" -e FZ_PUBLISH_BYTES="$size" \
+  farmzilla-control-web-1 node < /usr/local/lib/farmzilla-publish/publish-stdin.cjs
+ exit $?
+fi
+if [[ $request != farmzilla-check ]]; then
+ echo 'Comando não autorizado. Permitidos: farmzilla-check e farmzilla-publish VERSION SHA256 BYTES' >&2
+ exit 126
 fi
 printf 'Conexão SSH FarmZilla OK\n'
 printf 'Usuário: '

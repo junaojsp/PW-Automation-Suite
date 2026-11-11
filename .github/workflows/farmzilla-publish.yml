@@ -1,0 +1,97 @@
+name: FarmZilla - Publicar versão validada
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: 'ID da compilação Windows concluída da revisão atual da main'
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: farmzilla-release-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar origem da compilação
+        id: origin
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FZ_BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: node FarmZilla/FarmZilla/work/ssh/prepare-publication.cjs run
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.origin.outputs.artifact }}
+          path: publication-artifact
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+      - name: Conferir PE, versão e SHA-256
+        id: binary
+        run: node FarmZilla/FarmZilla/work/ssh/prepare-publication.cjs file publication-artifact/FarmZilla.exe
+      - name: Preparar autenticação SSH
+        shell: bash
+        env:
+          FZ_SSH_KEY: ${{ secrets.FARMZILLA_SSH_PRIVATE_KEY }}
+          FZ_SSH_HOSTS: ${{ secrets.FARMZILLA_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ -n "$FZ_SSH_KEY" && -n "$FZ_SSH_HOSTS" ]] || { echo 'Secrets SSH ausentes'; exit 1; }
+          umask 077
+          mkdir "$RUNNER_TEMP/fz-publish-ssh"
+          printf '%s\n' "$FZ_SSH_KEY" > "$RUNNER_TEMP/fz-publish-ssh/key"
+          printf '%s\n' "$FZ_SSH_HOSTS" > "$RUNNER_TEMP/fz-publish-ssh/known_hosts"
+          ssh-keygen -y -f "$RUNNER_TEMP/fz-publish-ssh/key" >/dev/null
+          ssh-keygen -F 138.204.112.19 -f "$RUNNER_TEMP/fz-publish-ssh/known_hosts" >/dev/null
+      - name: Mostrar IP e aguardar liberação da porta 22
+        shell: bash
+        run: |
+          set -euo pipefail
+          fz_runner_ip=$(curl -4 --fail --silent --show-error --connect-timeout 10 --max-time 20 https://api.ipify.org)
+          python3 -c 'import ipaddress,sys; ipaddress.IPv4Address(sys.argv[1])' "$fz_runner_ip"
+          echo "IP DO EXECUTOR: $fz_runner_ip"
+          echo "Na VPS, libere somente este IP:"
+          echo "ufw allow from $fz_runner_ip to any port 22 proto tcp comment 'FarmZilla GitHub temporario'"
+          echo "Após o teste, remova a regra com:"
+          echo "ufw delete allow from $fz_runner_ip to any port 22 proto tcp"
+          python3 -u - <<'PY'
+          import socket,time
+          deadline=time.monotonic()+480
+          while time.monotonic()<deadline:
+              try:
+                  with socket.create_connection(("138.204.112.19",22),timeout=3):
+                      print("Porta 22 acessível. Iniciando autenticação SSH.")
+                      break
+              except OSError:
+                  print("Aguardando liberação no firewall...")
+                  time.sleep(10)
+          else:
+              raise SystemExit("Tempo esgotado aguardando a porta 22; nenhuma autenticação foi tentada.")
+          PY
+      - name: Enviar e publicar pelo comando restrito
+        shell: bash
+        env:
+          FZ_VERSION: ${{ steps.binary.outputs.version }}
+          FZ_SHA: ${{ steps.binary.outputs.sha }}
+          FZ_BYTES: ${{ steps.binary.outputs.bytes }}
+        run: |
+          set -euo pipefail
+          timeout 180 ssh -T -p 22 -i "$RUNNER_TEMP/fz-publish-ssh/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none \
+            -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 \
+            -o UserKnownHostsFile="$RUNNER_TEMP/fz-publish-ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ConnectionAttempts=1 \
+            -o ServerAliveInterval=10 -o ServerAliveCountMax=2 \
+            root@138.204.112.19 "farmzilla-publish $FZ_VERSION $FZ_SHA $FZ_BYTES" \
+            < publication-artifact/FarmZilla.exe
+      - name: Remover arquivos temporários de autenticação
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/fz-publish-ssh"

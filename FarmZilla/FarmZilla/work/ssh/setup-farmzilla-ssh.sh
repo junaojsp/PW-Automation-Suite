@@ -7,6 +7,10 @@ source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 runner="$source_dir/farmzilla-github-ssh"
 [[ -f $runner ]] || { echo 'Arquivo farmzilla-github-ssh ausente ao lado do setup' >&2; exit 1; }
 bash -n "$runner"
+publisher="$source_dir/publish-stdin.cjs"
+[[ -f $publisher ]] || { echo 'Arquivo publish-stdin.cjs ausente ao lado do setup' >&2; exit 1; }
+# Refuse to activate publishing until the validated server module is installed.
+docker exec farmzilla-control-web-1 node -e "require('/srv/app/release-store')"
 for program in ssh-keygen sshd install flock; do command -v "$program" >/dev/null; done
 sshd -t
 ssh_config=$(sshd -T)
@@ -30,6 +34,8 @@ public_key=$(ssh-keygen -y -f "$key")
 if [[ -e /usr/local/sbin/farmzilla-github-ssh ]] && ! grep -q '^# FARMZILLA_GITHUB_SSH_V1' /usr/local/sbin/farmzilla-github-ssh; then
  echo 'Já existe outro comando no destino; nada será sobrescrito' >&2; exit 1
 fi
+install -d -m 700 /usr/local/lib/farmzilla-publish
+install -m 600 "$publisher" /usr/local/lib/farmzilla-publish/publish-stdin.cjs
 install -m 700 "$runner" /usr/local/sbin/farmzilla-github-ssh
 authorized=/root/.ssh/authorized_keys
 if [[ -f $authorized ]]; then

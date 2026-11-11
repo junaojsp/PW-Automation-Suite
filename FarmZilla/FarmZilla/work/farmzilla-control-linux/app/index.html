@@ -59,7 +59,7 @@ footer{color:var(--muted);font-size:12px;padding:0 18px 25px;max-width:1200px;ma
 <form id="license-form"><input id="license-label" placeholder="Cliente / identificação" maxlength="120" required><input id="license-expiry" type="datetime-local" required><input id="license-device-code" maxlength="64" minlength="64" pattern="[a-f0-9]{64}" placeholder="Código do PC (opcional)" title="Cole o código de 64 caracteres exibido pelo bot"><button class="primary">Gerar licença</button></form>
 <div id="new-license" hidden><p>Nova chave (exibida somente agora):</p><code id="new-license-key"></code> <button id="copy-license-key" type="button">Copiar chave</button></div>
 <div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Situação</th><th>Vencimento</th><th>PC vinculado</th><th>Último acesso</th><th>Versão</th><th>Ações</th></tr></thead><tbody id="license-rows"></tbody></table></div></section>
-<section id="releases"><h2>Versões do FarmZilla</h2><small>Upload de FarmZilla.exe. Publicar define a versão oficial; instalação automática no bot será integrada em etapa posterior.</small>
+<section id="releases"><h2>Versões do FarmZilla</h2><small>Envie FarmZilla.exe. A versão interna é conferida antes do cadastro; o app instala a versão publicada pelo botão Update.</small>
 <form id="release-form"><input id="release-version" placeholder="Versão: 0.51.20" pattern="[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?" required><input id="release-file" type="file" accept=".exe" required><button class="primary">Enviar versão</button></form>
 <p class="muted">Enviar não publica automaticamente. Escolha uma versão e clique em Publicar. Somente uma versão fica publicada por vez.</p><button id="unpublish-release" type="button">Retirar versão publicada</button><div class="scroll"><table><thead><tr><th>Versão</th><th>Estado</th><th>Tamanho</th><th>SHA-256</th><th>Registrada em</th><th>Ação</th></tr></thead><tbody id="release-rows"></tbody></table></div></section>
 <section id="security" hidden><h2>Segurança da conta</h2><p class="muted">Altere sua senha administrativa. Ao salvar, todas as sessões serão encerradas e será necessário entrar novamente.</p><form id="password-form"><label>Senha atual<input id="current-password" type="password" autocomplete="current-password" required></label><label>Nova senha (mínimo 8 caracteres)<input id="new-password" type="password" autocomplete="new-password" minlength="8" required></label><label>Confirme a nova senha<input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required></label><button class="primary">Alterar senha</button></form></section><section id="audit"><h2>Auditoria</h2><div class="scroll"><table><thead><tr><th>Data</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="audit-rows"></tbody></table></div></section>
@@ -115,10 +115,16 @@ async function refresh(){
   }
   const releases=$('release-rows');releases.replaceChildren();
   for(const v of rels.releases){
-   const row=el('tr','');cells(row,[v.version,v.published?'Publicada':'Armazenada',(Number(v.bytes)/1048576).toFixed(2)+' MB',v.sha256,formatted(v.created_at)]);
-   const td=el('td','');const btn=el('button',v.published?'Publicada':'Publicar');btn.disabled=!!v.published;
+   const row=el('tr','');cells(row,[v.version,(v.published?'Publicada':'Armazenada')+(v.valid?' · validada':' · arquivo inválido'),(Number(v.bytes)/1048576).toFixed(2)+' MB',v.sha256,formatted(v.created_at)]);
+   const td=el('td','');const btn=el('button',v.published?'Publicada':'Publicar');btn.disabled=!!v.published||!v.valid;btn.title=v.validationError||('Versão interna: '+v.internalVersion);
    btn.onclick=async()=>{if(!confirm('Publicar a versão '+v.version+' para distribuição?'))return;btn.disabled=true;try{await api('/api/releases/'+v.id+'/publish',{method:'POST'});await refresh();notify('Versão '+v.version+' publicada');}catch(e){notify(e.message,true);btn.disabled=false;}};
-   td.appendChild(btn);row.appendChild(td);releases.appendChild(row);
+   td.appendChild(btn);
+   if(!v.valid){const repair=el('button','Corrigir arquivo');repair.title=v.validationError;
+    repair.onclick=()=>{const picker=document.createElement('input');picker.type='file';picker.accept='.exe';picker.onchange=async()=>{
+     const file=picker.files[0];if(!file||!confirm('Corrigir somente o arquivo inválido '+v.version+'? O arquivo anterior ficará no histórico e a versão publicada será preservada.'))return;
+     repair.disabled=true;try{await api('/api/releases/'+v.id+'/repair?expectedSha256='+encodeURIComponent(v.sha256),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});await refresh();notify('Cadastro corrigido com backup e auditoria');}catch(e){notify(e.message,true);repair.disabled=false;}
+    };picker.click();};td.appendChild(repair);}
+   row.appendChild(td);releases.appendChild(row);
   }
   const logs=$('audit-rows');logs.replaceChildren();
   for(const v of audit.events){const row=el('tr','');cells(row,[formatted(v.created_at),v.action,JSON.stringify(v.detail)]);logs.appendChild(row);}
