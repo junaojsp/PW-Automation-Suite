@@ -22,15 +22,34 @@ if(Test-Path -LiteralPath $resourcePath -PathType Container){
     $resources=@(Get-ChildItem -LiteralPath $resourcePath -File | ForEach-Object {'/resource:'+$_.FullName+','+[IO.Path]::GetFileNameWithoutExtension($_.Name)})
 }
 Write-Host "Compilando FarmZilla de: $sourcePath"
-& $compiler /nologo /target:winexe /platform:x86 $refs "/win32icon:$icon" "/out:$sourcePath\Bagaceira.exe" $resources $files
-if($LASTEXITCODE -ne 0){throw 'Compilacao do cliente falhou.'}
-foreach($test in @('UpdateTests','OnlineLicenseTests')){
-    $testFile=Join-Path $PSScriptRoot ($test+'.cs')
-    if(-not (Test-Path -LiteralPath $testFile -PathType Leaf)){throw "Teste nao encontrado: $testFile"}
-    $testExe=Join-Path $PSScriptRoot ($test+'.exe')
-    & $compiler /nologo /target:exe /platform:x86 $refs "/main:$test" "/out:$testExe" $testFile $resources $files
-    if($LASTEXITCODE -ne 0){throw "Falha compilando $test"}
-    & $testExe
-    if($LASTEXITCODE -ne 0){throw "Falha em $test"}
+$stage=Join-Path $sourcePath 'FarmZilla.build.exe'
+try {
+    & $compiler /nologo /target:winexe /platform:x86 $refs "/win32icon:$icon" "/out:$stage" $resources $files
+    if($LASTEXITCODE -ne 0){throw 'Compilacao do cliente falhou.'}
+    foreach($test in @('UpdateTests','OnlineLicenseTests')){
+        $testFile=Join-Path $PSScriptRoot ($test+'.cs')
+        if(-not (Test-Path -LiteralPath $testFile -PathType Leaf)){throw "Teste nao encontrado: $testFile"}
+        $testExe=Join-Path $PSScriptRoot ($test+'.exe')
+        & $compiler /nologo /target:exe /platform:x86 $refs "/main:$test" "/out:$testExe" $testFile $resources $files
+        if($LASTEXITCODE -ne 0){throw "Falha compilando $test"}
+        & $testExe
+        if($LASTEXITCODE -ne 0){throw "Falha em $test"}
+    }
+
+    $gate=Get-Content -LiteralPath (Join-Path $sourcePath 'LicenseGate.cs') -Raw
+    $dialog=Get-Content -LiteralPath (Join-Path $sourcePath 'FarmZillaControlActivationDialog.cs') -Raw
+    if($gate -notmatch 'FARMZILLA_LEGACY_LICENSE' -or $gate -notmatch 'FarmZillaControlActivationDialog.Ensure' -or $dialog -notmatch 'DeviceHash\\(identity\\)' -or $dialog -notmatch 'Copiar'){
+        throw 'Novo licenciamento ausente da fonte. Publicacao cancelada.'
+    }
+    foreach($name in @('FarmZilla.exe','Bagaceira.exe')){
+        Copy-Item -LiteralPath $stage -Destination (Join-Path $sourcePath $name) -Force
+    }
+    $first=(Get-FileHash -LiteralPath (Join-Path $sourcePath 'FarmZilla.exe') -Algorithm SHA256)
+    $second=(Get-FileHash -LiteralPath (Join-Path $sourcePath 'Bagaceira.exe') -Algorithm SHA256)
+    if($first.Hash -ne $second.Hash){throw 'Executaveis divergentes.'}
+    Write-Host 'OK: FarmZilla.exe e Bagaceira.exe identicos. Ativacao FarmZilla Control e padrao.'
+    $first
 }
-Get-FileHash -LiteralPath (Join-Path $sourcePath 'Bagaceira.exe') -Algorithm SHA256
+finally {
+    Remove-Item -LiteralPath $stage -Force -ErrorAction SilentlyContinue
+}
