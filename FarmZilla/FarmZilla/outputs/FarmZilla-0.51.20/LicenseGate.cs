@@ -1,7 +1,13 @@
 using System;using System.Drawing;using System.Threading.Tasks;using System.Windows.Forms;
 static class LicenseGate {
  internal static string CurrentToken;internal static OnlineIdentity Identity;internal static string ServiceUrl;
+ internal static bool ControlMode {get{return String.Equals(Environment.GetEnvironmentVariable("FARMZILLA_CONTROL_TEST"),"1",StringComparison.Ordinal);}}
  internal static bool Ensure(){
+  if(ControlMode){
+   try{Identity=OnlineIdentity.Load();}catch(Exception ex){MessageBox.Show(ex.Message,"Identificação FarmZilla",MessageBoxButtons.OK,MessageBoxIcon.Warning);return false;}
+   if(!FarmZillaControlActivationDialog.Ensure(Identity))return false;
+   AuthorizationSession.BeginControl();return true;
+  }
   // Authorized PCs open straight away: the check runs before any window. The dialog only appears when the PC needs attention.
   string reason=null;
   try{Identity=OnlineIdentity.Load();ServiceUrl=OnlineApi.Service;if(!String.IsNullOrEmpty(ServiceUrl)){var access=OnlineLicense.Evaluate(Identity,ServiceUrl,()=>OnlineApi.Acquire(Identity,ServiceUrl));if(access.Allowed){CurrentToken=access.Token;AuthorizationSession.Begin(access.Token);return true;}reason=access.Reason;}}
