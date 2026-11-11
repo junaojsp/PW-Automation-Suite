@@ -1,0 +1,20 @@
+#!/bin/bash
+# FARMZILLA_GITHUB_SSH_V1 -- fixed commands only; never evaluate remote input.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+if [[ ${SSH_ORIGINAL_COMMAND:-} != farmzilla-check ]]; then
+  echo 'Comando não autorizado. Permitido: farmzilla-check' >&2
+  exit 126
+fi
+printf 'Conexão SSH FarmZilla OK\n'
+printf 'Usuário: '
+id -un
+printf 'Servidor: '
+uname -n
+printf 'FarmZilla web: '
+timeout 15 docker inspect --format '{{.State.Status}}' farmzilla-control-web-1
+if [[ ! -d /opt/farmzilla-control/releases ]]; then
+  echo 'Diretório de releases ausente' >&2
+  exit 1
+fi
+printf 'Diretório de releases presente\n'
