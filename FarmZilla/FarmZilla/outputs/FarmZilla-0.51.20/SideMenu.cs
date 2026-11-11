@@ -28,8 +28,8 @@ partial class AvalonInterno {
   RubiLabel("FERRAMENTAS",16,72,130,16,7,FontStyle.Bold,Rubi.Text);
   sidePersonagens=SideAt("Espelho",94,()=>ShowRotaView(false));sideRota=SideAt("Mat Farm",136,()=>ShowRotaView(true));
   // Reference layout: reserve the four tools without attaching game operations.
-  PendingTool("Vm Farm",180);PendingTool("Token Farm",236);
-  PendingTool("Frost Farm",300);PendingTool("Skill Sender",358);
+  PendingTool("Vm Farm",178);PendingTool("Token Farm",220);
+  PendingTool("Frost Farm",262);PendingTool("Skill Sender",304);
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
   var footer=RubiLabel("FarmZilla · Rubi",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);
@@ -37,17 +37,12 @@ partial class AvalonInterno {
  }finally{ResumeLayout(false);}}
  SideItem SideAt(string text,int y,Action action){var item=new SideItem(text){Bounds=new Rectangle(12,y,SideWidth-24,38)};item.Click+=(s,e)=>{if(!authorizationDenied||item==sidePersonagens)action();};Controls.Add(item);return item;}
  void PendingTool(string title,int y){
-  var button=new Button{Text=title,Bounds=new Rectangle(12,y,SideWidth-16,42),
-   FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(9,11,14),ForeColor=Color.Red,
-   Font=new Font("Segoe UI Semibold",9*global::UiScale.F,FontStyle.Bold),
-   TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(17,0,0,0),
-   AccessibleName=title,AccessibleDescription="Em preparação; ferramenta ainda indisponível"};
-  button.FlatAppearance.BorderSize=2;button.FlatAppearance.BorderColor=Color.Red;
-  button.FlatAppearance.MouseOverBackColor=Rubi.Panel;
-  button.FlatAppearance.MouseDownBackColor=Rubi.Field;
-  button.Click+=(s,e)=>MessageBox.Show(this,title+" está em preparação e ainda não executa automações.",
-   title,MessageBoxButtons.OK,MessageBoxIcon.Information);
-  hints.SetToolTip(button,title+": em preparação; ainda indisponível.");Controls.Add(button);
+  var button=SideAt(title,y,()=>MessageBox.Show(this,
+   title+" está em preparação e ainda não executa automações.",
+   title,MessageBoxButtons.OK,MessageBoxIcon.Information));
+  button.AccessibleName=title;
+  button.AccessibleDescription="Em preparação; ferramenta ainda indisponível";
+  hints.SetToolTip(button,title+": em preparação; ainda indisponível.");
  }
  void ShowRotaView(bool show){
   if(show==rotaView){if(show&&rotaWindow!=null)rotaWindow.Focus();return;}

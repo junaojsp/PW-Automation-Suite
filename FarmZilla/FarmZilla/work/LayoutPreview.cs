@@ -21,7 +21,7 @@ static class LayoutPreview {
     if(control.Bounds.Left<0||control.Bounds.Top<0||control.Bounds.Right>form.ClientSize.Width||control.Bounds.Bottom>form.ClientSize.Height)
      throw new Exception("Controle fora da janela: "+control.Text);
    }
-   var tools=form.Controls.OfType<Button>().Where(b=>b.AccessibleDescription!=null&&b.AccessibleDescription.StartsWith("Em preparação")).ToArray();
+   var tools=form.Controls.OfType<SideItem>().Where(b=>b.AccessibleDescription!=null&&b.AccessibleDescription.StartsWith("Em preparação")).ToArray();
    if(tools.Length!=4)throw new Exception("Menu de ferramentas incompleto");
    foreach(var tool in tools){
     if(tool.Right>=172)throw new Exception("Ferramenta invade painel Espelho");
