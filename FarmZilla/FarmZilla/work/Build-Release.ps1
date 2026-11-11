@@ -41,14 +41,10 @@ try {
     if($gate -notmatch 'FARMZILLA_LEGACY_LICENSE' -or $gate -notmatch 'FarmZillaControlActivationDialog.Ensure' -or $dialog -notmatch 'DeviceHash\(identity\)' -or $dialog -notmatch 'Copiar'){
         throw 'Novo licenciamento ausente da fonte. Publicacao cancelada.'
     }
-    foreach($name in @('FarmZilla.exe','Bagaceira.exe')){
-        Copy-Item -LiteralPath $stage -Destination (Join-Path $sourcePath $name) -Force
-    }
-    $first=(Get-FileHash -LiteralPath (Join-Path $sourcePath 'FarmZilla.exe') -Algorithm SHA256)
-    $second=(Get-FileHash -LiteralPath (Join-Path $sourcePath 'Bagaceira.exe') -Algorithm SHA256)
-    if($first.Hash -ne $second.Hash){throw 'Executaveis divergentes.'}
-    Write-Host 'OK: FarmZilla.exe e Bagaceira.exe identicos. Ativacao FarmZilla Control e padrao.'
-    $first
+    $target=Join-Path $sourcePath 'FarmZilla.exe'
+    Copy-Item -LiteralPath $stage -Destination $target -Force
+    Write-Host 'OK: FarmZilla.exe gerado. Bagaceira.exe nao sera distribuido.'
+    Get-FileHash -LiteralPath $target -Algorithm SHA256
 }
 finally {
     Remove-Item -LiteralPath $stage -Force -ErrorAction SilentlyContinue
