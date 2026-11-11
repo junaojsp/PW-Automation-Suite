@@ -21,6 +21,23 @@ static class UpdateTests {
    Reject(()=>AppUpdate.Verify(Sign(m,rsa),"https://outro.example",key),"servidor privado divergente bloqueado");
    Reject(()=>AppUpdate.CheckPrivateSource("https://github.com/example/repo"),"configuração pública recusada");
    Reject(()=>AppUpdate.CheckPrivateSource("http://updates.example"),"servidor privado sem TLS recusado");
+   // Regression: parent PID can be gone before helper starts.
+   string processFile=System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+   string originTest=Path.Combine(Path.GetTempPath(),"FarmZilla-update-parent-"+Guid.NewGuid().ToString("N"));
+   Directory.CreateDirectory(originTest);
+   try {
+    string helperExe=Path.Combine(originTest,"installer.exe"),originalExe=Path.Combine(originTest,"FarmZilla.exe");
+    File.Copy(processFile,helperExe);File.Copy(processFile,originalExe);
+    Assert(FarmZillaControlUpdate.SameOriginalBinary(helperExe,originalExe),
+      "processo encerrado: helper e executavel original idênticos aceitos");
+    using(var output=new FileStream(originalExe,FileMode.Open,FileAccess.Write,FileShare.None)){
+     output.Position=output.Length-1;output.WriteByte(0x58);
+    }
+    Assert(!FarmZillaControlUpdate.SameOriginalBinary(helperExe,originalExe),
+      "processo encerrado: executavel adulterado recusado");
+    Assert(!FarmZillaControlUpdate.SameOriginalBinary(helperExe,Path.Combine(originTest,"missing.exe")),
+      "processo encerrado: executavel inexistente recusado");
+   }finally{Directory.Delete(originTest,true);}
    string dir=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"AvalonUpdateTest-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);string target=Path.Combine(dir,"Bagaceira.exe");File.WriteAllText(target,"old");
    try {AppUpdate.ApplyFile(target,Encoding.UTF8.GetBytes("new"),p=>Assert(File.ReadAllText(p)=="new","substituição antes de reiniciar"));Assert(File.ReadAllText(target)=="new","instalação preservada");
     Reject(()=>AppUpdate.ApplyFile(target,Encoding.UTF8.GetBytes("bad"),p=>{throw new IOException("simulated launch failure");}),"falha no reinício reportada");Assert(File.ReadAllText(target)=="new","rollback preserva versão anterior");Assert(Directory.GetFiles(dir).Length==1,"sem executáveis antigos após instalação");
