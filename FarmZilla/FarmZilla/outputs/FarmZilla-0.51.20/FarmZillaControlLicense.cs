@@ -25,6 +25,11 @@ static class FarmZillaControlLicense {
   File.WriteAllBytes(Path.Combine(LicenseCore.Home,FileName),ProtectedData.Protect(Encoding.UTF8.GetBytes(key.Trim()),null,DataProtectionScope.CurrentUser));
  }
  internal static bool Activate(string key,OnlineIdentity identity,out string message) {
+  bool unavailable;
+  return Activate(key,identity,out message,out unavailable);
+ }
+ internal static bool Activate(string key,OnlineIdentity identity,out string message,out bool unavailable) {
+  unavailable=false;
   message="Não foi possível validar a licença.";
   if(String.IsNullOrWhiteSpace(key)||key.Length>128){message="Informe a chave completa.";return false;}
   ServicePointManager.SecurityProtocol|=(SecurityProtocolType)3072;
@@ -44,7 +49,7 @@ static class FarmZillaControlLicense {
   }catch(WebException ex){
    var response=ex.Response as HttpWebResponse;
    if(response!=null){using(response){if(response.StatusCode==HttpStatusCode.Forbidden){message="Licença indisponível, vencida ou vinculada a outro computador.";return false;}}}
-   message="Servidor indisponível. Verifique a conexão e tente novamente.";return false;
+   unavailable=true;message="Servidor indisponível. Verifique a conexão e tente novamente.";return false;
   }
   return false;
  }
