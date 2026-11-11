@@ -1,0 +1,37 @@
+name: FarmZilla - Testar conexão SSH
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: farmzilla-ssh-check
+  cancel-in-progress: false
+jobs:
+  ssh-check:
+    name: Diagnóstico da VPS por chave restrita
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Verificar conexão com FarmZilla
+        shell: bash
+        env:
+          FZ_SSH_KEY: ${{ secrets.FARMZILLA_SSH_PRIVATE_KEY }}
+          FZ_SSH_HOSTS: ${{ secrets.FARMZILLA_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ -n "$FZ_SSH_KEY" && -n "$FZ_SSH_HOSTS" ]] || { echo 'Configure os dois Secrets SSH do FarmZilla'; exit 1; }
+          umask 077
+          fz_ssh_dir=$(mktemp -d "$RUNNER_TEMP/farmzilla-ssh.XXXXXX")
+          trap 'rm -rf -- "$fz_ssh_dir"' EXIT
+          printf '%s\n' "$FZ_SSH_KEY" > "$fz_ssh_dir/key"
+          printf '%s\n' "$FZ_SSH_HOSTS" > "$fz_ssh_dir/known_hosts"
+          unset FZ_SSH_KEY FZ_SSH_HOSTS
+          ssh-keygen -y -f "$fz_ssh_dir/key" > /dev/null
+          ssh-keygen -F 138.204.112.19 -f "$fz_ssh_dir/known_hosts" > /dev/null
+          timeout 60 ssh -T -p 22 -i "$fz_ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none \
+            -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 \
+            -o UserKnownHostsFile="$fz_ssh_dir/known_hosts" \
+            -o ConnectTimeout=15 -o ConnectionAttempts=1 \
+            -o ServerAliveInterval=10 -o ServerAliveCountMax=2 \
+            root@138.204.112.19 farmzilla-check
