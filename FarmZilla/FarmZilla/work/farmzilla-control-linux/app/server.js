@@ -92,7 +92,7 @@ async function handle(req,res) {
     await audit('license.create',{id:license.id});
     return response(res,201,{license});
   }
-  const licenseMatch=route.match(/^\\/api\\/licenses\\/([0-9]+)$/);
+  const licenseMatch=route.match(new RegExp('^/api/licenses/([0-9]+)$'));
   if(licenseMatch && req.method==='PATCH') {
     const b=await readJson(req);
     const q=await licenses.change(pool,licenseMatch[1],b.action,b.expiresAt);
