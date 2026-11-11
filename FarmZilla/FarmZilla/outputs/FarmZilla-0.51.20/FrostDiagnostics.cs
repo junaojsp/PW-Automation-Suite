@@ -91,36 +91,39 @@ sealed class FrostDiagnosticsForm : Form {
  readonly List<FrostCapture.Sample> session=new List<FrostCapture.Sample>();
  public FrostDiagnosticsForm(Func<bool> allowed,bool discoverOnShow=true){
   this.allowed=allowed;Text="FarmZilla · Frost Farm";ClientSize=new Size(450,640);MinimumSize=Size;BackColor=Rubi.Background;ForeColor=Rubi.Text;StartPosition=FormStartPosition.CenterParent;
-  Font=new Font("Segoe UI",9);
-  var tabs=new TabControl{Bounds=new Rectangle(8,8,434,624),Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right};
+  Font=new Font("Segoe UI",9);Padding=new Padding(8);
+  var tabs=new TabControl{Dock=DockStyle.Fill};
   tabs.TabPages.Add(BuildCapturePage());tabs.TabPages.Add(BuildCommandsPage());
   Controls.Add(tabs);
   timer.Interval=1000;timer.Tick+=(s,e)=>Sample();Shown+=(s,e)=>{if(discoverOnShow)RefreshCharacters();};FormClosing+=(s,e)=>Stop("Janela Frost fechada.");
  }
  TabPage BuildCapturePage(){
-  var page=new TabPage("Captura e trajeto"){BackColor=Rubi.Background,ForeColor=Rubi.Text};
-  LabelOn(page,"FROST FARM · AVALON NATIVO",12,12,400,22,Rubi.Accent);
-  LabelOn(page,"Captura coordenadas no leitor Avalon e gera trajeto do Mat Farm. Não envia pacotes sozinho.",12,38,410,36,Rubi.Muted);
-  LabelOn(page,"Personagem para capturar a rota:",12,78,400,18,Rubi.Text);
-  leader.SetBounds(12,100,284,28);leader.DropDownStyle=ComboBoxStyle.DropDownList;leader.BackColor=Rubi.Field;leader.ForeColor=Rubi.Text;page.Controls.Add(leader);
-  refresh.Text="Atualizar";refresh.SetBounds(306,98,110,30);refresh.Click+=(s,e)=>RefreshCharacters();page.Controls.Add(refresh);
-  start.Text="Iniciar captura de coordenadas";start.SetBounds(12,138,404,34);start.Click+=(s,e)=>{if(active)Stop("Captura encerrada por você.");else Start();};page.Controls.Add(start);
-  exportTrail.Text="Gerar trajeto Mat Farm";exportTrail.SetBounds(12,178,404,32);exportTrail.Enabled=false;exportTrail.Click+=(s,e)=>ExportTrail();page.Controls.Add(exportTrail);
-  state.SetBounds(12,218,404,48);state.Text="Parado. Mova o personagem; depois gere o trajeto e carregue-o no Mat Farm.";page.Controls.Add(state);
-  log.SetBounds(12,270,404,210);log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.BackColor=Rubi.Panel;log.ForeColor=Rubi.Text;log.Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;page.Controls.Add(log);
-  var folder=new NeonButton{Text="Abrir pasta das capturas"};folder.SetBounds(12,490,404,32);folder.Anchor=AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;folder.Click+=(s,e)=>{try{Directory.CreateDirectory(Folder);Process.Start("explorer.exe",Folder);}catch(Exception ex){Write("PASTA_ERRO "+ex.Message);}};page.Controls.Add(folder);
+  var page=new TabPage("Captura e trajeto"){BackColor=Rubi.Background,ForeColor=Rubi.Text,Padding=new Padding(8)};
+  var top=new Panel{Dock=DockStyle.Top,Height=258,BackColor=Rubi.Background};
+  LabelOn(top,"FROST FARM · AVALON NATIVO",4,4,400,22,Rubi.Accent);
+  LabelOn(top,"Captura coordenadas no leitor Avalon e gera trajeto do Mat Farm. Não envia pacotes sozinho.",4,28,400,36,Rubi.Muted);
+  LabelOn(top,"Personagem para capturar a rota:",4,66,400,18,Rubi.Text);
+  leader.SetBounds(4,86,284,28);leader.DropDownStyle=ComboBoxStyle.DropDownList;leader.BackColor=Rubi.Field;leader.ForeColor=Rubi.Text;top.Controls.Add(leader);
+  refresh.Text="Atualizar";refresh.SetBounds(294,84,110,30);refresh.Click+=(s,e)=>RefreshCharacters();top.Controls.Add(refresh);
+  start.Text="Iniciar captura de coordenadas";start.SetBounds(4,124,400,32);start.Click+=(s,e)=>{if(active)Stop("Captura encerrada por você.");else Start();};top.Controls.Add(start);
+  exportTrail.Text="Gerar trajeto Mat Farm";exportTrail.SetBounds(4,160,400,30);exportTrail.Enabled=false;exportTrail.Click+=(s,e)=>ExportTrail();top.Controls.Add(exportTrail);
+  state.SetBounds(4,196,400,52);state.Text="Parado. Mova o personagem; depois gere o trajeto e carregue-o no Mat Farm.";top.Controls.Add(state);
+  var folder=new NeonButton{Text="Abrir pasta das capturas",Dock=DockStyle.Bottom,Height=32};folder.Click+=(s,e)=>{try{Directory.CreateDirectory(Folder);Process.Start("explorer.exe",Folder);}catch(Exception ex){Write("PASTA_ERRO "+ex.Message);}};
+  log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.BackColor=Rubi.Panel;log.ForeColor=Rubi.Text;log.Dock=DockStyle.Fill;log.Margin=new Padding(0);
+  page.Controls.Add(log);page.Controls.Add(folder);page.Controls.Add(top);
   return page;
  }
  TabPage BuildCommandsPage(){
-  var page=new TabPage("Comandos Avalon"){BackColor=Rubi.Background,ForeColor=Rubi.Text};
-  LabelOn(page,"CATÁLOGO DO FARMZILLA",12,12,400,22,Rubi.Accent);
-  LabelOn(page,FrostCommand.Summary()+" O Frost lista; Espelho e Mat Farm executam.",12,38,410,40,Rubi.Muted);
-  var list=new ListView{Bounds=new Rectangle(12,84,404,420),View=View.Details,FullRowSelect=true,HeaderStyle=ColumnHeaderStyle.Nonclickable,BackColor=Rubi.Panel,ForeColor=Rubi.Text,Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right};
+  var page=new TabPage("Comandos Avalon"){BackColor=Rubi.Background,ForeColor=Rubi.Text,Padding=new Padding(8)};
+  var top=new Panel{Dock=DockStyle.Top,Height=76,BackColor=Rubi.Background};
+  LabelOn(top,"CATÁLOGO DO FARMZILLA",4,4,400,22,Rubi.Accent);
+  LabelOn(top,FrostCommand.Summary()+" O Frost lista; Espelho e Mat Farm executam.",4,28,400,40,Rubi.Muted);
+  var list=new ListView{Dock=DockStyle.Fill,View=View.Details,FullRowSelect=true,HeaderStyle=ColumnHeaderStyle.Nonclickable,BackColor=Rubi.Panel,ForeColor=Rubi.Text,ShowItemToolTips=true};
   list.Columns.Add("Comando",150);list.Columns.Add("Código",70);list.Columns.Add("Pacote",170);
   foreach(var command in FrostCommand.Catalog){
    var row=new ListViewItem(command.Name);row.SubItems.Add(command.Code);row.SubItems.Add(command.Packet);row.ToolTipText=command.Use;list.Items.Add(row);
   }
-  list.ShowItemToolTips=true;page.Controls.Add(list);
+  page.Controls.Add(list);page.Controls.Add(top);
   return page;
  }
  static string Folder{get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno","Frost");}}
