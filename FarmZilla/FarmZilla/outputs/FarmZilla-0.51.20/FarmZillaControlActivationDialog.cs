@@ -3,43 +3,44 @@ using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-// Ativacao padrao pelo FarmZilla Control. Codigo do PC pode ser copiado para o painel.
+// Preserva o layout da tela de liberacao original e usa a API do FarmZilla Control.
+// O codigo exibido e o mesmo deviceHash que o painel aceita ao criar uma licenca.
 static class FarmZillaControlActivationDialog {
  internal static bool Ensure(OnlineIdentity identity) {
-  // Require an explicit key entry and online authorization at every application launch.
-  using(var form=new Form {
-   Text="FarmZilla · ativar licença",ClientSize=new Size(460,288),
-   StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,
+  using(var dialog=new Form {
+   Text="FarmZilla · autorização do computador",ClientSize=new Size(590,370),
+   FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterScreen,
    MaximizeBox=false,MinimizeBox=false,BackColor=Color.FromArgb(12,16,19),
-   ForeColor=Color.White,Font=new Font("Segoe UI",9)
+   ForeColor=Color.White,Font=new Font("Segoe UI",(float)(9)*global::UiScale.F)
   }) {
-   var title=new Label {Text="Informe sua licença do FarmZilla",Left=18,Top=16,Width=420,Height=28,Font=new Font("Segoe UI",12,FontStyle.Bold)};
-   var info=new Label {Text="Informe a chave em toda abertura. A validação será online.",Left=18,Top=48,Width=420,Height=23};
-   var deviceCode=new TextBox {Left=18,Top=96,Width=320,ReadOnly=true,Text=FarmZillaControlLicense.DeviceHash(identity),AccessibleName="Código do computador"};
-   var copyCode=new Button {Text="Copiar",Left=348,Top=94,Width=90,Height=29};
-   copyCode.Click+=(s,e)=>{try{Clipboard.SetText(deviceCode.Text);}catch{}};
-   var codeInfo=new Label {Text="Código deste PC — copie para o painel FarmZilla Control",Left=18,Top=73,Width=420,Height=21};
-   var keyLabel=new Label {Text="Chave de licença fornecida pelo administrador",Left=18,Top=140,Width=420,Height=21};
-   var key=new TextBox {Left=18,Top=164,Width=420,MaxLength=128,Text="",AccessibleName="Chave de licença"};
-   var status=new Label {Left=18,Top=201,Width=420,Height=35,ForeColor=Color.Cyan};
-   var activate=new Button {Text="Ativar licença",Left=295,Top=245,Width=143,Height=30};
+   dialog.Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+   var title=new Label {Text="Liberação pelo gerenciador FarmZilla",Left=20,Top=17,Width=550,Height=28,Font=new Font("Segoe UI",(float)(13)*global::UiScale.F,FontStyle.Bold)};
+   var info=new Label {Text="Copie o código deste computador e cadastre no painel.\nInforme a chave autorizada para abrir o FarmZilla.",Left=20,Top=56,Width=550,Height=43};
+   var code=new TextBox {Left=20,Top=108,Width=420,Height=48,ReadOnly=true,Multiline=true,Text=FarmZillaControlLicense.DeviceHash(identity),AccessibleName="Código do PC"};
+   var copy=new Button {Text="Copiar código",Left=450,Top=108,Width=120,Height=48};
+   copy.Click+=(s,e)=>{try{Clipboard.SetText(code.Text);}catch{}};
+   var label=new Label {Text="Chave de licença fornecida pelo administrador",Left=20,Top=174,Width=550,Height=23};
+   var key=new TextBox {Left=20,Top=199,Width=550,MaxLength=128,Text="",AccessibleName="Chave de licença"};
+   var status=new Label {Left=20,Top=237,Width=550,Height=53,ForeColor=Color.Cyan,Text="Informe sua chave para autorizar esta abertura."};
+   var detail=new Label {Text="A licença é verificada online em toda abertura.",Left=20,Top=315,Width=335,Height=40,Font=new Font("Segoe UI",(float)(8)*global::UiScale.F)};
+   var activate=new Button {Text="Ativar licença",Left=380,Top=316,Width=190,Height=34};
    bool working=false;
    activate.Click+=async(s,e)=>{
     if(working)return;
     string value=key.Text.Trim();
-    if(value.Length==0){status.Text="Informe a chave.";return;}
-    working=true;activate.Enabled=false;status.Text="Validando licença…";
+    if(value.Length==0){status.Text="Informe a chave de licença.";return;}
+    working=true;activate.Enabled=false;status.Text="Consultando autorização...";
     try {
      var response=await Task.Run(()=>{string message;bool ok=FarmZillaControlLicense.Activate(value,identity,out message);return Tuple.Create(ok,message);});
-     if(form.IsDisposed)return;
-     if(response.Item1){FarmZillaControlLicense.SaveKey(value);form.DialogResult=DialogResult.OK;}
+     if(dialog.IsDisposed)return;
+     if(response.Item1){FarmZillaControlLicense.SaveKey(value);dialog.DialogResult=DialogResult.OK;}
      else status.Text=response.Item2;
-    }catch(Exception ex){if(!form.IsDisposed)status.Text="Falha na validação: "+ex.Message;}
-    finally{working=false;if(!form.IsDisposed)activate.Enabled=true;}
+    }catch(Exception ex){if(!dialog.IsDisposed)status.Text="Falha na validação: "+ex.Message;}
+    finally{working=false;if(!dialog.IsDisposed)activate.Enabled=true;}
    };
-   form.Controls.AddRange(new Control[]{title,info,codeInfo,deviceCode,copyCode,keyLabel,key,status,activate});
-   form.AcceptButton=activate;
-   return form.ShowDialog()==DialogResult.OK;
+   dialog.Controls.AddRange(new Control[]{title,info,code,copy,label,key,status,detail,activate});
+   dialog.AcceptButton=activate;
+   return dialog.ShowDialog()==DialogResult.OK;
   }
  }
 }
