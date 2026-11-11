@@ -30,8 +30,8 @@ static class UpdateTests {
     File.Copy(processFile,helperExe);File.Copy(processFile,originalExe);
     Assert(FarmZillaControlUpdate.SameOriginalBinary(helperExe,originalExe),
       "processo encerrado: helper e executavel original idênticos aceitos");
-    using(var output=new FileStream(originalExe,FileMode.Open,FileAccess.Write,FileShare.None)){
-     output.Position=output.Length-1;output.WriteByte(0x58);
+    using(var output=new FileStream(originalExe,FileMode.Open,FileAccess.ReadWrite,FileShare.None)){
+     output.Position=output.Length-1;int old=output.ReadByte();output.Position=output.Length-1;output.WriteByte((byte)(old^0xFF));
     }
     Assert(!FarmZillaControlUpdate.SameOriginalBinary(helperExe,originalExe),
       "processo encerrado: executavel adulterado recusado");
