@@ -10,7 +10,7 @@ static class AuthorizationSession {
  internal static bool Valid(){if(controlMode)return clock!=null;long now=OnlineLicense.Millis(DateTime.UtcNow);if(clock==null)return false;if(!lifetime&&(clock.ElapsedMilliseconds>=remaining||now+300000<highUtc))return false;highUtc=Math.Max(now,highUtc);try{OnlineLicense.Verify(Token,LicenseGate.Identity.Code,LicenseCore.PublicKey,now);return true;}catch{return false;}}
 }
 partial class AvalonInterno {
- bool authorizationDenied,authorizationChecking,logSending;string authorizationFailureReason;System.Windows.Forms.Timer authorizationTimer,logTimer;DateTime nextAuthorizationCheck;
+ bool authorizationDenied,authorizationChecking,logSending;string authorizationFailureReason;System.Windows.Forms.Timer authorizationTimer,logTimer;DateTime nextAuthorizationCheck;Stopwatch controlOfflineClock;
  void InitAuthorization(){
   // Online check every 30 minutes, only to pick up a block, deletion or tool change (lifetime license, 0.38.0): without
   // internet the PC keeps working; an explicit refusal from the server ends the operations by the normal flow.
@@ -24,10 +24,14 @@ partial class AvalonInterno {
    if(LicenseGate.ControlMode){
     try {
      string key=FarmZillaControlLicense.LoadKey();
-     var result=await Task.Run(()=>{string message;bool ok=FarmZillaControlLicense.Activate(key,LicenseGate.Identity,out message);return Tuple.Create(ok,message);});
+     var result=await Task.Run(()=>{string message;bool unavailable;bool ok=FarmZillaControlLicense.Activate(key,LicenseGate.Identity,out message,out unavailable);return Tuple.Create(ok,message,unavailable);});
      if(IsDisposed||closeInProgress)return;
-     if(!result.Item1){DenyAuthorization(result.Item2);return;}
-     nextAuthorizationCheck=DateTime.UtcNow.AddMinutes(5);
+     if(result.Item1){controlOfflineClock=null;nextAuthorizationCheck=DateTime.UtcNow.AddMinutes(5);}
+     else if(result.Item3){
+      if(controlOfflineClock==null)controlOfflineClock=Stopwatch.StartNew();
+      if(controlOfflineClock.Elapsed>=TimeSpan.FromMinutes(30)){DenyAuthorization("Servidor indisponível por mais de 30 minutos. Abra novamente com internet.");return;}
+      nextAuthorizationCheck=DateTime.UtcNow.AddMinutes(1);
+     }else{DenyAuthorization(result.Item2);return;}
     }catch(Exception ex){DenyAuthorization("Não foi possível verificar a licença: "+ex.Message);}
     finally{authorizationChecking=false;}
     return;
