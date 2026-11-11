@@ -13,8 +13,8 @@ const PORT = Number(process.env.PORT || 3000);
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const RELEASE_DIR = process.env.RELEASE_DIR || '/releases';
-if (!ADMIN_USER || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 16 || !process.env.DATABASE_URL) {
-  throw Error('Defina ADMIN_USER, ADMIN_PASSWORD (min. 16 caracteres) e DATABASE_URL');
+if (!ADMIN_USER || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8 || !process.env.DATABASE_URL) {
+  throw Error('Defina ADMIN_USER, ADMIN_PASSWORD (min. 8 caracteres) e DATABASE_URL');
 }
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 6 });
 const MAX_JSON = 8192;
