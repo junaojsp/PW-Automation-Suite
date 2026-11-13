@@ -8,23 +8,21 @@ using System.Windows.Forms;
 sealed class FrostAutomationForm : Form {
  sealed class Choice {public DgBot.Account Account;public override string ToString(){return Account.Name+" · PID "+Account.Pid;}}
  readonly Func<List<DgBot.Account>> accounts;readonly Func<bool> allowed;readonly Func<Task> prepare;
- readonly ComboBox leader=new ComboBox();readonly CheckedListBox followers=new CheckedListBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
- readonly Button dragon=new NeonButton(),wolf=new NeonButton(),dg=new NeonButton(),refresh=new NeonButton();readonly Timer timer=new Timer();
+ readonly ComboBox leader=new CyanCombo();readonly CheckedListBox followers=new CheckedListBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
+ readonly Button dg=new NeonButton(),refresh=new NeonButton();readonly Timer timer=new Timer();
  FrostBot boss;DgBot dungeon;bool starting,closing;readonly List<int> reserved=new List<int>();
  public CharacterRef CapturePrimary {get{if(dungeon==null||!dungeon.Running)return null;var l=leader.SelectedItem as Choice;return l==null?null:new CharacterRef{Pid=l.Account.Pid,Id=l.Account.Id,Name=l.Account.Name};}}
  public void Observe(byte[] packet){if(dungeon!=null&&dungeon.Running)dungeon.Observe(packet);}
  public bool Running {get{return starting||(boss!=null&&boss.Running)||(dungeon!=null&&dungeon.Running);}}
  public FrostAutomationForm(Func<List<DgBot.Account>> accounts,Func<bool> allowed,Func<Task> prepare,bool discover=true){
-  this.accounts=accounts;this.allowed=allowed;this.prepare=prepare;Text="FarmZilla · Frost · teste Bagaceira";ClientSize=new Size(430,650);MinimumSize=Size;StartPosition=FormStartPosition.CenterParent;BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",9);
-  AddLabel("BOT FROST · TESTE AVALON",12,10,406,22,Rubi.Accent);AddLabel("Rotinas Bagaceira. DG de teste: um ciclo, sem remontagem automática.",12,36,406,36,Rubi.Muted);
-  dragon.Text="Boss 1 · Dragão";dragon.SetBounds(12,78,198,34);dragon.Click+=async(s,e)=>await Toggle(FrostBot.Mode.Dragon);Controls.Add(dragon);
-  wolf.Text="Boss Lobo";wolf.SetBounds(220,78,198,34);wolf.Click+=async(s,e)=>await Toggle(FrostBot.Mode.Wolf);Controls.Add(wolf);
-  AddLabel("Líder",12,124,290,20,Rubi.Text);leader.SetBounds(12,146,290,26);leader.DropDownStyle=ComboBoxStyle.DropDownList;Controls.Add(leader);
-  refresh.Text="Sincronizar";refresh.SetBounds(310,144,108,30);refresh.Click+=(s,e)=>RefreshAccounts();Controls.Add(refresh);
-  AddLabel("Secundários (líder incluído automaticamente)",12,180,406,20,Rubi.Text);followers.SetBounds(12,204,406,114);followers.CheckOnClick=true;followers.BackColor=Rubi.Panel;followers.ForeColor=Rubi.Text;Controls.Add(followers);
-  dg.Text="Iniciar DG · "+DgBot.RouteSteps+" passos";dg.SetBounds(12,328,406,36);dg.Click+=async(s,e)=>await Toggle(null);Controls.Add(dg);
-  status.SetBounds(12,374,406,42);status.Text="Parado. Selecione as contas que participarão do teste.";Controls.Add(status);
-  log.SetBounds(12,424,406,212);log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.BackColor=Rubi.Panel;log.ForeColor=Rubi.Text;log.Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;Controls.Add(log);
+  this.accounts=accounts;this.allowed=allowed;this.prepare=prepare;Text="FarmZilla · Frost · teste Bagaceira";ClientSize=new Size(390,604);StartPosition=FormStartPosition.CenterParent;BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",9);
+  AddLabel("BOT FROST · TESTE AVALON",12,10,366,22,Rubi.Accent);AddLabel("Rotinas Bagaceira. DG de teste: um ciclo, sem remontagem automática.",12,36,366,36,Rubi.Muted);
+  AddLabel("Líder",12,80,280,20,Rubi.Text);leader.SetBounds(12,102,240,26);leader.DropDownStyle=ComboBoxStyle.DropDownList;Controls.Add(leader);
+  refresh.Text="Sincronizar";refresh.SetBounds(260,100,118,30);refresh.Click+=(s,e)=>RefreshAccounts();Controls.Add(refresh);
+  AddLabel("Secundários (líder incluído automaticamente)",12,142,366,20,Rubi.Text);followers.SetBounds(12,166,366,132);followers.CheckOnClick=true;followers.BackColor=Rubi.Panel;followers.ForeColor=Rubi.Text;Controls.Add(followers);
+  dg.Text="Iniciar DG · "+DgBot.RouteSteps+" passos";dg.SetBounds(12,312,366,36);dg.Click+=async(s,e)=>await Toggle(null);Controls.Add(dg);
+  status.SetBounds(12,360,366,42);status.Text="Parado. Selecione as contas que participarão do teste.";Controls.Add(status);
+  log.SetBounds(12,410,366,180);log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.BackColor=Rubi.Panel;log.ForeColor=Rubi.Text;log.Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;Controls.Add(log);
   timer.Interval=500;timer.Tick+=(s,e)=>{if(!allowed())RequestStop();Buttons();};timer.Start();Shown+=(s,e)=>{if(discover)RefreshAccounts();};
   FormClosing+=async(s,e)=>{if(closing)return;e.Cancel=true;Enabled=false;await StopAsync();closing=true;Close();};
  }
@@ -48,7 +46,7 @@ sealed class FrostAutomationForm : Form {
  }
  void RequestStop(){if(boss!=null)boss.Stop();if(dungeon!=null)dungeon.Stop();if(Running)State("Parando; aguardando comandos em andamento…");}
  void Release(){foreach(int pid in reserved)RotaLock.ClearIf(pid,"Frost Farm");reserved.Clear();}
- void Buttons(){bool running=Running;if(!running)Release();leader.Enabled=followers.Enabled=refresh.Enabled=!running;dragon.Enabled=wolf.Enabled=dg.Enabled=!starting;dragon.Text=running?"Parar Frost":"Boss 1 · Dragão";wolf.Text=running?"Parar Frost":"Boss Lobo";dg.Text=running?"Parar Frost":"Iniciar DG · "+DgBot.RouteSteps+" passos";}
+ void Buttons(){bool running=Running;if(!running)Release();leader.Enabled=followers.Enabled=refresh.Enabled=!running;dg.Enabled=!starting;dg.Text=running?"Parar Frost":"Iniciar DG · "+DgBot.RouteSteps+" passos";}
  public async Task StopAsync(){RequestStop();while(Running)await Task.Delay(100);Release();}
  protected override void Dispose(bool disposing){if(disposing){RequestStop();timer.Dispose();}base.Dispose(disposing);}
 }
@@ -56,6 +54,24 @@ partial class AvalonInterno {
  FrostAutomationForm frostAutomation;
  List<DgBot.Account> FrostAccounts(){return main.Items.Cast<object>().OfType<Entry>().Where(e=>!blocked.Contains(e.Pid)).Select(e=>new DgBot.Account{Pid=e.Pid,Id=e.Id,Name=e.Name,Class=e.Class}).ToList();}
  async Task PrepareFrost(){await StopAttacks();await missions.CancelAndWait();}
- void OpenFrostAutomation(){if(closeInProgress||authorizationDenied)return;if(frostAutomation==null||frostAutomation.IsDisposed)frostAutomation=new FrostAutomationForm(FrostAccounts,()=>!authorizationDenied&&!closeInProgress&&shortcutActive&&!controlLocked,PrepareFrost);teleport.FrostPrimary=()=>frostAutomation==null||frostAutomation.IsDisposed?null:frostAutomation.CapturePrimary;teleport.OnFrostCommand=p=>{if(frostAutomation!=null&&!frostAutomation.IsDisposed)frostAutomation.Observe(p);};if(!frostAutomation.Visible)frostAutomation.Show(this);frostAutomation.BringToFront();}
+ Panel frostInlineHost;bool frostInlineView;SideItem sideFrostInline;
+ void OpenFrostAutomation(){
+  if(closeInProgress||authorizationDenied)return;if(rotaView)ShowRotaView(false);
+  if(frostAutomation==null||frostAutomation.IsDisposed){
+   frostAutomation=new FrostAutomationForm(FrostAccounts,()=>!authorizationDenied&&!closeInProgress&&shortcutActive&&!controlLocked,PrepareFrost);
+   frostAutomation.TopLevel=false;frostAutomation.FormBorderStyle=FormBorderStyle.None;frostAutomation.Dock=DockStyle.Fill;
+   frostInlineHost=new Panel{BackColor=Rubi.Background};frostInlineHost.Controls.Add(frostAutomation);Controls.Add(frostInlineHost);
+  }
+  teleport.FrostPrimary=()=>frostAutomation==null||frostAutomation.IsDisposed?null:frostAutomation.CapturePrimary;
+  teleport.OnFrostCommand=p=>{if(frostAutomation!=null&&!frostAutomation.IsDisposed)frostAutomation.Observe(p);};
+  if(!frostInlineView){panelVisible.Clear();foreach(var c in panelBody){panelVisible[c]=c.Visible;c.Visible=false;}}
+  frostInlineView=true;sidePersonagens.Selected=false;sideRota.Selected=false;if(sideFrostInline!=null)sideFrostInline.Selected=true;
+  LayoutInlinePanels();frostInlineHost.Visible=true;frostInlineHost.BringToFront();frostAutomation.Show();if(sharedPotBar!=null)sharedPotBar.BringToFront();if(potDrawer!=null&&potDrawer.Visible)potDrawer.BringToFront();
+ }
+ void ShowEspelhoInline(){
+  if(rotaView)ShowRotaView(false);
+  if(frostInlineView){frostInlineView=false;if(frostInlineHost!=null)frostInlineHost.Visible=false;foreach(var kv in panelVisible)kv.Key.Visible=kv.Value;UpdateAttackRows();}
+  sidePersonagens.Selected=true;if(sideFrostInline!=null)sideFrostInline.Selected=false;LayoutInlinePanels();Invalidate(true);
+ }
  async Task StopFrostAutomation(){if(frostAutomation!=null&&!frostAutomation.IsDisposed)await frostAutomation.StopAsync();}
 }
