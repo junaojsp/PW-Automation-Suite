@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
+using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -19,6 +20,9 @@ static class LayoutPreview {
  [STAThread] static void Main(){
   Win.SetProcessDPIAware();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
   using(var form=new PreviewForm()){
+   string temp=Path.Combine(Path.GetTempPath(),"farmzilla-layout-"+Guid.NewGuid().ToString("N"));
+   Directory.CreateDirectory(temp);
+   typeof(AvalonInterno).GetField("settings",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(form,Path.Combine(temp,"config.txt"));
    form.Show();form.Update();
    Check(form.ClientSize==new Size(562,690),"Tamanho inicial inesperado");
    var tools=form.Controls.OfType<SideItem>().ToArray();
@@ -50,6 +54,15 @@ static class LayoutPreview {
    gear.PerformClick();Check(!drawer.Visible&&form.ClientSize.Width==562,"Engrenagem não recolhe painel");
    Call(form,"ShowEspelhoInline");Check(tools.Single(t=>t.Selected).Text=="Espelho","Volta ao Espelho incorreta");
    Check(hp.Value==47,"Recolher painel perdeu ajustes");
+   var keys=drawer.Controls.OfType<ComboBox>().OrderBy(c=>c.Top).ToArray();
+   keys[0].SelectedItem=Keys.F1;keys[1].SelectedItem=Keys.F2;
+   Call(form,"SaveInlinePot");
+   string config=Path.Combine(temp,"farmzilla-auto-pot-config.txt");
+   var saved=File.ReadAllLines(config);
+   Check(saved.Length==4&&saved[0]=="47"&&saved[2]==((int)Keys.F1).ToString()&&saved[3]==((int)Keys.F2).ToString(),"Persistência HP/MP incompatível");
+   keys[1].SelectedItem=Keys.F1;Call(form,"SaveInlinePot");
+   Check(File.ReadAllLines(config).SequenceEqual(saved),"Teclas duplicadas sobrescreveram configuração válida");
+   Directory.Delete(temp,true);
   }
   Console.WriteLine("Layout Windows: Espelho inicial, Frost incorporada, painel Auto Pot compartilhado e navegação sem perda de ajustes.");
  }

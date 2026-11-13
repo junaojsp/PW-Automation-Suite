@@ -30,7 +30,7 @@ partial class AvalonInterno {
   PotLabel("Usar quando MP ≤",16,337,164,24,Rubi.Text);
   potMpInput=PotNumber(potMp,190,334);PotLabel("%",266,337,22,24,Rubi.Text);
   PotLabel("Tecla da poção MP",16,376,150,24,Rubi.Text);potMpKeyInput=PotKey(potMpKey,182,372);
-  PotLabel("Intervalo mínimo: 8 segundos por recurso.\nConfigure as mesmas teclas nos clientes do jogo.\nNenhuma pedra ou item é convertido.",16,424,278,70,Rubi.Muted);
+  PotLabel("Intervalo mínimo: 8 segundos por recurso.\nConfigure as mesmas teclas nos clientes do jogo.",16,424,278,70,Rubi.Muted);
   var save=new NeonButton{Text="Salvar configurações",Primary=true,AccessibleName="Salvar Auto Pot"};save.SetBounds(16,510,278,36);save.Click+=(s,e)=>SaveInlinePot();potDrawer.Controls.Add(save);
   potSaveStatus=PotLabel("Configurações globais de HP e MP.",16,558,278,64,Rubi.Muted);
   LayoutInlinePanels();
