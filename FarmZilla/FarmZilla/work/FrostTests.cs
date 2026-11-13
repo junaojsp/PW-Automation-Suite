@@ -2,6 +2,12 @@ using System;using System.Globalization;using System.IO;using System.Linq;using 
 static class FrostTests {
  static void Assert(bool value,string message){if(!value)throw new Exception(message);Console.WriteLine("PASS "+message);}
  [STAThread]static void Main(){
+  Assert(DgBot.RouteSteps==454,"Rota Bagaceira contém 454 passos");
+  int bosses=0;foreach(string line in DgRouteData.Lines){var fields=line.Split(';');Assert(fields.Length==4,"Estrutura do passo Frost");double x=Double.Parse(fields[1],CultureInfo.InvariantCulture),z=Double.Parse(fields[2],CultureInfo.InvariantCulture);Assert(RotaAvalon.GameClient.ValidCoordinate(x)&&RotaAvalon.GameClient.ValidCoordinate(z),"Coordenadas da rota válidas");if(fields[0]=="B")bosses++;}
+  Assert(bosses==5,"Cinco etapas de boss preservadas");
+  Assert(RotaLock.TrySet(199999,"teste Frost"),"Reserva inicial Frost");Assert(!RotaLock.TrySet(199999,"outra rota"),"Reserva não sobrepõe outra automação");RotaLock.Clear(199999);
+  var imported=new DgBot(new DgBot.Account(),new System.Collections.Generic.List<DgBot.Account>(),delegate{},delegate{},null);Assert(imported.SingleCycle,"Teste DG inicia limitado a um ciclo");
+  using(var screen=new FrostAutomationForm(()=>new System.Collections.Generic.List<DgBot.Account>(),()=>false,()=>System.Threading.Tasks.Task.FromResult(0),false)){Assert(screen.Text.Contains("Frost"),"Tela das rotinas Frost pode ser criada sem jogo");}
   var previous=CultureInfo.CurrentCulture;try{
    CultureInfo.CurrentCulture=new CultureInfo("pt-BR");
    var snapshot=new ClientSnapshot{Pid=123,Name="Líder, \"Avalon\"",X=125.5f,Y=100,Z=-250,Hp=450,MaxHp=500,ReadAt=new DateTime(2026,11,11,17,0,0,DateTimeKind.Utc)};

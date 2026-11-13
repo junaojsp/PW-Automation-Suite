@@ -32,17 +32,11 @@ static class LayoutPreview {
     bitmap.Save("farmzilla-layout.png",ImageFormat.Png);
    }
   }
-  using(var frost=new FrostDiagnosticsForm(()=>false,false)){
+  using(var frost=new FrostAutomationForm(()=>new System.Collections.Generic.List<DgBot.Account>(),()=>false,()=>System.Threading.Tasks.Task.FromResult(0),false)){
    frost.Show();frost.Update();
-   if(frost.ClientSize!=new Size(450,640))throw new Exception("Tamanho inesperado da janela Frost");
+   if(frost.ClientSize!=new Size(430,650))throw new Exception("Tamanho inesperado da janela Frost");
    foreach(Control control in frost.Controls)if(control.Right>frost.ClientSize.Width||control.Bottom>frost.ClientSize.Height)throw new Exception("Controle Frost fora da janela: "+control.Text);
-   var tabs=frost.Controls.OfType<TabControl>().Single();
-   if(tabs.TabPages.Count!=2)throw new Exception("Frost Farm precisa das abas de captura e comandos");
-   foreach(TabPage page in tabs.TabPages){
-    tabs.SelectedTab=page;frost.Update();
-    foreach(Control control in page.Controls)if(control.Right>page.ClientSize.Width||control.Bottom>page.ClientSize.Height)throw new Exception("Controle Frost fora da aba "+page.Text+": "+control.GetType().Name+" \""+control.Text+"\" "+control.Bounds+" em "+page.ClientSize);
-   }
-   tabs.SelectedIndex=0;frost.Update();
+   if(frost.Controls.OfType<CheckedListBox>().Count()!=1||frost.Controls.OfType<ComboBox>().Count()!=1)throw new Exception("Seleção de líder e secundários Frost ausente");
    using(var bitmap=new Bitmap(frost.Width,frost.Height)){frost.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save("farmzilla-frost-layout.png",ImageFormat.Png);}
   }
   Console.WriteLine("Layout Windows capturado; controles dentro da janela e menu sem sobreposições.");

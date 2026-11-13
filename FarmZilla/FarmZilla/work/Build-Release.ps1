@@ -6,13 +6,13 @@ if(-not (Test-Path -LiteralPath $sourceCandidate -PathType Container)){
     throw "Fonte nao encontrada: $sourceCandidate. Informe -Source outputs\FarmZilla-0.51.20 ou atualize o projeto."
 }
 $sourcePath=(Resolve-Path -LiteralPath $sourceCandidate).Path
-$compiler='C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+$compiler=Join-Path $env:ProgramFiles 'Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe'
 if(-not (Test-Path -LiteralPath $compiler -PathType Leaf)){
     throw "Compilador .NET Framework x64 nao encontrado: $compiler"
 }
 $files=@(Get-ChildItem -LiteralPath $sourcePath -Filter '*.cs' -File | ForEach-Object FullName)
 if($files.Count -eq 0){throw "Nenhum arquivo C# encontrado em $sourcePath"}
-$icon=Join-Path $sourcePath 'Bagaceira.ico'
+$icon=Join-Path $sourcePath 'FarmZilla.ico'
 if(-not (Test-Path -LiteralPath $icon -PathType Leaf)){throw "Icone necessario nao encontrado: $icon"}
 $refs=@('/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll','/r:System.Security.dll','/r:System.Management.dll')
 # Recursos opcionais embutidos usando nome sem extensao.
