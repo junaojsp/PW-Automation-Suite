@@ -71,6 +71,73 @@ public sealed class TeleportBridge : IDisposable {
  public void SendFoxSkill(byte[] p){if(p==null||p.Length!=12||p[1]!=0||p[6]!=0x0B||p[7]!=1)throw new Exception("Habilidade invalida");uint skill=BitConverter.ToUInt32(p,2);if(!(p[0]==0x50&&skill==312||p[0]==0x29&&skill==320))throw new Exception("Habilidade invalida");Send(p);}
  // 0.51.2: WF pet — F5 revive (skill 329 on herself, 29 00 49 01 00 00 0B 01 <id>) and F6 call (64 00 00 00 00 00); closed list.
  public void SendPetCare(byte[] p){bool revive=p!=null&&p.Length==12&&p[0]==0x29&&p[1]==0&&BitConverter.ToUInt32(p,2)==329&&p[6]==0x0B&&p[7]==1&&BitConverter.ToUInt32(p,8)==CharacterId;bool call=p!=null&&p.Length==6&&p[0]==0x64&&p[1]==0&&BitConverter.ToUInt32(p,2)==0;if(!revive&&!call)throw new Exception("Comando de pet invalido");Send(p);}
+	public void SendSelfSkill(byte type, uint skill)
+	{
+		if ((type != 41 || skill != 186) && (type != 80 || (skill != 188 && skill != 112)))
+		{
+			throw new Exception("Habilidade invalida");
+		}
+		byte[] array = new byte[12]
+		{
+			type, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0
+		};
+		BitConverter.GetBytes(skill).CopyTo(array, 2);
+		array[6] = 11;
+		array[7] = 1;
+		BitConverter.GetBytes(CharacterId).CopyTo(array, 8);
+		Send(array);
+	}
+
+	public void SendTargetSkill(uint skill, uint target)
+	{
+		if (skill != 185 || (target & 0xC0000000u) != 2147483648u)
+		{
+			throw new Exception("Habilidade invalida");
+		}
+		byte[] array = new byte[12]
+		{
+			41, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0
+		};
+		BitConverter.GetBytes(skill).CopyTo(array, 2);
+		array[6] = 11;
+		array[7] = 1;
+		BitConverter.GetBytes(target).CopyTo(array, 8);
+		Send(array);
+	}
+
+	public void SendLoot(IList<KeyValuePair<uint, uint>> drops)
+	{
+		if (drops == null || drops.Count < 1 || drops.Count > 40)
+		{
+			throw new Exception("Lista de drops invalida");
+		}
+		byte[] array = new byte[6 + 8 * drops.Count];
+		array[0] = 184;
+		BitConverter.GetBytes((uint)drops.Count).CopyTo(array, 2);
+		for (int i = 0; i < drops.Count; i++)
+		{
+			if ((drops[i].Key & 0xC0000000u) != 3221225472u || drops[i].Value == 0 || drops[i].Value > 1000000)
+			{
+				throw new Exception("Drop invalido");
+			}
+			BitConverter.GetBytes(drops[i].Key).CopyTo(array, 6 + 8 * i);
+			BitConverter.GetBytes(drops[i].Value).CopyTo(array, 10 + 8 * i);
+		}
+		Send(array);
+	}
+
+	public void SendDgPacket(byte[] p)
+	{
+		if (p == null || p.Length < 2 || p[1] != 0 || ((p[0] != 35 || p.Length != 6) && (p[0] != 37 || p.Length < 10 || p.Length > 32) && (p[0] != 49 || p.Length != 9) && (p[0] != 86 || p.Length != 10) && (p[0] != 2 || p.Length != 6)))
+		{
+			throw new Exception("Comando da DG invalido");
+		}
+		Send(p);
+	}
+
+
  public void SendTownRevive(){Send(new byte[]{0x04,0,0,0,0,0});}
  public void SendReviveAccept(){Send(new byte[]{0x57,0,0,0,0,0});}
  public void SendControl(byte[] packet){if(packet==null||packet.Length!=2||packet[1]!=0||(packet[0]!=0x2A&&packet[0]!=0x08))throw new Exception("Comando de controle invalido");Send(packet);}

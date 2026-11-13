@@ -3,7 +3,9 @@ using System;using System.Collections.Generic;using System.Drawing;using System.
 // until the route stops, so the two tools never send competing commands to the same client.
 static class RotaLock {
  static readonly object gate=new object();static readonly Dictionary<int,string> busy=new Dictionary<int,string>();
+ public static bool TrySet(int pid,string name){lock(gate){if(busy.ContainsKey(pid))return false;busy[pid]=name;return true;}}
  public static void Set(int pid,string name){lock(gate)busy[pid]=name;}
+ public static void ClearIf(int pid,string name){lock(gate){string current;if(busy.TryGetValue(pid,out current)&&current==name)busy.Remove(pid);}}
  public static void Clear(int pid){lock(gate)busy.Remove(pid);}
  public static bool Busy(int pid){lock(gate)return busy.ContainsKey(pid);}
 }

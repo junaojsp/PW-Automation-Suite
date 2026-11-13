@@ -32,7 +32,7 @@ static class LayoutPreview {
     bitmap.Save("farmzilla-layout.png",ImageFormat.Png);
    }
   }
-  using(var frost=new FrostDiagnosticsForm(()=>false,false)){
+  using(var frost=new FrostAutomationForm(()=>new System.Collections.Generic.List<DgBot.Account>(),()=>false,()=>System.Threading.Tasks.Task.FromResult(0),false)){
    frost.Show();frost.Update();
    if(frost.ClientSize!=new Size(450,640))throw new Exception("Tamanho inesperado da janela Frost");
    foreach(Control control in frost.Controls)if(control.Right>frost.ClientSize.Width||control.Bottom>frost.ClientSize.Height)throw new Exception("Controle Frost fora da janela: "+control.Text);

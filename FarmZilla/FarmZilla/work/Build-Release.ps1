@@ -6,7 +6,7 @@ if(-not (Test-Path -LiteralPath $sourceCandidate -PathType Container)){
     throw "Fonte nao encontrada: $sourceCandidate. Informe -Source outputs\FarmZilla-0.51.20 ou atualize o projeto."
 }
 $sourcePath=(Resolve-Path -LiteralPath $sourceCandidate).Path
-$compiler='C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+$compiler=Join-Path $env:ProgramFiles 'Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe'
 if(-not (Test-Path -LiteralPath $compiler -PathType Leaf)){
     throw "Compilador .NET Framework x64 nao encontrado: $compiler"
 }
