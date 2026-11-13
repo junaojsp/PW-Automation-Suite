@@ -29,14 +29,14 @@ partial class AvalonInterno {
   change(box.Checked);
   box.CheckedChanged+=(s,e)=>{
    change(box.Checked);WriteAutomationFlag(name,box.Checked);
-   Note(title+(box.Checked?(name=="auto-pot"?": Auto Pot habilitado, configure teclas com botão direito.":": opção registrada; protocolo ainda não validado."):": desligado."));
+   Note(title+(box.Checked?(name=="auto-pot"?": Auto Pot habilitado, configure as teclas na engrenagem.":": opção registrada; protocolo ainda não validado."):": desligado."));
   };
   Controls.Add(box);hints.SetToolTip(box,hint);return box;
  }
  void InitAutomationOptions(){
   // Compact CheckBoxes, same Flat style as Meditacao/Reviver; no buttons.
   AutomationBox(autoPotOption,"Auto Pot","auto-pot",238,402,74,
-   "Auto Pot só no jogo em primeiro plano. Clique com botão direito aqui para ajustar as teclas e os limites HP/MP.",
+   "Auto Pot só no jogo em primeiro plano. Use a engrenagem para ajustar as teclas e os limites HP/MP.",
    enabled=>autoPotWanted=enabled);
   autoPotOption.MouseUp+=(s,e)=>{if(e.Button==MouseButtons.Right)ConfigureAutoPot();};
   InitAutoPot();
@@ -93,30 +93,7 @@ partial class AvalonInterno {
   finally{potPolling=false;}
  }
  void ConfigureAutoPot(){
-  using(var dialog=new Form{Text="Auto Pot · Configurações",ClientSize=new Size(320,200),FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false}){
-   var info=new Label{Text="Configure as teclas de poção no jogo. Auto Pot atua apenas no cliente em primeiro plano.",Left=12,Top=9,Width=290,Height=42};
-   var h=new NumericUpDown{Left=110,Top=57,Width=58,Minimum=1,Maximum=99,Value=potHp};
-   var m=new NumericUpDown{Left=110,Top=96,Width=58,Minimum=1,Maximum=99,Value=potMp};
-   var hk=new ComboBox{Left=185,Top=57,Width=119,DropDownStyle=ComboBoxStyle.DropDownList};
-   var mk=new ComboBox{Left=185,Top=96,Width=119,DropDownStyle=ComboBoxStyle.DropDownList};
-   Keys[] keys={Keys.None,Keys.F1,Keys.F2,Keys.F3,Keys.F4,Keys.F5,Keys.F6,Keys.F7,Keys.F8,Keys.F9,Keys.F10,Keys.F11,Keys.F12};
-   foreach(var k in keys){hk.Items.Add(k);mk.Items.Add(k);}
-   hk.SelectedItem=potHpKey;mk.SelectedItem=potMpKey;
-   var save=new Button{Text="Salvar",Left=203,Top=151,Width=100};
-   save.Click+=(s,e)=>{
-    if(hk.SelectedItem==null||mk.SelectedItem==null||((Keys)hk.SelectedItem!=Keys.None&&Equals(hk.SelectedItem,mk.SelectedItem))){
-     MessageBox.Show(dialog,"Escolha teclas distintas para HP e MP.");return;
-    }
-    int hp=(int)h.Value,mp=(int)m.Value;Keys hpKey=(Keys)hk.SelectedItem,mpKey=(Keys)mk.SelectedItem;
-    try{
-     Directory.CreateDirectory(Path.GetDirectoryName(PotConfigPath));
-     File.WriteAllLines(PotConfigPath,new[]{hp.ToString(),mp.ToString(),((int)hpKey).ToString(),((int)mpKey).ToString()});
-     potHp=hp;potMp=mp;potHpKey=hpKey;potMpKey=mpKey;dialog.DialogResult=DialogResult.OK;
-    }catch(Exception ex){MessageBox.Show(dialog,ex.Message);}
-   };
-   dialog.Controls.AddRange(new Control[]{info,new Label{Text="HP abaixo %",Left=12,Top=60,Width=96},new Label{Text="MP abaixo %",Left=12,Top=99,Width=96},h,m,hk,mk,save});
-   dialog.AcceptButton=save;dialog.ShowDialog(this);
-  }
+  if(rotaView)return;
+  potDrawerOpen=true;LayoutInlinePanels();
  }
-
 }
