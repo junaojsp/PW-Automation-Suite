@@ -1,0 +1,35 @@
+name: FarmZilla The Classic - Diagnóstico x86
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'FarmZilla/TheClassic/**'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
+      - '.github/workflows/farmzilla-tclassic-build.yml'
+  pull_request:
+    paths:
+      - 'FarmZilla/TheClassic/**'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
+      - '.github/workflows/farmzilla-tclassic-build.yml'
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar e testar diagnóstico separado
+        shell: pwsh
+        run: ./FarmZilla/TheClassic/Build-Diagnostic.ps1
+      - name: Disponibilizar diagnóstico The Classic
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarmZilla-TheClassic-0.1.0-DIAGNOSTICO-x86
+          path: |
+            FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Diagnostico.exe
+            FarmZilla/TheClassic/artifacts/SHA256.txt
+            FarmZilla/TheClassic/artifacts/diagnostico-layout.png
+            FarmZilla/TheClassic/README.md
+          if-no-files-found: error
+          retention-days: 14
