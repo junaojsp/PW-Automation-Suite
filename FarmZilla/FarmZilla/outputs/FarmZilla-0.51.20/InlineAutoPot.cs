@@ -40,7 +40,7 @@ partial class AvalonInterno {
  }
  NumericUpDown PotNumber(int value,int x,int y){var control=new NumericUpDown{Minimum=1,Maximum=99,Value=value,Bounds=new Rectangle(x,y,70,27),BackColor=Rubi.Background,ForeColor=Rubi.Text};potDrawer.Controls.Add(control);return control;}
  ComboBox PotKey(Keys value,int x,int y){
-  var control=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Bounds=new Rectangle(x,y,112,27),BackColor=Rubi.Background,ForeColor=Rubi.Text};
+  var control=new CyanCombo{DropDownStyle=ComboBoxStyle.DropDownList,Bounds=new Rectangle(x,y,112,27),BackColor=Rubi.Background,ForeColor=Rubi.Text};
   control.Items.Add(Keys.None);for(Keys key=Keys.F1;key<=Keys.F12;key++)control.Items.Add(key);
   control.SelectedItem=value;potDrawer.Controls.Add(control);return control;
  }

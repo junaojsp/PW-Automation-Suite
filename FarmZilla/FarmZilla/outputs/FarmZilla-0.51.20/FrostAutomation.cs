@@ -8,7 +8,7 @@ using System.Windows.Forms;
 sealed class FrostAutomationForm : Form {
  sealed class Choice {public DgBot.Account Account;public override string ToString(){return Account.Name+" · PID "+Account.Pid;}}
  readonly Func<List<DgBot.Account>> accounts;readonly Func<bool> allowed;readonly Func<Task> prepare;
- readonly ComboBox leader=new ComboBox();readonly CheckedListBox followers=new CheckedListBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
+ readonly ComboBox leader=new CyanCombo();readonly CheckedListBox followers=new CheckedListBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
  readonly Button dg=new NeonButton(),refresh=new NeonButton();readonly Timer timer=new Timer();
  FrostBot boss;DgBot dungeon;bool starting,closing;readonly List<int> reserved=new List<int>();
  public CharacterRef CapturePrimary {get{if(dungeon==null||!dungeon.Running)return null;var l=leader.SelectedItem as Choice;return l==null?null:new CharacterRef{Pid=l.Account.Pid,Id=l.Account.Id,Name=l.Account.Name};}}
