@@ -35,7 +35,7 @@ sealed class FrostAutomationForm : Form {
  void RefreshAccounts(){if(Running)return;leader.Items.Clear();followers.Items.Clear();foreach(var a in accounts()){var choice=new Choice{Account=a};leader.Items.Add(choice);followers.Items.Add(choice,false);}if(leader.Items.Count>0)leader.SelectedIndex=0;Note("DESCOBERTA contas="+leader.Items.Count);}
  List<DgBot.Account> Selection(){var l=leader.SelectedItem as Choice;if(l==null)throw new InvalidOperationException("Selecione o líder.");var list=new List<DgBot.Account>{l.Account};foreach(Choice c in followers.CheckedItems)if(!list.Any(a=>a.Pid==c.Account.Pid))list.Add(c.Account);return list;}
  async Task Toggle(FrostBot.Mode? mode){
-  if(Running){RequestStop();return;}if(!allowed())return;
+  if(Running){RequestStop();return;}if(!allowed()){Note("INICIO_RECUSADO: ative o FarmZilla e confirme a autorização antes do teste.");return;}
   starting=true;Buttons();try{
    var selected=Selection();foreach(var a in selected){if(!RotaLock.TrySet(a.Pid,"Frost Farm"))throw new InvalidOperationException(a.Name+" está em outra automação de rota/Frost.");reserved.Add(a.Pid);}
    await prepare();if(!allowed())throw new InvalidOperationException("Sessão indisponível.");

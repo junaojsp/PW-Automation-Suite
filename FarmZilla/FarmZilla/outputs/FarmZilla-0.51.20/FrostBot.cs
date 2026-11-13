@@ -101,6 +101,7 @@ internal sealed class FrostBot
 				}
 				finally
 				{
+					StopMacro(acc.Pid);
 					if (ManageLock)
 					{
 						RotaLock.Clear(acc.Pid);

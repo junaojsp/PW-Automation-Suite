@@ -2728,13 +2728,14 @@ internal sealed class DgBot
 				Pid = a.Pid,
 				Name = a.Name
 			}).ToList());
+			try {
 			Stopwatch stopwatch2 = Stopwatch.StartNew();
 			while (!stop && frostBot2.Running && stopwatch2.Elapsed.TotalMinutes < 15.0)
 			{
 				Thread.Sleep(500);
 			}
-			frostBot2.StopAndWait(5000);
-			Loot();
+			} finally { frostBot2.StopAndWait(Timeout.Infinite); }
+			if (!stop) Loot();
 		}
 		else
 		{
