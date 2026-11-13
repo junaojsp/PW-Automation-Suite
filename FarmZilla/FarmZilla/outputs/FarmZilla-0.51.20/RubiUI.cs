@@ -11,7 +11,7 @@ partial class AvalonInterno : IParentPainter {
    foreach(Control control in Controls.Cast<Control>().ToArray())if(!keep.Contains(control)){Controls.Remove(control);control.Dispose();}
    Text="FarmZilla • "+ReleaseInfo.Version+" / 32 bits";AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(390,654);BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",(float)(9)*global::UiScale.F);Padding=Padding.Empty;
    MouseDown+=(s,e)=>{if(e.Y<48&&e.Button==MouseButtons.Left){DragNative.ReleaseCapture();DragNative.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}};
-   var mark=RubiLabel("FZ",14,12,28,25,9,FontStyle.Bold,Rubi.OnAccent);mark.TextAlign=ContentAlignment.MiddleCenter;EnableRubiDrag(mark);
+   var mark=RubiLabel("FZ",14,12,28,25,9,FontStyle.Bold,Color.FromArgb(46,169,235));mark.TextAlign=ContentAlignment.MiddleCenter;EnableRubiDrag(mark);
    var brand=RubiLabel("FarmZilla",51,8,180,32,13,FontStyle.Bold,Rubi.Text);brand.Font=new Font("Segoe UI Semibold",19,FontStyle.Bold,GraphicsUnit.Pixel);brand.AutoEllipsis=false;brand.TextAlign=ContentAlignment.MiddleLeft;EnableRubiDrag(brand);
    var version=RubiLabel("v"+ReleaseInfo.Version,232,18,79,18,8,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(version);
    minimize.SetBounds(321,10,25,28);close.SetBounds(351,10,25,28);
@@ -41,7 +41,7 @@ partial class AvalonInterno : IParentPainter {
   using(var b=new LinearGradientBrush(new Rectangle(0,0,w,h),Rubi.Shade(Rubi.Background,6),Rubi.Shade(Rubi.Background,-8),LinearGradientMode.Vertical))g.FillRectangle(b,0,0,w,h);
   using(var b=new LinearGradientBrush(new Rectangle(0,0,w,49),Rubi.Shade(Rubi.Panel,14),Rubi.Shade(Rubi.Panel,-6),LinearGradientMode.Vertical))g.FillRectangle(b,1,1,w-2,47);
   using(var p=new Pen(Color.FromArgb(90,0,0,0)))g.DrawLine(p,1,48,w-2,48);using(var p=new Pen(Color.FromArgb(28,255,255,255)))g.DrawLine(p,1,49,w-2,49);using(var accent=new Pen(Color.FromArgb(145,Rubi.Accent)))g.DrawLine(accent,16,48,102,48);
-  var badge=new Rectangle(14,12,28,25);Depth.Shadow(g,badge,5,2);Depth.Raised(g,badge,5,Rubi.Shade(Rubi.Accent,30),Rubi.Shade(Rubi.Accent,-35),Rubi.Shade(Rubi.Accent,-50));
+  var badge=new Rectangle(14,12,28,25);Depth.Shadow(g,badge,5,2);Depth.Raised(g,badge,5,Color.FromArgb(12,19,25),Color.FromArgb(2,5,8),Color.FromArgb(36,133,192));
   if(!rotaView){Card(g,new Rectangle(14,59,362,70));using(var p=new Pen(Rubi.Accent,3))g.DrawLine(p,16,67,16,121);
   using(var accent=new SolidBrush(Color.FromArgb(115,Rubi.Accent)))g.FillRectangle(accent,22,124,78,2);
   Card(g,new Rectangle(8,137,222,322));Card(g,new Rectangle(233,137,149,312));

@@ -71,6 +71,7 @@ internal sealed class DgBot
 	private volatile bool stop;
 
 	private Thread thread;
+	private Thread followerThread;
 
 	private volatile bool followOn;
 
@@ -3195,9 +3196,9 @@ internal sealed class DgBot
 		try
 		{
 			lib = RotaPaths.Bridge();
-			Thread thread = new Thread(FollowLoop);
-			thread.IsBackground = true;
-			thread.Start();
+			followerThread = new Thread(() => { try { FollowLoop(); } catch (Exception ex) { Say("Falha no seguir Frost: " + ex); stop = true; } });
+			followerThread.IsBackground = true;
+			followerThread.Start();
 			while (!stop)
 			{
 				Cycles++;
@@ -3557,7 +3558,9 @@ internal sealed class DgBot
 		}
 		finally
 		{
+			stop = true;
 			followOn = false;
+			if(followerThread != null && followerThread.IsAlive) followerThread.Join();
 			foreach (Account item7 in all)
 			{
 				StopMacro(item7);

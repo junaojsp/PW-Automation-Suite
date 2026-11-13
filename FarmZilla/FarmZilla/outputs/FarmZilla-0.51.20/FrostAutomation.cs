@@ -11,6 +11,8 @@ sealed class FrostAutomationForm : Form {
  readonly ComboBox leader=new ComboBox();readonly CheckedListBox followers=new CheckedListBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
  readonly Button dragon=new NeonButton(),wolf=new NeonButton(),dg=new NeonButton(),refresh=new NeonButton();readonly Timer timer=new Timer();
  FrostBot boss;DgBot dungeon;bool starting,closing;readonly List<int> reserved=new List<int>();
+ public CharacterRef CapturePrimary {get{if(dungeon==null||!dungeon.Running)return null;var l=leader.SelectedItem as Choice;return l==null?null:new CharacterRef{Pid=l.Account.Pid,Id=l.Account.Id,Name=l.Account.Name};}}
+ public void Observe(byte[] packet){if(dungeon!=null&&dungeon.Running)dungeon.Observe(packet);}
  public bool Running {get{return starting||(boss!=null&&boss.Running)||(dungeon!=null&&dungeon.Running);}}
  public FrostAutomationForm(Func<List<DgBot.Account>> accounts,Func<bool> allowed,Func<Task> prepare,bool discover=true){
   this.accounts=accounts;this.allowed=allowed;this.prepare=prepare;Text="FarmZilla · Frost · teste Bagaceira";ClientSize=new Size(430,650);MinimumSize=Size;StartPosition=FormStartPosition.CenterParent;BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",9);
@@ -54,6 +56,6 @@ partial class AvalonInterno {
  FrostAutomationForm frostAutomation;
  List<DgBot.Account> FrostAccounts(){return main.Items.Cast<object>().OfType<Entry>().Where(e=>!blocked.Contains(e.Pid)).Select(e=>new DgBot.Account{Pid=e.Pid,Id=e.Id,Name=e.Name,Class=e.Class}).ToList();}
  async Task PrepareFrost(){await StopAttacks();await missions.CancelAndWait();}
- void OpenFrostAutomation(){if(closeInProgress||authorizationDenied)return;if(frostAutomation==null||frostAutomation.IsDisposed)frostAutomation=new FrostAutomationForm(FrostAccounts,()=>!authorizationDenied&&!closeInProgress,PrepareFrost);if(!frostAutomation.Visible)frostAutomation.Show(this);frostAutomation.BringToFront();}
+ void OpenFrostAutomation(){if(closeInProgress||authorizationDenied)return;if(frostAutomation==null||frostAutomation.IsDisposed)frostAutomation=new FrostAutomationForm(FrostAccounts,()=>!authorizationDenied&&!closeInProgress&&shortcutActive&&!controlLocked,PrepareFrost);teleport.FrostPrimary=()=>frostAutomation==null||frostAutomation.IsDisposed?null:frostAutomation.CapturePrimary;teleport.OnFrostCommand=p=>{if(frostAutomation!=null&&!frostAutomation.IsDisposed)frostAutomation.Observe(p);};if(!frostAutomation.Visible)frostAutomation.Show(this);frostAutomation.BringToFront();}
  async Task StopFrostAutomation(){if(frostAutomation!=null&&!frostAutomation.IsDisposed)await frostAutomation.StopAsync();}
 }

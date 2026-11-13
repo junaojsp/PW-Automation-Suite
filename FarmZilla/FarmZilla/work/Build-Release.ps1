@@ -12,7 +12,7 @@ if(-not (Test-Path -LiteralPath $compiler -PathType Leaf)){
 }
 $files=@(Get-ChildItem -LiteralPath $sourcePath -Filter '*.cs' -File | ForEach-Object FullName)
 if($files.Count -eq 0){throw "Nenhum arquivo C# encontrado em $sourcePath"}
-$icon=Join-Path $sourcePath 'Bagaceira.ico'
+$icon=Join-Path $sourcePath 'FarmZilla.ico'
 if(-not (Test-Path -LiteralPath $icon -PathType Leaf)){throw "Icone necessario nao encontrado: $icon"}
 $refs=@('/r:System.Drawing.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll','/r:System.Security.dll','/r:System.Management.dll')
 # Recursos opcionais embutidos usando nome sem extensao.
