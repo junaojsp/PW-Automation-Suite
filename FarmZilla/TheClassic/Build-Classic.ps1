@@ -41,7 +41,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Compilação dos testes falhou.' }
 & $tests
 if ($LASTEXITCODE -ne 0) { throw 'Testes do FarmZilla-Classic falharam.' }
 
-if ((Get-Item $exe).VersionInfo.FileVersion -ne '0.6.0.0') { throw 'Versão interna incorreta.' }
+if ((Get-Item $exe).VersionInfo.FileVersion -ne '0.6.1.0') { throw 'Versão interna incorreta.' }
 $exeHash = (Get-FileHash $exe -Algorithm SHA256).Hash
 @("FarmZilla-Classic.exe SHA-256: $exeHash", "Ponte nativa embutida SHA-256: $hash") | Set-Content (Join-Path $output 'SHA256-Classic.txt')
 Write-Host "FarmZilla-Classic.exe: $exeHash"
