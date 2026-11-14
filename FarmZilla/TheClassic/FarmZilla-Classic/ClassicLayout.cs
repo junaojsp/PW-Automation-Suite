@@ -19,6 +19,8 @@ static class ClassicLayout {
  public const uint ConfirmLabels=0x250,ConfirmCount=0x26C;                                 // (0x258, 0x274)
  // CECWorld.
  public const uint WorldNpcs=0x20,WorldMatters=0x24;                                       // (0x24, 0x28)
+ // Terreno em +0x08. A instância fica em +0x90: 1 é o mapa do mundo (-4096..4096, -5632..5632).
+ public const uint WorldTerrain=0x08,WorldInstance=0x90;
  // CECMatterMan: a tabela por id começa em +0x10. Os baldes ficam em +0xC e a quantidade em +0x18 dessa tabela,
  // portanto no gerenciador são +0x1C e +0x28. O Avalon lia a quantidade em +0x18 e, no Classic, isso para o farm.
  public const uint MatterHashBuckets=0x1C,MatterHashCount=0x28;

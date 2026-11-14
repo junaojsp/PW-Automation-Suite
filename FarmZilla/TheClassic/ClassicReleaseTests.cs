@@ -62,5 +62,7 @@ static class ClassicSimulator {
   mem[manager+0x18]=0;mem[manager+ClassicLayout.MatterHashCount]=1;mem[manager+ClassicLayout.MatterHashBuckets]=buckets;mem[buckets]=node;mem[node]=0;mem[node+4]=obj;mem[node+8]=1;mem[obj+ClassicLayout.MatterId]=0xC0000123;mem[obj+ClassicLayout.MatterTemplate]=2862;
   var seen=Matters(mem,manager,ClassicLayout.MatterHashCount);var missed=Matters(mem,manager,0x18);
   check(seen.Length==1&&seen[0]==2862&&missed.Length==0,"mat farm lê o minério em +0x28 mesmo quando a chave do nó não é o id");
+  var world=RotaAvalon.TerrainBounds.ForInstance(1);
+  check(world!=null&&world.IsMainWorld&&RotaAvalon.TerrainBounds.ForInstance(121)==null,"a instância 1 abre o mapa do mundo e os pontos de erva");
  }
 }

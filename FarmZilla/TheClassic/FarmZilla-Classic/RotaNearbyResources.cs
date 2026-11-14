@@ -39,8 +39,10 @@ namespace RotaAvalon {
     public sealed class TerrainBounds {
         public double Left,Top,Right,Bottom;
         public bool IsMainWorld {get{return Math.Abs(Left+4096)<0.1&&Math.Abs(Right-4096)<0.1&&Math.Abs(Top-5632)<0.1&&Math.Abs(Bottom+5632)<0.1;}}
+        // The Classic minimap uses this rectangle for instance 1. The old terrain+0x204 read does not hold it, so the farm stayed on the empty grid and hid every embedded herb.
+        public static TerrainBounds ForInstance(uint instance){return instance==1?new TerrainBounds{Left=-4096,Top=5632,Right=4096,Bottom=-5632}:null;}
     }
-    public sealed class ResourceFrame {public DateTime ReadAt;public uint World;public TerrainBounds Terrain;public List<ResourceMarker> Resources=new List<ResourceMarker>();public int ObjectsInspected;}
+    public sealed class ResourceFrame {public DateTime ReadAt;public uint World,Instance;public TerrainBounds Terrain;public List<ResourceMarker> Resources=new List<ResourceMarker>();public int ObjectsInspected;}
     public sealed class MonsterMarker {public uint Id;public double X,Y,Z,Distance;}
     // Read-only, mapped in the Avalon client of 02/11/2026: same hash-table layout as the material manager.
     public static class NearbyMonsters {
@@ -68,8 +70,8 @@ namespace RotaAvalon {
             if(NativeType(memory,world,imageBase,imageEnd)!=".?AVCECWorld@@")throw new IOException("Perfil do mundo não reconhecido.");
             uint manager=memory.UInt32(world+ClassicLayout.WorldMatters);Pointer(manager);
             if(NativeType(memory,manager,imageBase,imageEnd)!=".?AVCECMatterMan@@")throw new IOException("Gerenciador de objetos não reconhecido.");
-            var frame=new ResourceFrame{ReadAt=DateTime.Now,World=world};uint terrain=memory.UInt32(world+0x0c);Pointer(terrain);byte[] geometry=memory.Read(terrain+0x204,16);
-            if(geometry.Length==16)frame.Terrain=new TerrainBounds{Left=F(geometry,0),Top=F(geometry,4),Right=F(geometry,8),Bottom=F(geometry,12)};
+            var frame=new ResourceFrame{ReadAt=DateTime.Now,World=world,Instance=memory.UInt32(world+ClassicLayout.WorldInstance)};
+            frame.Terrain=TerrainBounds.ForInstance(frame.Instance);
             uint count=memory.UInt32(manager+ClassicLayout.MatterHashCount),array=memory.UInt32(manager+ClassicLayout.MatterHashBuckets);
             // 0.46.5 (owner 05/11: map and materials vanished in town): with no object loaded nearby the game leaves the table
             // empty (array 0) — that is "no materials here", not "world unavailable", so map and list still show.

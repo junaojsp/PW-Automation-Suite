@@ -151,7 +151,7 @@ namespace RotaAvalon {
         void SaveHeight(double value){try{File.WriteAllText(HeightFile,((int)value).ToString());}catch{}}
         double LoadHeight(){try{int v;if(File.Exists(HeightFile)&&Int32.TryParse(File.ReadAllText(HeightFile).Trim(),out v)&&v>=10&&v<=300)return v;}catch{}return 60;}
         void UpdateFarm(List<ResourceMarker> observed){if(farm==null||observed==null)return;var chosen=new HashSet<int>(route.ResourceIds);
-            farm.Map.Resources=observed.Where(r=>chosen.Contains(r.TemplateId)&&!excludedPoints.Contains(FarmPlanner.Key(r.TemplateId,r.X,r.Z))).ToList();farm.Map.Invalidate();
+            farm.Map.Resources=observed.Where(r=>(chosen.Contains(r.TemplateId)||!r.Historical)&&!excludedPoints.Contains(FarmPlanner.Key(r.TemplateId,r.X,r.Z))).ToList();farm.Map.Invalidate();
             var groups=observed.Where(r=>catalog.Ground(r.TemplateId)).GroupBy(r=>r.TemplateId).ToDictionary(g=>g.Key,g=>g.ToList());var items=new List<FarmMaterial>();ResourceDefinition d;
             foreach(var kv in groups)if(catalog.Definitions.TryGetValue(kv.Key,out d))items.Add(new FarmMaterial{Id=kv.Key,Name=catalog.FarmName(kv.Key),Source=catalog.MaterialName(kv.Key),Points=kv.Value.Count,Loaded=kv.Value.Count(r=>!r.Historical)});
             foreach(var id in chosen)if(!groups.ContainsKey(id)&&catalog.Definitions.TryGetValue(id,out d))items.Add(new FarmMaterial{Id=id,Name=catalog.FarmName(id),Source=catalog.MaterialName(id)});
