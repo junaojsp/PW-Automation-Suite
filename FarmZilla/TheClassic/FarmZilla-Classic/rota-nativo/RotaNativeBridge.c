@@ -4,6 +4,18 @@
 
 #define BRIDGE_MESSAGE (WM_APP + 0x5A7)
 #define BRIDGE_MAGIC 0x52415631u
+/* PW The Classic (elementclient.exe 39d81c21...): structure offsets differ from the Avalon client this bridge came from;
+   each one is mapped by disassembly of that client (see TheClassic/PROFILE.md). Avalon values in comments. */
+#define RUN_HOST 0x28        /* Avalon 0x34 */
+#define RUN_UI 0x10          /* 0x1C */
+#define RUN_QUEUE 0x68       /* 0x74 */
+#define UI_TASK_CONFIRM 0xD54 /* 0x6B0 */
+#define UI_TASK_HINT 0xD58   /* 0x6B4 */
+#define CONFIRM_LABELS 0x250 /* 0x258 */
+#define CONFIRM_COUNT 0x26C  /* 0x274 */
+#define AWARD_CONTROLS 0x1B4 /* 0x1BC */
+#define AWARD_FLAGS 0x254    /* 0x25C */
+#define HOST_MACRO 0x1418    /* 0x1D3C */
 typedef struct Request {
     DWORD magic, version, operation, pid, thread, nonce;
     volatile LONG state;
@@ -59,9 +71,9 @@ static int native_type(uintptr_t object,BYTE *base,const char *expected) {
 static DWORD collect(Request *r) {
     BYTE *base=game_base();if(!base)return ERROR_BAD_EXE_FORMAT;
     if((r->reserved&0xC0000000u)!=0xC0000000u)return ERROR_INVALID_PARAMETER;
-    uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),actor=u32(root+0x34);
+    uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),actor=u32(root+RUN_HOST);
     if(!native_type(actor,base,".?AVCECHostPlayer@@"))return ERROR_INVALID_DATA;
-    BYTE *function=base+r->rva[R_TRACE];const BYTE signature[]={0x55,0x8B,0xEC,0x51,0x53,0x56,0x57};
+    BYTE *function=base+r->rva[R_TRACE];const BYTE signature[]={0x51,0x53,0x55,0x56,0x57,0x8B,0xF9};
     for(unsigned i=0;i<sizeof(signature);++i)if(function[i]!=signature[i])return ERROR_REVISION_MISMATCH;
     DWORD accepted,key=r->reserved;
     /* Native host TraceMatter(instance, gathering=true), callee-cleans 8 bytes. */
@@ -74,7 +86,7 @@ typedef void (__attribute__((thiscall)) *CommandMethod)(void *,const char *);
 typedef void *(__attribute__((thiscall)) *GetDialogMethod)(void *,const char *);
 
 static uintptr_t quest_dialog(BYTE *base,const Request *r) {
-    uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),ui=u32(root+0x1C),gameui=u32(ui+8),dialog=u32(gameui+0x6B0);
+    uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),ui=u32(root+RUN_UI),gameui=u32(ui+8),dialog=u32(gameui+UI_TASK_CONFIRM);
     return native_type(dialog,base,".?AVCDlgTaskConfirm@@")?dialog:0;
 }
 static void row_name(char *out,const char *prefix,unsigned number) {
@@ -100,9 +112,9 @@ static int material_label(uintptr_t label,BYTE *base,DWORD task,const Request *r
 static DWORD prepare_material_reward(Request *r) {
     BYTE *base=game_base();if(!base)return ERROR_BAD_EXE_FORMAT;
     uintptr_t dialog=quest_dialog(base,r);if(!dialog)return ERROR_INVALID_DATA;
-    if(r->operation==3){uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),ui=u32(root+0x1C),gameui=u32(ui+8),hint=u32(gameui+0x6B4);if(!native_type(hint,base,".?AVCDlgTaskHintPop@@"))return ERROR_INVALID_DATA;((CommandMethod)(base+r->rva[R_HINT_COMMAND]))((void *)hint,"Btn_ShowTasksToConfirm");}
+    if(r->operation==3){uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),ui=u32(root+RUN_UI),gameui=u32(ui+8),hint=u32(gameui+UI_TASK_HINT);if(!native_type(hint,base,".?AVCDlgTaskHintPop@@"))return ERROR_INVALID_DATA;((CommandMethod)(base+r->rva[R_HINT_COMMAND]))((void *)hint,"Btn_ShowTasksToConfirm");}
     ((VoidMethod)(base+r->rva[R_CONFIRM_REFRESH]))((void *)dialog);
-    DWORD count=u32(dialog+0x274),labels=u32(dialog+0x258),row=0,quest=0;
+    DWORD count=u32(dialog+CONFIRM_COUNT),labels=u32(dialog+CONFIRM_LABELS),row=0,quest=0;
     if(count>18)return ERROR_INVALID_DATA;
     for(DWORD i=0;i<count;++i){uintptr_t label=u32(labels+i*4);DWORD task=u32(label+0xF4);/* IDs observed in controlled Coal, Willow and Coal Core captures; text was empty. *//* FarmZilla 0.28.0: with an expected task (material + 58456 for the 3074..3092 family), only that exact row; without one, the known ids or the "Material" text as before. */
         if(native_type(label,base,".?AVAUILabel@@")&&(r->reserved?task==r->reserved:(task==61546||task==61532||task==61547||material_label(label,base,task,r)))){if(row)return ERROR_INVALID_DATA;row=i+1;quest=task;}}
@@ -112,7 +124,7 @@ static DWORD prepare_material_reward(Request *r) {
     r->reserved=quest;return ERROR_SUCCESS;
 }
 static uintptr_t control(uintptr_t dialog,const char *name) {
-    uintptr_t map=dialog+0x1BC;DWORD modulus=u32(map+0x18),array=u32(map+0xC),hash=0;if(!modulus)modulus=u32(map+8);
+    uintptr_t map=dialog+AWARD_CONTROLS;DWORD modulus=u32(map+0x18),array=u32(map+0xC),hash=0;if(!modulus)modulus=u32(map+8);
     if(!modulus||modulus>65536||!array)return 0;
     for(const unsigned char *p=(const unsigned char *)name;*p;++p)hash=hash*31+*p;
     uintptr_t node=u32(array+(hash%modulus)*4);
@@ -126,7 +138,7 @@ static DWORD confirm_second_reward(Request *r) {
     if(getDialog<(uintptr_t)base||getDialog>=(uintptr_t)base+image_size)return ERROR_INVALID_DATA;
     uintptr_t dialog=(uintptr_t)((GetDialogMethod)getDialog)((void *)manager,"Win_Award");
     if(!native_type(dialog,base,".?AVCDlgAward@@")||u32(dialog+0xFC)!=r->reserved)return ERROR_NO_MORE_ITEMS;
-    if(!readable((void *)(dialog+0x25C),2)||*(BYTE *)(dialog+0x25C)||*(BYTE *)(dialog+0x25D))return ERROR_NOT_SUPPORTED;
+    if(!readable((void *)(dialog+AWARD_FLAGS),2)||*(BYTE *)(dialog+AWARD_FLAGS)||*(BYTE *)(dialog+AWARD_FLAGS+1))return ERROR_NOT_SUPPORTED;
     /* Coque (resource 3092, quest 61548) awards the desired dark item in the first slot.
        Keep the previously verified second-slot selection for every other material. */
     unsigned award=(r->reserved==61548u)?1u:2u;
@@ -147,7 +159,7 @@ static DWORD post_automove(Request *r) {
     BYTE *base=game_base();if(!base)return ERROR_BAD_EXE_FORMAT;
     BYTE *poster=base+r->rva[R_POSTER];const BYTE expected[]={0x55,0x8B,0xEC,0x6A,0xFF,0x68};
     for(unsigned i=0;i<sizeof(expected);++i)if(poster[i]!=expected[i])return ERROR_REVISION_MISMATCH;
-    uintptr_t game=u32((uintptr_t)base+r->rva[R_ROOT]),run=u32(game+0x1C),queue=u32(run+0x74);
+    uintptr_t game=u32((uintptr_t)base+r->rva[R_ROOT]),run=u32(game+0x1C),queue=u32(run+RUN_QUEUE);
     if(!game||!run||!queue||!readable((void *)queue,16))return ERROR_INVALID_DATA;
     DWORD type=r->reserved;volatile DWORD message[10]={0x14A,0,0,type,0,0,0,0,0,0};
     if(type==0){
@@ -164,19 +176,20 @@ static DWORD post_automove(Request *r) {
     return ERROR_SUCCESS;
 }
 
-/* FarmZilla 0.45.6 (operation 7): what Space / Z do. The host keyboard-move method (RVA 0x3D73C0, mapped by disassembly on
-   04/11/2026) takes a command whose +0x0C is the key: 8 = up (sets 0x10 in host+0xB78), 9 = down (0x20). While flying it
+/* FarmZilla 0.45.6 (operation 7): what Space / Z do. The Avalon host keyboard-move method (RVA 0x3D73C0) takes a command
+   whose +0x0C is the key: 8 = up (sets 0x10 in host+0xB78), 9 = down (0x20). The Classic has no separate method: the same
+   command arrives as message 0xDD through CECHostPlayer::ProcessMessage (key in dwParam1, +0x0C; bits in host+0xAF8). While flying it
    starts the keyboard move work (work type 1, mode 3: no destination), which is what applies the vertical direction; the
    direction itself is cleared by the game every frame and held by FarmZilla from outside while it climbs/descends. */
 static DWORD key_move(Request *r) {
     BYTE *base=game_base();if(!base)return ERROR_BAD_EXE_FORMAT;
     DWORD key=r->reserved;if(key!=8&&key!=9)return ERROR_INVALID_PARAMETER;
-    BYTE *function=base+r->rva[R_KEY_MOVE];const BYTE expected[]={0x55,0x8B,0xEC,0x83,0xEC,0x14,0x56,0x8B,0xF1};
+    BYTE *function=base+r->rva[R_KEY_MOVE];const BYTE expected[]={0x53,0x8B,0xDC,0x83,0xEC,0x08};
     for(unsigned i=0;i<sizeof(expected);++i)if(function[i]!=expected[i])return ERROR_REVISION_MISMATCH;
-    uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),actor=u32(root+0x34);
+    uintptr_t root=u32((uintptr_t)base+r->rva[R_ROTA_ROOT]),actor=u32(root+RUN_HOST);
     if(!native_type(actor,base,".?AVCECHostPlayer@@"))return ERROR_INVALID_DATA;
-    volatile DWORD command[8]={0,0,0,key,0,0,0,0};void *pointer=(void *)command;
-    /* thiscall host->KeyMove(command*), callee cleans 4 bytes. */
+    volatile DWORD command[8]={0xDD,0,0,key,0,0,0,0};void *pointer=(void *)command;
+    /* thiscall host->ProcessMessage(message*), callee cleans 4 bytes. */
     __asm__ __volatile__("pushl %1\n\tmovl %0, %%ecx\n\tcall *%2"
         : : "r"(actor),"r"(pointer),"r"(function) : "eax","ecx","edx","cc","memory");
     return ERROR_SUCCESS;
@@ -198,7 +211,7 @@ static DWORD auto_policy(Request *r) {
     const char *policy=(const char *)(base+r->rva[R_AUTOKILL_NAME]);if(lstrcmpA(policy,"AutoKillMonster"))return ERROR_REVISION_MISMATCH;
     uintptr_t inst;__asm__ __volatile__("call *%1":"=a"(inst):"r"(getter):"ecx","edx","cc","memory");
     if(!native_type(inst,base,".?AVCECAutoPolicy@@")||!readable((void *)inst,0x40))return ERROR_INVALID_DATA;
-    uintptr_t empty=(uintptr_t)base+r->rva[R_EMPTY_STRING];int running=u32(inst+0x28)!=empty;
+    uintptr_t empty=u32((uintptr_t)base+r->rva[R_EMPTY_STRING]);if(!empty)return ERROR_INVALID_DATA;int running=u32(inst+0x28)!=empty;
     r->y=running?1.0f:0.0f;
     if(!on){
         if(running)__asm__ __volatile__("movl %0, %%ecx\n\tcall *%1"::"r"(inst),"r"(stop):"eax","ecx","edx","cc","memory");
@@ -211,11 +224,11 @@ static DWORD auto_policy(Request *r) {
     uintptr_t action=u32(inst+0x24);
     if(action&&readable((void *)action,0x24)){
         uintptr_t host=u32(action+4);
-        if(host&&native_type(host,base,".?AVCECHostPlayer@@")&&readable((void *)(host+0x1D3C),4)){
-            uintptr_t macro=u32(host+0x1D3C);
+        if(host&&native_type(host,base,".?AVCECHostPlayer@@")&&readable((void *)(host+HOST_MACRO),4)){
+            uintptr_t macro=u32(host+HOST_MACRO);
             if(macro&&readable((void *)macro,4)){uintptr_t vt=u32(macro),destroy=u32(vt);
                 if(destroy){__asm__ __volatile__("pushl $1\n\tmovl %0, %%ecx\n\tcall *%1"::"r"(macro),"r"(destroy):"eax","ecx","edx","cc","memory");}
-                *(volatile DWORD *)(host+0x1D3C)=0;}
+                *(volatile DWORD *)(host+HOST_MACRO)=0;}
             volatile float *from=(volatile float *)(host+0x3C),*to=(volatile float *)(action+0x18);to[0]=from[0];to[1]=from[1];to[2]=from[2];
         }
     }
