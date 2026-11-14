@@ -7,6 +7,7 @@ on:
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bridge.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ProcessGate.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/AttackService.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/RubiPalette.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZillaFrame.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/SideItem.cs'
@@ -22,6 +23,7 @@ on:
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bridge.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ProcessGate.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/AttackService.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/RubiPalette.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZillaFrame.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/SideItem.cs'
@@ -45,7 +47,7 @@ jobs:
       - name: Disponibilizar diagnóstico The Classic
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-TheClassic-0.4.0-TESTE-x86
+          name: FarmZilla-TheClassic-0.5.0-TESTE-x86
           path: |
             FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Diagnostico.exe
             FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Teste.exe

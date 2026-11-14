@@ -49,3 +49,24 @@ O comando Parar conserva o argumento `1` usado pelo FarmZilla; sua semântica no
 precisa ser confirmada pelo teste em jogo. A confirmação exige a ausência de trabalho ativo de seguir.
 O autoteste prova mensagem/thread/restauração em uma janela do próprio processo, não a semântica do jogo.
 Não há retomada automática nem repetição em segundo plano nesta entrega.
+
+## Ataque e suporte por macro — teste 0.5.0
+
+Mapeado no mesmo executável de referência. O scanner de assinaturas do Avalon só encontrou as 12 vtables
+por RTTI (inclusive `CECComboSkill` e o trabalho de seguir já usado); as funções foram localizadas pela
+estrutura do código, não por offsets do Avalon. `AttackProfile.cs` confere 21 guardas no arquivo e na memória.
+
+| Uso (nome no Avalon) | Classic (RVA) | Evidência estática |
+| --- | --- | --- |
+| Alvo atacável (`AttackSelect`) | `0x10AF70` | `test [this+0xB04],0xB`; compara alvo com ID `+0x4B8`; retorna -1/0/1 com `ret 8` (2 argumentos; no Avalon são 3) |
+| Selecionar alvo (`AttackNormal`) | `0x110590` | `push 0x12`; grava `[Host+0x59C]`; envia `02 00 <id>` ou `08 00`; `ret 4` |
+| Iniciar macro (`MacroStart`) | `0x10DCB0` | cria `CECComboSkill` (vtable RVA `0x9E6B0C`), guarda em `Host+0x1418`, usa o alvo `Host+0x59C`; `ret 0xC` |
+| Parar macro (`MacroStop`) | `0x10DDA0` | destrói `[Host+0x1418]` e zera o campo |
+| Inicialização do combo | `0x0D23C0` | índice 0–7 (`cmp esi,7`), dono `+4`, índice `+0x1C`, passo `+0x20`, fim `+0x24`, alvo `+0x2C`; macro N em `[[jogo]+0x18]+0xFE+17·N` |
+| Envio de pacote (`SendData`) | `0x4C0C90` | `this=[jogo+0x20]`, argumentos (buffer, tamanho), `ret 8`; `2A 00` enviado em `0x0E5343` |
+| Ataque normal do jogo | `0x0E2FF0` | referência: para a macro, consulta `0x10AF70` e chama `0x10AAD0` |
+
+A ponte `AttackBridge.cs` é uma cópia da ponte do Avalon com esses endereços; a consulta empilha 2 argumentos.
+O controle (`AttackController` em `AttackService.cs`) é compilado sem alteração da fonte compartilhada; o Classic
+fornece `ClassicAttackRuntime`, `CharacterMemory`, `State` e o envio restrito a `2A 00`/`08 00`.
+O Classic aceita macros 0–7. O comportamento no jogo (alcance, recarga, suporte e retorno ao seguir) precisa do teste com as contas.

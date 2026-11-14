@@ -1,12 +1,12 @@
-# FarmZilla The Classic — teste 0.4.0
+# FarmZilla The Classic — teste 0.5.0
 
 Pacote Windows .NET Framework x86 com dois executáveis:
 
-- **FarmZilla-TheClassic-Teste.exe**: seleção de principal/secundários no layout FarmZilla e teste manual de Seguir/Parar, usando a mesma ponte interna do Avalon com perfil Classic.
+- **FarmZilla-TheClassic-Teste.exe**: layout FarmZilla com Seguir/Parar e ataque/suporte por macro, usando as mesmas pontes e o mesmo controle de ataque do Avalon com perfil Classic.
 - **FarmZilla-TheClassic-Diagnostico.exe**: leitura de personagem e relatório JSON, sem comandos.
 
-O teste de seguir ainda precisa de confirmação no jogo. Ataque, buffs, macros, teleporte,
-inventário e atualização automática do Classic não estão habilitados. Não publique este
+Seguir e ataque ainda precisam de confirmação no jogo. Buffs, grupo, meditação, reviver, teleporte,
+inventário, ferramentas e atualização automática do Classic não estão habilitados. Não publique este
 pacote no canal Avalon do painel.
 
 ## Testar com duas contas
@@ -28,6 +28,18 @@ observou o estado esperado. O movimento e o comportamento de Parar ainda precisa
 Se houver falha na instalação/remoção da ponte, esse PID fica bloqueado para novos comandos;
 reinicie esse cliente antes de repetir. Não existe repetição automática de comandos neste teste.
 A saída tenta parar as contas acionadas por esta sessão, mesmo que você as desmarque depois.
+
+## Testar o ataque (0.5.0)
+
+Mesmo comportamento do FarmZilla Avalon: os marcados em **Atq.** usam a **macro 0** no monstro selecionado
+pelo principal; sacerdotes marcados em **Sup.** usam a **macro 2** em quem estiver em **Suporte em**.
+
+1. Cadastre a macro 0 (habilidades de ataque) em cada conta; nos sacerdotes, cadastre também a macro 2.
+2. Escolha o principal e os secundários. A caixa ao lado do principal faz ele atacar junto.
+3. **Manual por tecla**: com o jogo em primeiro plano, selecione um monstro no principal e aperte a tecla Atacar (padrão **1**).
+4. **Automático**: enquanto o principal tiver um monstro selecionado, os marcados repetem a macro 0.
+   Selecione você mesmo (ou ESC) para parar; quem estava seguindo volta a seguir.
+5. Envie o log de **Registros**. Linhas `ATTACK` registram início, parada, macro travada e falhas.
 
 ## Diagnóstico de leitura
 
