@@ -21,6 +21,10 @@ namespace RotaAvalon {
             if(!String.IsNullOrWhiteSpace(d.itemNome))return d.itemNome.Trim();return String.IsNullOrWhiteSpace(d.nome)?"Recurso "+template:d.nome.Trim();}
         public string MaterialName(int template){ResourceDefinition d;return Definitions.TryGetValue(template,out d)&&!String.IsNullOrWhiteSpace(d.nome)?d.nome.Trim():"";}
         public bool Ground(int template){ResourceDefinition d;return Definitions.TryGetValue(template,out d)&&GroundTypes.Contains(d.idTipo)&&d.item1Id>0;}
+        // The Classic catalog is the Avalon elements.data. Every ground tier (wood, ore, stone, coal, herbs) is stamped
+        // nivelMinimo 80; the tier a character can gather is nivelRecurso, so a level 6 plans and flies to tier 1.
+        // A real gate (150, or any minimum that is not this blanket 80) stays as written.
+        public int GatherLevel(ResourceDefinition d){if(d==null)return 0;if(GroundTypes.Contains(d.idTipo)&&d.nivelMinimo==80&&d.nivelRecurso>=1&&d.nivelRecurso<=10)return d.nivelRecurso;return d.nivelMinimo;}
         public static ResourceCatalog Load(string path){
             var info=new FileInfo(path);if(info.Length>8*1024*1024)throw new InvalidDataException("Catálogo muito grande.");
             return Parse(File.ReadAllText(path));
@@ -82,7 +86,7 @@ namespace RotaAvalon {
                 byte[] record=memory.Read(obj,0x118);if(record.Length!=0x118)continue;uint idOnObject=U(record,(int)ClassicLayout.MatterId);if(!MatterNode.Same(key,idOnObject))continue;int id=unchecked((int)U(record,(int)ClassicLayout.MatterTemplate));ResourceDefinition definition;if(!catalog.Definitions.TryGetValue(id,out definition))continue;
                 string type=NativeType(memory,obj,imageBase,imageEnd);if(type!=".?AVCECMatter@@"&&type!=".?AVCECTracedMatter@@")continue;
                 double x=F(record,0x3c),y=F(record,0x40),z=F(record,0x44);if(!GameClient.ValidCoordinate(x)||!GameClient.ValidCoordinate(y)||!GameClient.ValidCoordinate(z))continue;
-                double dx=x-player.X,dy=y-player.Y,dz=z-player.Z;frame.Resources.Add(new ResourceMarker{InstanceId=idOnObject,TemplateId=id,Name=String.IsNullOrWhiteSpace(definition.nome)?"Recurso "+id:definition.nome,RequiredLevel=definition.nivelMinimo,ItemId=definition.item1Id,X=x,Y=y,Z=z,Distance=Math.Sqrt(dx*dx+dy*dy+dz*dz),HorizontalDistance=Math.Sqrt(dx*dx+dz*dz),LevelAllowed=player.Level>=definition.nivelMinimo});
+                double dx=x-player.X,dy=y-player.Y,dz=z-player.Z;int need=catalog.GatherLevel(definition);frame.Resources.Add(new ResourceMarker{InstanceId=idOnObject,TemplateId=id,Name=String.IsNullOrWhiteSpace(definition.nome)?"Recurso "+id:definition.nome,RequiredLevel=need,ItemId=definition.item1Id,X=x,Y=y,Z=z,Distance=Math.Sqrt(dx*dx+dy*dy+dz*dz),HorizontalDistance=Math.Sqrt(dx*dx+dz*dz),LevelAllowed=player.Level>=need});
             }}
             if(memory.UInt32(root+ClassicLayout.RunWorld)!=world||memory.UInt32(world+ClassicLayout.WorldMatters)!=manager)throw new IOException("O mapa mudou durante a leitura.");
             frame.Resources=frame.Resources.OrderBy(r=>r.Distance).ToList();return frame;

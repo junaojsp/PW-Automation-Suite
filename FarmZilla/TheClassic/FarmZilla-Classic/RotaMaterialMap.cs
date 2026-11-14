@@ -21,8 +21,8 @@ namespace RotaAvalon {
             var cells=new HashSet<string>();foreach(var r in observed){int cx=(int)Math.Floor(r.X/40),cz=(int)Math.Floor(r.Z/40);for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++)cells.Add(r.TemplateId+":"+(cx+i)+":"+(cz+j));}
             var result=new List<ResourceMarker>(observed);
             foreach(var p in Points()){int t=(int)p[0];double x=p[1],z=p[2];if(cells.Contains(t+":"+(int)Math.Floor(x/40)+":"+(int)Math.Floor(z/40)))continue;ResourceDefinition d;if(!catalog.Definitions.TryGetValue(t,out d))continue;
-                double dx=x-player.X,dz=z-player.Z,h=Math.Sqrt(dx*dx+dz*dz);
-                result.Add(new ResourceMarker{InstanceId=0,TemplateId=t,Name=String.IsNullOrWhiteSpace(d.nome)?"Recurso "+t:d.nome,RequiredLevel=d.nivelMinimo,ItemId=d.item1Id,X=x,Y=0,Z=z,Map=ResourceHistory.World,Distance=h,HorizontalDistance=h,LevelAllowed=player.Level>=d.nivelMinimo,Historical=true,Seed=true});}
+                double dx=x-player.X,dz=z-player.Z,h=Math.Sqrt(dx*dx+dz*dz);int need=catalog.GatherLevel(d);
+                result.Add(new ResourceMarker{InstanceId=0,TemplateId=t,Name=String.IsNullOrWhiteSpace(d.nome)?"Recurso "+t:d.nome,RequiredLevel=need,ItemId=d.item1Id,X=x,Y=0,Z=z,Map=ResourceHistory.World,Distance=h,HorizontalDistance=h,LevelAllowed=player.Level>=need,Historical=true,Seed=true});}
             return result;}
     }
 }

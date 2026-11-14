@@ -64,5 +64,16 @@ static class ClassicSimulator {
   check(seen.Length==1&&seen[0]==2862&&missed.Length==0,"mat farm lê o minério em +0x28 mesmo quando a chave do nó não é o id");
   var world=RotaAvalon.TerrainBounds.ForInstance(1);
   check(world!=null&&world.IsMainWorld&&RotaAvalon.TerrainBounds.ForInstance(121)==null,"a instância 1 abre o mapa do mundo e os pontos de erva");
+  var catalog=new RotaAvalon.ResourceCatalog();
+  var tier1=new RotaAvalon.ResourceDefinition{id=3098,idTipo=2865,nivelMinimo=80,nivelRecurso=1,nome="Eufórbio",item1Id=1};
+  var ore=new RotaAvalon.ResourceDefinition{id=3079,idTipo=2862,nivelMinimo=80,nivelRecurso=1,nome="Minério de Ferro",item1Id=1};
+  var gate=new RotaAvalon.ResourceDefinition{id=1,idTipo=2865,nivelMinimo=150,nivelRecurso=1,nome="Alto",item1Id=1};
+  check(catalog.GatherLevel(tier1)==1&&catalog.GatherLevel(ore)==1&&catalog.GatherLevel(gate)==150,"erva e minério de nível 80 no catálogo viram tier 1; um mínimo real continua");
+  var player=new RotaAvalon.ClientSnapshot{Name="CheirosaEP",Level=6,X=342,Y=230,Z=444};
+  var marker=new RotaAvalon.ResourceMarker{TemplateId=3098,RequiredLevel=1,LevelAllowed=true,X=400,Z=500,Y=0,Seed=true,ItemId=1};
+  var blocked=new RotaAvalon.ResourceMarker{TemplateId=1,RequiredLevel=150,LevelAllowed=false,X=400,Z=500,Y=0,Seed=true,ItemId=1};
+  var plan=RotaAvalon.FarmPlanner.Build(new[]{marker,blocked},new[]{3098,1},player,400);
+  check(plan.Points.Count==1&&plan.Points[0].ResourceId==3098,"nível 6 planeja o mat de tier 1 e deixa de fora o mínimo real");
+  check(FollowFlight.ShouldTakeoff(true,true,false)&&!FollowFlight.ShouldTakeoff(true,false,false)&&!FollowFlight.ShouldTakeoff(true,true,true)&&!FollowFlight.ShouldTakeoff(false,true,false),"seguidor no chão decola só quando o líder está no ar");
  }
 }
