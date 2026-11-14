@@ -11,8 +11,8 @@ using System.Windows.Forms;
 
 namespace FarmZilla.TheClassic {
  public sealed class FollowAccount {
-  public int Pid;public uint Id;public string Name;public long Started;
-  public override string ToString(){return Name+" · PID "+Pid;}
+  public int Pid;public uint Id;public string Name;public long Started;public int ClassId;
+  public override string ToString(){return Name;}
  }
  static class ClassicLog {
   static readonly object gate=new object();
@@ -81,39 +81,34 @@ namespace FarmZilla.TheClassic {
   public byte[] Read(uint at,int count){var b=new byte[count];UIntPtr got;if(!ReadProcessMemory(handle,new IntPtr(unchecked((int)at)),b,new UIntPtr((uint)count),out got)||got.ToUInt64()!=(ulong)count)throw new IOException("Leitura de estado indisponível.");return b;}
   public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}}
  }
- sealed class ClassicMirrorForm:Form {
-  readonly ComboBox principal=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList};
+ sealed partial class ClassicMirrorForm:Form,IParentPainter {
+  readonly ComboBox principal=new CyanCombo{DropDownStyle=ComboBoxStyle.DropDownList};
   readonly CheckedListBox followers=new CheckedListBox{CheckOnClick=true};
   readonly TextBox output=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical};
-  readonly Button sync=new Button{Text="Sincronizar contas"},follow=new Button{Text="Seguir principal"},stop=new Button{Text="Parar seguimento"},logs=new Button{Text="Abrir pasta do log"};
+  readonly Button sync=new NeonButton{Text="Sincronizar contas"},follow=new NeonButton{Text="Seguir principal"},stop=new NeonButton{Text="Parar seguimento"},logs=new NeonButton{Text="Abrir pasta do log"};
   readonly Dictionary<int,FollowAccount> owned=new Dictionary<int,FollowAccount>();readonly ClassicFollowService service;bool busy,closing,ready;
   public ClassicMirrorForm(bool discover=true){
-   Text="FarmZilla · The Classic · Espelho TESTE 0.3.0";ClientSize=new Size(620,600);FormBorderStyle=FormBorderStyle.FixedSingle;MaximizeBox=false;BackColor=Color.FromArgb(10,16,22);ForeColor=Color.White;Font=new Font("Segoe UI",9);
-   var title=new Label{Text="ESPELHO · THE CLASSIC · TESTE DE SEGUIR",Bounds=new Rectangle(16,12,580,25),ForeColor=Color.DeepSkyBlue};Controls.Add(title);
-   Controls.Add(new Label{Text="Principal",Bounds=new Rectangle(16,46,580,20)});principal.SetBounds(16,70,400,28);sync.SetBounds(430,69,174,30);
-   Controls.Add(new Label{Text="Secundários — marque as contas que vão seguir",Bounds=new Rectangle(16,112,588,22)});followers.SetBounds(16,138,588,160);followers.BackColor=BackColor;followers.ForeColor=ForeColor;
-   follow.SetBounds(16,312,280,36);stop.SetBounds(310,312,294,36);output.SetBounds(16,362,588,178);output.BackColor=BackColor;output.ForeColor=Color.LightSkyBlue;logs.SetBounds(16,552,588,32);
-   Controls.AddRange(new Control[]{principal,sync,followers,follow,stop,output,logs});service=new ClassicFollowService(Note);
-   sync.Click+=async(s,e)=>await Work(Discover);follow.Click+=async(s,e)=>await Work(()=>Send(false));stop.Click+=async(s,e)=>await Work(()=>Send(true));logs.Click+=(s,e)=>{try{Process.Start(new ProcessStartInfo{FileName=ClassicLog.Folder,UseShellExecute=true});}catch(Exception ex){Note("LOG_OPEN_ERROR "+ex.Message);}};
-   Shown+=async(s,e)=>{if(!discover)return;try{ClassicLog.Write("START version=0.3.0 executable=TheClassic-Teste profile="+Analyzer.ReferenceSha);Note("Log automático: "+ClassicLog.PathName);Note("Teste manual: só seguir/parar. Ataque, buffs e teleporte não estão habilitados.");ready=true;await Work(Discover);}catch(Exception ex){MessageBox.Show(this,"Não foi possível criar o log: "+ex.Message);follow.Enabled=stop.Enabled=false;}};
+   BuildMirrorLayout();service=new ClassicFollowService(Note);
+   sync.Click+=async(s,e)=>await Work(Discover);follow.Click+=async(s,e)=>await Work(()=>Send(owned.Count>0));stop.Click+=async(s,e)=>await Work(()=>Send(true));logs.Click+=(s,e)=>{try{Process.Start(new ProcessStartInfo{FileName=ClassicLog.Folder,UseShellExecute=true});}catch(Exception ex){Note("LOG_OPEN_ERROR "+ex.Message);}};
+   Shown+=async(s,e)=>{if(!discover)return;try{ClassicLog.Write("START version=0.4.0 executable=TheClassic-Teste profile="+Analyzer.ReferenceSha);Note("Log automático: "+ClassicLog.PathName);Note("Teste manual: só seguir/parar. Ataque, buffs e teleporte não estão habilitados.");ready=true;await Work(Discover);}catch(Exception ex){MessageBox.Show(this,"Não foi possível criar o log: "+ex.Message);follow.Enabled=stop.Enabled=false;}};
    FormClosing+=async(s,e)=>{if(closing)return;e.Cancel=true;if(busy){Note("CLOSE_WAIT aguarde a operação atual.");return;}await Work(()=>Send(true));closing=true;ClassicLog.Write("CLOSE");Close();};
   }
   void Note(string text){ClassicLog.Write(text);if(IsDisposed)return;if(InvokeRequired){BeginInvoke(new Action(()=>Append(text)));}else Append(text);}
-  void Append(string text){if(IsDisposed)return;if(output.TextLength>60000)output.Clear();output.AppendText(DateTime.Now.ToString("HH:mm:ss.fff")+" "+text+Environment.NewLine);}
+  void Append(string text){if(IsDisposed)return;UpdateMirrorStatus(text);if(output.TextLength>60000)output.Clear();output.AppendText(DateTime.Now.ToString("HH:mm:ss.fff")+" "+text+Environment.NewLine);}
   async Task Discover(){
    if(owned.Count>0)throw new InvalidOperationException("Pare o seguimento antes de sincronizar as contas.");
-   principal.Items.Clear();followers.Items.Clear();var reports=await Task.Run(()=>LiveReader.Discover());
-   foreach(var report in reports){Note("DISCOVERY "+Analyzer.Json(report));if(report.Character==null)continue;using(var p=Process.GetProcessById(report.Pid)){var a=new FollowAccount{Pid=report.Pid,Id=report.Character.CharacterId,Name=report.Character.Name,Started=p.StartTime.ToUniversalTime().Ticks};principal.Items.Add(a);followers.Items.Add(a,false);}}
-   if(principal.Items.Count>0)principal.SelectedIndex=0;Note("DISCOVERY_DONE valid="+principal.Items.Count);
+   var accounts=new List<FollowAccount>();var reports=await Task.Run(()=>LiveReader.Discover());
+   foreach(var report in reports){Note("DISCOVERY "+Analyzer.Json(report));if(report.Character==null)continue;using(var p=Process.GetProcessById(report.Pid)){var a=new FollowAccount{Pid=report.Pid,Id=report.Character.CharacterId,Name=report.Character.Name,ClassId=report.Character.ClassId,Started=p.StartTime.ToUniversalTime().Ticks};accounts.Add(a);var note=ClassIcons.Load(p.MainModule.FileName);if(note!=null)Note(note);}}
+   BindAccounts(accounts);Note("DISCOVERY_DONE valid="+principal.Items.Count);
   }
   async Task Send(bool stopping){
    var leader=principal.SelectedItem as FollowAccount;var selected=stopping?owned.Values.ToArray():followers.CheckedItems.Cast<FollowAccount>().Where(a=>leader==null||a.Pid!=leader.Pid).ToArray();
    if(!stopping&&(leader==null||selected.Length==0))throw new InvalidOperationException("Selecione o principal e marque pelo menos um secundário distinto.");
    foreach(var account in selected){try{if(!stopping){ClassicFollowService.Validate(leader,account);owned[account.Pid]=account;}await Task.Run(()=>service.Command(leader,account,stopping));if(stopping)owned.Remove(account.Pid);}catch(Exception ex){Note("COMMAND_ERROR pid="+account.Pid+" "+ex);}}
   }
-  async Task Work(Func<Task> action){if(busy)return;busy=true;sync.Enabled=follow.Enabled=stop.Enabled=principal.Enabled=followers.Enabled=false;try{await action();}catch(Exception ex){try{Note("ERROR "+ex);}catch{ready=false;MessageBox.Show(this,"Log indisponível. Comandos bloqueados.");}}finally{busy=false;if(!IsDisposed){sync.Enabled=principal.Enabled=followers.Enabled=true;follow.Enabled=stop.Enabled=ready;}}}
+  async Task Work(Func<Task> action){if(busy)return;busy=true;sync.Enabled=follow.Enabled=stop.Enabled=principal.Enabled=followers.Enabled=false;EnableRows(false);try{await action();}catch(Exception ex){try{Note("ERROR "+ex);}catch{ready=false;MessageBox.Show(this,"Log indisponível. Comandos bloqueados.");}}finally{busy=false;if(!IsDisposed){sync.Enabled=principal.Enabled=followers.Enabled=true;follow.Enabled=stop.Enabled=ready;EnableRows(true);follow.Text=owned.Count>0?"Parar seguimento":"Seguir principal";}}}
  }
  static class ClassicMirrorProgram {
-  [STAThread] static void Main(){Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new ClassicMirrorForm());}
+  [STAThread] static void Main(){ClassicMirrorForm.SetDpiAware();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);Application.Run(new ClassicMirrorForm());}
  }
 }

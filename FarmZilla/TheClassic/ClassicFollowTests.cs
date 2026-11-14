@@ -37,9 +37,16 @@ static class ClassicFollowTests {
   }
   using(var form=new ClassicMirrorForm(false)){
    form.Show();form.Update();
+   Check(form.ClientSize==new Size(562,690),"mesmo tamanho da janela FarmZilla");
+   var menu=form.Controls.OfType<SideItem>().ToArray();Check(menu.Length==6&&menu.Single(c=>c.Selected).Text=="Espelho","menu FarmZilla com Espelho inicial");Check(menu.Where(c=>c.Text!="Espelho").All(c=>!c.Enabled),"ferramentas não validadas permanecem desabilitadas");
+   var primary=form.Controls.OfType<ComboBox>().Single(c=>c.AccessibleName=="Principal");var rows=form.Controls.OfType<ComboBox>().Where(c=>c.AccessibleName!=null&&c.AccessibleName.StartsWith("Secundário ")).OrderBy(c=>c.Top).ToArray();Check(rows.Length==9&&rows.All(c=>c is CyanCombo)&&primary is CyanCombo,"mesmos seletores FarmZilla");
+   var leader=new FollowAccount{Pid=1,Id=100,Name="Principal",ClassId=6};var secondary=new FollowAccount{Pid=2,Id=200,Name="Secundário EP",ClassId=7};form.BindAccounts(new List<FollowAccount>{leader,secondary});rows[0].SelectedItem=secondary;
+   var backing=(CheckedListBox)typeof(ClassicMirrorForm).GetField("followers",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(form);
+   Check(backing.CheckedItems.Count==1&&ReferenceEquals(backing.CheckedItems[0],secondary),"seletor visual alimenta o seguir já validado");rows[1].SelectedItem=secondary;Check(rows[1].SelectedIndex==0&&backing.CheckedItems.Count==1,"não duplica secundários");primary.SelectedItem=secondary;Check(rows[0].SelectedIndex==0&&backing.CheckedItems.Count==0,"principal não permanece como secundário");primary.SelectedItem=leader;rows[0].SelectedItem=secondary;
+   Check(!form.Controls.OfType<TextBox>().Any(c=>c.Multiline),"log em segundo plano sem ocupar Espelho");Check(form.Controls.OfType<Button>().Single(c=>c.AccessibleName=="Abrir registros").Enabled,"acesso ao log preservado");Check(!form.Controls.OfType<Button>().Single(c=>c.AccessibleName=="Update").Enabled,"atualizador Avalon não é usado no Classic");
    foreach(Control c in form.Controls)Check(c.Left>=0&&c.Top>=0&&c.Right<=form.ClientSize.Width&&c.Bottom<=form.ClientSize.Height,"controle dentro do Espelho: "+c.GetType().Name);
    using(var image=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(image,new Rectangle(Point.Empty,image.Size));image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"espelho-layout.png"),ImageFormat.Png);}
-   Check(form.Controls.OfType<CheckedListBox>().Count()==1&&form.Controls.OfType<ComboBox>().Count()==1,"seleção de principal e secundários");
+   Check(rows[0].Bounds==new Rectangle(186,168,128,27)&&primary.Bounds==new Rectangle(199,88,300,29),"posições originais do Espelho");
   }
   Console.WriteLine(count+" verificações do seguir; teste no jogo ainda necessário.");Directory.Delete(ClassicLog.Folder,true);return 0;
  }catch(Exception ex){Console.Error.WriteLine(ex);return 1;}}

@@ -1,8 +1,4 @@
 using System;using System.Collections.Generic;using System.Drawing;using System.Drawing.Drawing2D;using System.Linq;using System.Windows.Forms;
-static class Rubi {
- public static readonly Color Background=Color.FromArgb(8,11,15),Panel=Color.FromArgb(17,22,29),Field=Color.FromArgb(23,31,41),Line=Color.FromArgb(48,68,84),Text=Color.FromArgb(230,243,250),Muted=Color.FromArgb(169,191,207),Accent=Color.FromArgb(46,169,235),OnAccent=Color.FromArgb(5,15,23);
- public static Color Shade(Color c,int amount){Func<int,int> f=v=>Math.Max(0,Math.Min(255,v+amount));return Color.FromArgb(c.A,f(c.R),f(c.G),f(c.B));}
-}
 partial class AvalonInterno : IParentPainter {
  void ApplyRubiCompact(){
   SuspendLayout();try{
@@ -37,18 +33,6 @@ partial class AvalonInterno : IParentPainter {
  void EnableRubiDrag(Control control){control.MouseDown+=(s,e)=>{if(e.Button==MouseButtons.Left){DragNative.ReleaseCapture();DragNative.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}};}
  public void PaintBehind(PaintEventArgs e){using(var b=new SolidBrush(BackColor))e.Graphics.FillRectangle(b,e.ClipRectangle);PaintRubi(e.Graphics);}
  // Depth: lit header, raised cards with drop shadows, and a gradient FZ badge; controls keep their 0.19 positions.
- void PaintContent(Graphics g,int w,int h){
-  using(var b=new LinearGradientBrush(new Rectangle(0,0,w,h),Rubi.Shade(Rubi.Background,6),Rubi.Shade(Rubi.Background,-8),LinearGradientMode.Vertical))g.FillRectangle(b,0,0,w,h);
-  using(var b=new LinearGradientBrush(new Rectangle(0,0,w,49),Rubi.Shade(Rubi.Panel,14),Rubi.Shade(Rubi.Panel,-6),LinearGradientMode.Vertical))g.FillRectangle(b,1,1,w-2,47);
-  using(var p=new Pen(Color.FromArgb(90,0,0,0)))g.DrawLine(p,1,48,w-2,48);using(var p=new Pen(Color.FromArgb(28,255,255,255)))g.DrawLine(p,1,49,w-2,49);using(var accent=new Pen(Color.FromArgb(145,Rubi.Accent)))g.DrawLine(accent,16,48,102,48);
-  var badge=new Rectangle(14,12,28,25);Depth.Shadow(g,badge,5,2);Depth.Raised(g,badge,5,Color.FromArgb(12,19,25),Color.FromArgb(2,5,8),Color.FromArgb(36,133,192));
-  if(!rotaView&&!frostInlineView){Card(g,new Rectangle(14,59,362,70));using(var p=new Pen(Rubi.Accent,3))g.DrawLine(p,16,67,16,121);
-  using(var accent=new SolidBrush(Color.FromArgb(115,Rubi.Accent)))g.FillRectangle(accent,22,124,78,2);
-  Card(g,new Rectangle(8,137,222,322));Card(g,new Rectangle(233,137,149,312));
-  using(var line=new Pen(Color.FromArgb(90,Rubi.Accent)))g.DrawLine(line,17,161,74,161);
-  using(var line=new Pen(Color.FromArgb(90,Rubi.Accent)))g.DrawLine(line,242,161,296,161);
-  using(var footer=new SolidBrush(Color.FromArgb(95,Rubi.Panel)))g.FillRectangle(footer,9,598,374,50);using(var p=new Pen(Color.FromArgb(80,0,0,0)))g.DrawLine(p,14,568,376,568);using(var p=new Pen(Color.FromArgb(22,255,255,255)))g.DrawLine(p,14,569,376,569);}
-}
  // Flat check boxes fill their box with BackColor (white when transparent), so match the card gradient at their row.
  static Color CardTone(int top,int height,int y){var a=Rubi.Shade(Rubi.Panel,8);var b=Rubi.Shade(Rubi.Panel,-5);float t=Math.Max(0f,Math.Min(1f,(y-top)/(float)height));return Color.FromArgb((int)(a.R+(b.R-a.R)*t),(int)(a.G+(b.G-a.G)*t),(int)(a.B+(b.B-a.B)*t));}
  static void Card(Graphics g,Rectangle r){Depth.Shadow(g,r,8,2);Depth.Raised(g,r,8,Rubi.Shade(Rubi.Panel,11),Rubi.Shade(Rubi.Panel,-5),Rubi.Line);}

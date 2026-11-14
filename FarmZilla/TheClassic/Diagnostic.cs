@@ -14,12 +14,12 @@ using System.Windows.Forms;
 using System.Reflection;
 
 [assembly: AssemblyTitle("FarmZilla The Classic - Diagnóstico")]
-[assembly: AssemblyVersion("0.3.0.0")]
-[assembly: AssemblyFileVersion("0.3.0.0")]
+[assembly: AssemblyVersion("0.4.0.0")]
+[assembly: AssemblyFileVersion("0.4.0.0")]
 
 namespace FarmZilla.TheClassic {
  public sealed class FileReport {
-  public string Product="FarmZilla The Classic",Version="0.3.0",Mode="Somente leitura";
+  public string Product="FarmZilla The Classic",Version="0.4.0",Mode="Somente leitura";
   public string FileName,Sha256,Architecture,ProfileStatus;
   public bool ReferenceMatch,AutomationEnabled=false;
   public long Bytes;public uint ImageSize;
@@ -108,7 +108,7 @@ namespace FarmZilla.TheClassic {
   readonly Label state=new Label{AutoSize=true,Text="Somente leitura. Compare nome, nível, HP/MP e posição com o personagem no jogo."};
   object fileReport;List<ProcessReport> processes=new List<ProcessReport>();readonly List<object> samples=new List<object>();bool working;
   public DiagnosticForm(){
-   Text="FarmZilla · The Classic 1.4.4 · diagnóstico 0.3.0";ClientSize=new Size(850,550);MinimumSize=new Size(680,420);BackColor=Color.FromArgb(16,22,29);ForeColor=Color.White;Font=new Font("Segoe UI",9);
+   Text="FarmZilla · The Classic 1.4.4 · diagnóstico 0.4.0";ClientSize=new Size(850,550);MinimumSize=new Size(680,420);BackColor=Color.FromArgb(16,22,29);ForeColor=Color.White;Font=new Font("Segoe UI",9);
    var top=new FlowLayoutPanel{Dock=DockStyle.Top,Height=85,Padding=new Padding(8),WrapContents=true};
    top.Controls.AddRange(new Control[]{inspect,live,save,state});Controls.Add(output);Controls.Add(top);
    output.Text="Selecione o elementclient.exe do The Classic para analisar o perfil.\r\n\r\nEste executável é independente do Avalon e não possui atualizador ou automações.\r\nOs relatórios contêm metadados e candidatos de assinatura; não são dumps de memória.";
@@ -116,9 +116,9 @@ namespace FarmZilla.TheClassic {
    live.Click+=async(s,e)=>await Work(async()=>{processes=await Task.Run(()=>LiveReader.Discover());samples.Add(new{readAtUtc=DateTime.UtcNow.ToString("o"),processes=processes});if(samples.Count>12)samples.RemoveAt(0);Render();});
    save.Click+=(s,e)=>{using(var dialog=new SaveFileDialog{Filter="Relatório JSON|*.json",FileName="farmzilla-tclassic-diagnostico.json"})if(dialog.ShowDialog(this)==DialogResult.OK)try{File.WriteAllText(dialog.FileName,Report(),new UTF8Encoding(false));state.Text="Relatório salvo.";}catch(Exception ex){state.Text="Falha salvando: "+ex.Message;}};
   }
-  string Report(){return Analyzer.Json(new{product="FarmZilla The Classic",version="0.3.0",file=fileReport,processes=processes,samples=samples,characterFields="Nome, classe, nível, HP/MP, posição interna e alvo: confirmar no jogo; inventário pendente",automationEnabled=false});}
+  string Report(){return Analyzer.Json(new{product="FarmZilla The Classic",version="0.4.0",file=fileReport,processes=processes,samples=samples,characterFields="Nome, classe, nível, HP/MP, posição interna e alvo: confirmar no jogo; inventário pendente",automationEnabled=false});}
   void Render(){
-   var text=new StringBuilder();text.AppendLine("THE CLASSIC · DIAGNÓSTICO 0.3.0 · SOMENTE LEITURA");text.AppendLine("Amostras guardadas: "+samples.Count+" / 12. Compare os valores abaixo com o jogo.");
+   var text=new StringBuilder();text.AppendLine("THE CLASSIC · DIAGNÓSTICO 0.4.0 · SOMENTE LEITURA");text.AppendLine("Amostras guardadas: "+samples.Count+" / 12. Compare os valores abaixo com o jogo.");
    foreach(var process in processes){text.AppendLine();text.AppendLine("PID "+process.Pid+" · "+process.Status);text.AppendLine(process.CharacterStatus);var c=process.Character;if(c==null)continue;text.AppendLine(c.Name+" · Classe ID "+c.ClassId+" · Nível "+c.Level+" · Personagem ID "+c.CharacterId);text.AppendLine("HP "+c.Hp+" / "+c.MaxHp+"    MP "+c.Mp+" / "+c.MaxMp);text.AppendLine(String.Format("Posição interna: X {0:F3} · Y {1:F3} · Z {2:F3} · Alvo ID {3}",c.X,c.Y,c.Z,c.TargetId));}
    if(processes.Count==0)text.AppendLine("Nenhum personagem lido. Abra o jogo e clique em Ler personagens conectados.");text.AppendLine();text.AppendLine("RELATÓRIO JSON (Salvar relatório exporta todas as amostras):");text.AppendLine(Report());output.Text=text.ToString();output.SelectionStart=0;output.SelectionLength=0;state.Text="Leitura concluída. Automação desligada; inventário ainda pendente.";
   }
