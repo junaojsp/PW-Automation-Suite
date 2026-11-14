@@ -1,19 +1,23 @@
 # FarmZilla — The Classic 1.4.4
 
-Base independente de diagnóstico, versão 0.1.0.0, Windows .NET Framework x86.
+Base independente de diagnóstico, versão 0.2.0.0, Windows .NET Framework x86.
 Não é uma versão jogável do bot nem deve ser publicada no canal Avalon.
 
 ## Teste no Windows
 
-1. Baixe o artefato **FarmZilla-TheClassic-0.1.0-DIAGNOSTICO-x86** do workflow próprio e extraia o ZIP em uma pasta separada do FarmZilla Avalon.
+1. Baixe o artefato **FarmZilla-TheClassic-0.2.0-DIAGNOSTICO-x86** do workflow próprio e extraia o ZIP em uma pasta separada do FarmZilla Avalon.
 2. Abra `FarmZilla-TheClassic-Diagnostico.exe`.
 3. Clique em **Analisar executável** e selecione o `elementclient.exe` instalado no The Classic.
-4. Com o The Classic aberto, clique em **Conferir clientes abertos**.
-5. Clique em **Salvar relatório** e envie o JSON para a próxima etapa de adaptação.
+4. Com o The Classic aberto, clique em **Ler personagens conectados**.
+5. Confira na saída nome, classe ID, nível, HP/MP e posição interna.
+6. Mova o personagem e clique novamente em **Ler personagens conectados**. Se possível, faça outra leitura após uma mudança normal de HP/MP e ao selecionar/remover um alvo. As últimas 12 amostras ficam no relatório.
+7. Clique em **Salvar relatório** e envie o JSON junto com os valores de HP/MP e nível mostrados no jogo. Não é necessário alterar configurações do jogo.
+
+Se aparecer **Leitura recusada**, salve e envie o relatório assim mesmo. Entre efetivamente no mapa com o personagem; a tela de login/seleção não contém HostPlayer válido.
 
 A aplicação não exige licença FarmZilla, não modifica arquivos do jogo e não envia comandos.
 O arquivo do jogo não é redistribuído. O relatório inclui nome do arquivo, SHA-256, arquitetura,
-metadados PE, candidatos RTTI/assinaturas e identificação dos processos. Não inclui dump da memória,
+metadados PE, candidatos RTTI/assinaturas, identificação dos processos e amostras de personagem. Não inclui dump da memória,
 caminho completo, senha ou conteúdo de chats.
 
 Referência enviada para análise:
@@ -22,14 +26,17 @@ Referência enviada para análise:
 - Tamanho: 13.287.376 bytes; PE32 x86.
 
 Arquivos diferentes podem ser analisados offline, mas não recebem a identidade de referência.
-A consulta ao processo só lê seu cabeçalho após conferir o hash do arquivo e o tamanho do módulo.
-Isso confirma identidade básica, não a integridade completa do processo nem offsets de personagem.
-Assinaturas do Avalon são comparadas apenas para orientar o remapeamento; coincidências parciais
-não liberam funções e não são usadas para interpretar HP, MP ou coordenadas.
+A consulta ao processo confere hash, cabeçalho e guardas de código antes de usar o perfil Classic
+mapeado neste executável. Verifica duas cadeias até o HostPlayer, tipos RTTI, limites dos atributos e
+estabilidade do ID/ponteiros. Valores coerentes ainda precisam ser comparados com o jogo.
+
+O perfil e a evidência estática de cada campo estão em [PROFILE.md](PROFILE.md).
+Não se usa um perfil parcial do Avalon para ler personagens. As coordenadas são internas X/Y/Z,
+e o alvo é somente seu ID. Inventário ainda não é lido. As amostras não habilitam automações.
 
 ## Próximas etapas
 
-- Mapear e validar no jogo os campos de nome, classe, nível, HP, MP, posição, alvo e inventário.
+- Comparar as novas leituras de personagem com o jogo e validar inventário em etapa posterior.
 - Criar perfil exclusivo The Classic e testar Espelho antes das demais automações.
 - Integrar o mesmo visual do FarmZilla após a validação das leituras.
 - No Control, cadastrar produtos/jogos com identificador estável (`avalon`, `tclassic`),

@@ -31,6 +31,7 @@ static class DiagnosticTests {
   var x64=(byte[])bytes.Clone();x64[0x84]=0x64;x64[0x85]=0x86;Reject(()=>Analyzer.Inspect("x64",x64),"Recusa arquitetura diferente");
   var malformed=(byte[])bytes.Clone();Buffer.BlockCopy(BitConverter.GetBytes(0xffffffffu),0,malformed,0x98+56,4);Reject(()=>Analyzer.Inspect("invalido",malformed),"Recusa imagem de tamanho inválido");
   var serialized=Analyzer.Json(report);Check(serialized.Contains("\"AutomationEnabled\":false")&&!serialized.Contains("C:\\\\usuario"),"Exportação identifica bloqueio sem caminho pessoal");
+  CharacterReaderTests.RunTests();
   var imports=typeof(LiveReader).Assembly.GetTypes().SelectMany(t=>t.GetMethods(BindingFlags.Static|BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic)).Select(m=>m.GetCustomAttributes(typeof(DllImportAttribute),false).OfType<DllImportAttribute>().FirstOrDefault()).Where(a=>a!=null).Select(a=>a.EntryPoint).Distinct().OrderBy(s=>s).ToArray();
   Check(imports.SequenceEqual(new[]{"CloseHandle","OpenProcess","ReadProcessMemory"}),"Executável importa somente consulta, leitura e fechamento de processo");
   Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
