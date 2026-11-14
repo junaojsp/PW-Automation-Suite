@@ -6,6 +6,12 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Web.Script.Serialization;
 namespace RotaAvalon {
+    // Climb and descent need a little horizontal move. It stays on the same side of the anchor: the old code
+    // alternated +8 and -8, so the character turned around in place before and after each gather.
+    public static class FlightFace {
+        public const double Nudge=8;
+        public static void Hold(double anchorX,double anchorZ,out double x,out double z){x=anchorX+Nudge;z=anchorZ;}
+    }
     // Runs a manual route (fixed copy; UI edits apply on the next start) or the automatic farm (FarmZilla 0.26.0): points from
     // the scanned history of the chosen materials, nearest-next, rebuilt every lap, repeated until stopped.
     // Per point: go there with the game's own auto-path (native message 0x14A; it keeps the current height), find the material
@@ -206,7 +212,7 @@ namespace RotaAvalon {
                 // flight opens with a short move forward (like a normal take-off) and the straight climb starts as soon as it flies.
                 emit("decolando",new{altura=Math.Round(s.Y/10,1)});int lift=(int)Math.Round(s.Y/10)+5;double fx=s.X,fz=s.Z;var takeoff=Stopwatch.StartNew();int pushes=0;
                 while(takeoff.Elapsed.TotalSeconds<6){if(takeoff.Elapsed.TotalSeconds>=pushes*1.5){pushes++;try{NativeBridge.FlyTo(client,fx+TakeoffStep*pushes,fz,library);Wait(60);NativeBridge.FlightHeight(client,lift,library);}catch(System.ComponentModel.Win32Exception){}}
-                    Wait(150);s=Read(client,character);if(s.FlightStateKnown&&s.IsFlying){emit("decolou",new{segundos=Math.Round(takeoff.Elapsed.TotalSeconds,1)});try{NativeBridge.FlyTo(client,s.X,s.Z,library);}catch{}break;}}
+                    Wait(150);s=Read(client,character);if(s.FlightStateKnown&&s.IsFlying){emit("decolou",new{segundos=Math.Round(takeoff.Elapsed.TotalSeconds,1)});break;}}
                 // 0.45.7 (log 20:55: Lima started on the ground, did not take off in time and the straight climb was switched off
                 // for the whole farm): still on the ground = only this climb goes with the route (which takes off by itself);
                 // the straight climb stays on and is used again as soon as it is flying.
@@ -215,11 +221,11 @@ namespace RotaAvalon {
             // starts only after the height is reached. If the height does not change in 1,2 s with the key alone, it continues
             // with the 0.45.2 steps of 8 (live test: still in the air needed them); after 3 such misses in a row the key-only
             // try is skipped for the rest of the session so it does not cost 1,2 s every time.
-            double anchorX=s.X,anchorZ=s.Z;int step=0;bool steps=pureMisses>=3;double pureFrom=s.Y;var key=Stopwatch.StartNew();try{if(!steps)NativeBridge.KeyMove(client,dir>0,library);}catch(System.ComponentModel.Win32Exception){}
+            double anchorX=s.X,anchorZ=s.Z;bool steps=pureMisses>=3;double pureFrom=s.Y;var key=Stopwatch.StartNew();try{if(!steps)NativeBridge.KeyMove(client,dir>0,library);}catch(System.ComponentModel.Win32Exception){}
             double startY=s.Y,limit=30+Math.Abs(s.Y/10-height)*1.6;var clock=Stopwatch.StartNew();int lastHp=s.Hp;
             try{
                 while(clock.Elapsed.TotalSeconds<limit){
-                    if(steps)NativeBridge.FlyTo(client,anchorX+(step++%2==0?KeepMoving:-KeepMoving),anchorZ,library);
+                    if(steps){double nx,nz;FlightFace.Hold(anchorX,anchorZ,out nx,out nz);NativeBridge.FlyTo(client,nx,nz,library);}
                     // 0.45.6: "presses" Space/Z through the game's own keyboard move (no route, no side steps) about 4 times a
                     // second, while the direction bit is held between frames.
                     else if(key.ElapsedMilliseconds>=250){key.Restart();try{NativeBridge.KeyMove(client,dir>0,library);}catch(System.ComponentModel.Win32Exception){}}
@@ -234,7 +240,7 @@ namespace RotaAvalon {
             }
             catch(OperationCanceledException){throw;}
             catch(Exception e){verticalBroken=true;emit("vertical_indisponivel",new{message=e.Message});return null;}
-            finally{try{client.Vertical(0);}catch{}if(steps)try{var at=client.Read();NativeBridge.FlyTo(client,at.X,at.Z,library);}catch{}}
+            finally{try{client.Vertical(0);}catch{}}
             return null;}
         // Straight up over the current spot to the programmed height (skipped when already there).
         void ClimbHere(GameClient client,string character,string library){if(verticalBroken)return;var s=Read(client,character);if(s.Y/10>=CruiseHeight-2)return;
@@ -248,22 +254,18 @@ emit("subindo",new{alvo=CruiseHeight,atual=Math.Round(s.Y/10,1)});
         // over the point (not tiny side-to-side hops, which spun the character), descends/climbs along each pass and stops the
         // moment the height is reached; a stuck pass switches axis and widens. Ends with a precise landing on (x,z). (0.33.0)
         bool Settle(GameClient client,double x,double z,double height,string character,string library,Func<ClientSnapshot,bool> absent=null){
-            int h=(int)Math.Round(height);var clock=Stopwatch.StartNew();int side=1,axis=0;double span=SettleSpan;
-            double limit;{var first=Read(client,character);limit=Math.Max(60,30+Math.Abs(first.Y/10-height)*1.6);
-                double off=Math.Sqrt(Math.Pow(first.X-x,2)+Math.Pow(first.Z-z,2));
-                // 0.45.3 (log 18:26:58: a material found off the area center was approached with the side passes and the character
-                // stopped 3,6 too high, so the collect failed): first fly level to right above it, then go straight down.
-                if(off>ArriveXZ+2&&!verticalBroken&&first.FlightStateKnown&&first.IsFlying){FlyHigh(client,x,z,Math.Round(first.Y/10),character,library);var over=Read(client,character);off=Math.Sqrt(Math.Pow(over.X-x,2)+Math.Pow(over.Z-z,2));}
-                if(off<=ArriveXZ+2){bool? straight=Straight(client,height,character,library,absent);if(straight==false)return false;if(straight==true){var at=Read(client,character);emit("altura",new{alvo=height,atual=Math.Round(at.Y/10,1),modo="reto"});return true;}}}
-
-            while(clock.Elapsed.TotalSeconds<limit){var s=Read(client,character);if(absent!=null&&absent(s))return false;if(Math.Abs(s.Y/10-height)<=1.0)break;
-                double tx=x+(axis==0?span*side:0),tz=z+(axis==0?0:span*side);
-                NativeBridge.FlyTo(client,tx,tz,library);Wait(60);NativeBridge.FlightHeight(client,h,library);
-                double sx=s.X,sz=s.Z,sy=s.Y;int fights=defenses;var leg=Stopwatch.StartNew();
-                while(leg.Elapsed.TotalSeconds<5){s=Read(client,character);if(absent!=null&&absent(s))return false;if(defenses!=fights)break;if(Math.Abs(s.Y/10-height)<=1.0)break;double ex=tx-s.X,ez=tz-s.Z;if(ex*ex+ez*ez<=9)break;Wait(140);}
-                if(Math.Abs(s.X-sx)+Math.Abs(s.Z-sz)<1&&Math.Abs(s.Y-sy)<1){axis^=1;span=Math.Min(span+10,70);}
-                side=-side;}
-            FlyHigh(client,x,z,h,character,library);
+            int h=(int)Math.Round(height);
+            var first=Read(client,character);
+            double off=Math.Sqrt(Math.Pow(first.X-x,2)+Math.Pow(first.Z-z,2));
+            // 0.45.3: first fly level to right above it, then go straight down.
+            if(off>ArriveXZ+2&&!verticalBroken&&first.FlightStateKnown&&first.IsFlying){FlyHigh(client,x,z,Math.Round(first.Y/10),character,library);var over=Read(client,character);off=Math.Sqrt(Math.Pow(over.X-x,2)+Math.Pow(over.Z-z,2));}
+            if(off<=ArriveXZ+2){bool? straight=Straight(client,height,character,library,absent);if(straight==false)return false;if(straight==true){var at=Read(client,character);emit("altura",new{alvo=height,atual=Math.Round(at.Y/10,1),modo="reto"});return true;}}
+            // One heading, then back to the point once. The old left/right loop turned the character on every pass.
+            double nx,nz;FlightFace.Hold(x,z,out nx,out nz);
+            NativeBridge.FlyTo(client,nx,nz,library);Wait(60);NativeBridge.FlightHeight(client,h,library);
+            var clock=Stopwatch.StartNew();
+            while(clock.Elapsed.TotalSeconds<8){var s=Read(client,character);if(absent!=null&&absent(s))return false;if(Math.Abs(s.Y/10-height)<=1.0)break;Wait(150);}
+            if(!FlyHigh(client,x,z,h,character,library,absent))return false;
             var now=Read(client,character);emit("altura",new{alvo=height,atual=Math.Round(now.Y/10,1)});return true;
         }
         // Farm recovery: low life waits for it to come back, other blocks wait and retry; true = failure counter restarts.
