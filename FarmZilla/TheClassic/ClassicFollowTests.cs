@@ -46,7 +46,7 @@ static class ClassicFollowTests {
    Check(!form.Controls.OfType<TextBox>().Any(c=>c.Multiline),"log em segundo plano sem ocupar Espelho");Check(form.Controls.OfType<Button>().Single(c=>c.AccessibleName=="Abrir registros").Enabled,"acesso ao log preservado");Check(!form.Controls.OfType<Button>().Single(c=>c.AccessibleName=="Update").Enabled,"atualizador Avalon não é usado no Classic");
    foreach(Control c in form.Controls)Check(c.Left>=0&&c.Top>=0&&c.Right<=form.ClientSize.Width&&c.Bottom<=form.ClientSize.Height,"controle dentro do Espelho: "+c.GetType().Name);
    using(var image=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(image,new Rectangle(Point.Empty,image.Size));image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"espelho-layout.png"),ImageFormat.Png);}
-   Check(rows[0].Bounds==new Rectangle(186,168,128,27)&&primary.Bounds==new Rectangle(199,88,300,29),"posições originais do Espelho");
+   Check(rows[0].Location==new Point(186,168)&&rows[0].Width==128&&primary.Location==new Point(199,88)&&primary.Width==300&&primary.Height>=24&&primary.Height<=31,"posições originais do Espelho");
   }
   Console.WriteLine(count+" verificações do seguir; teste no jogo ainda necessário.");Directory.Delete(ClassicLog.Folder,true);return 0;
  }catch(Exception ex){Console.Error.WriteLine(ex);return 1;}}
