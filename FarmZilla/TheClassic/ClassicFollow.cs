@@ -87,7 +87,7 @@ namespace FarmZilla.TheClassic {
   readonly TextBox output=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical};
   readonly Button sync=new Button{Text="Sincronizar contas"},follow=new Button{Text="Seguir principal"},stop=new Button{Text="Parar seguimento"},logs=new Button{Text="Abrir pasta do log"};
   readonly Dictionary<int,FollowAccount> owned=new Dictionary<int,FollowAccount>();readonly ClassicFollowService service;bool busy,closing,ready;
-  public ClassicMirrorForm(){
+  public ClassicMirrorForm(bool discover=true){
    Text="FarmZilla · The Classic · Espelho TESTE 0.3.0";ClientSize=new Size(620,600);FormBorderStyle=FormBorderStyle.FixedSingle;MaximizeBox=false;BackColor=Color.FromArgb(10,16,22);ForeColor=Color.White;Font=new Font("Segoe UI",9);
    var title=new Label{Text="ESPELHO · THE CLASSIC · TESTE DE SEGUIR",Bounds=new Rectangle(16,12,580,25),ForeColor=Color.DeepSkyBlue};Controls.Add(title);
    Controls.Add(new Label{Text="Principal",Bounds=new Rectangle(16,46,580,20)});principal.SetBounds(16,70,400,28);sync.SetBounds(430,69,174,30);
@@ -95,7 +95,7 @@ namespace FarmZilla.TheClassic {
    follow.SetBounds(16,312,280,36);stop.SetBounds(310,312,294,36);output.SetBounds(16,362,588,178);output.BackColor=BackColor;output.ForeColor=Color.LightSkyBlue;logs.SetBounds(16,552,588,32);
    Controls.AddRange(new Control[]{principal,sync,followers,follow,stop,output,logs});service=new ClassicFollowService(Note);
    sync.Click+=async(s,e)=>await Work(Discover);follow.Click+=async(s,e)=>await Work(()=>Send(false));stop.Click+=async(s,e)=>await Work(()=>Send(true));logs.Click+=(s,e)=>{try{Process.Start(new ProcessStartInfo{FileName=ClassicLog.Folder,UseShellExecute=true});}catch(Exception ex){Note("LOG_OPEN_ERROR "+ex.Message);}};
-   Shown+=async(s,e)=>{try{ClassicLog.Write("START version=0.3.0 executable=TheClassic-Teste profile="+Analyzer.ReferenceSha);Note("Log automático: "+ClassicLog.PathName);Note("Teste manual: só seguir/parar. Ataque, buffs e teleporte não estão habilitados.");ready=true;await Work(Discover);}catch(Exception ex){MessageBox.Show(this,"Não foi possível criar o log: "+ex.Message);follow.Enabled=stop.Enabled=false;}};
+   Shown+=async(s,e)=>{if(!discover)return;try{ClassicLog.Write("START version=0.3.0 executable=TheClassic-Teste profile="+Analyzer.ReferenceSha);Note("Log automático: "+ClassicLog.PathName);Note("Teste manual: só seguir/parar. Ataque, buffs e teleporte não estão habilitados.");ready=true;await Work(Discover);}catch(Exception ex){MessageBox.Show(this,"Não foi possível criar o log: "+ex.Message);follow.Enabled=stop.Enabled=false;}};
    FormClosing+=async(s,e)=>{if(closing)return;e.Cancel=true;if(busy){Note("CLOSE_WAIT aguarde a operação atual.");return;}await Work(()=>Send(true));closing=true;ClassicLog.Write("CLOSE");Close();};
   }
   void Note(string text){ClassicLog.Write(text);if(IsDisposed)return;if(InvokeRequired){BeginInvoke(new Action(()=>Append(text)));}else Append(text);}

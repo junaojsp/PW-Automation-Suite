@@ -35,8 +35,9 @@ static class ClassicFollowTests {
    }catch(Exception ex){failure=ex;}finally{window.Close();}};
    var timeout=new Timer{Interval=15000};timeout.Tick+=(s,e)=>{failure=new Exception("Autoteste de ponte excedeu tempo");window.Close();};timeout.Start();Application.Run(window);timeout.Dispose();GC.KeepAlive(receiver);if(failure!=null)throw failure;
   }
-  using(var form=new ClassicMirrorForm()){
-   // Do not Show: no game discovery or Shown events; render controls only.
+  using(var form=new ClassicMirrorForm(false)){
+   form.Show();form.Update();
+   foreach(Control c in form.Controls)Check(c.Left>=0&&c.Top>=0&&c.Right<=form.ClientSize.Width&&c.Bottom<=form.ClientSize.Height,"controle dentro do Espelho: "+c.GetType().Name);
    using(var image=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(image,new Rectangle(Point.Empty,image.Size));image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"espelho-layout.png"),ImageFormat.Png);}
    Check(form.Controls.OfType<CheckedListBox>().Count()==1&&form.Controls.OfType<ComboBox>().Count()==1,"seleção de principal e secundários");
   }
