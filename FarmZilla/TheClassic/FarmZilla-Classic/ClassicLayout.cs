@@ -13,7 +13,9 @@ static class ClassicLayout {
  // Configuração das macros (janela R): macro N em [[Root]+0x18]+MacroConfig+17*N.        // (0x102)
  public const uint MacroConfig=0xFE;
  // CECGameUIMan ([[run+RunUi]+8]) e CDlgTaskConfirm.
- public const uint UiTaskConfirm=0xD54,UiTaskHint=0xD58,UiNpcTalk=0x10A0;                  // (0x6B0, 0x6B4, 0xA54)
+ public const uint UiTaskConfirm=0xD54,UiTaskHint=0xD58,UiNpcTalk=0x10A0,UiPop=0xB34;      // (0x6B0, 0x6B4, 0xA54, —)
+ // Fila do convite de grupo (tipo 2) em [[Module+InviteQueue]]. Registro de 0x1C: id em +0x10, ticket em +0x14.
+ public const uint InviteQueueRva=0xCADE10,InviteRecord=0x1C,InviteInviter=0x10,InviteTicket=0x14;
  public const uint ConfirmLabels=0x250,ConfirmCount=0x26C;                                 // (0x258, 0x274)
  // CECWorld.
  public const uint WorldNpcs=0x20,WorldMatters=0x24;                                       // (0x24, 0x28)
@@ -30,4 +32,9 @@ static class ClassicLayout {
  // CECNPC: nome (ACString, lido por CECNPC::GetName 0x151704), estados estendidos e alvo da habilidade em conjuração;
  // no Avalon ficam 0x2C adiante.
  public const uint NpcName=0x258,NpcExtStates=0x210,NpcSkillTarget=0x2E8;                   // (0x284, 0x23C, 0x314)
+}
+// O iterador do cliente só usa next e o objeto. A chave em node+8 nem sempre é o id; o id do minério
+// carrega os bits 0xC0000000 (visto no construtor de CECMatter).
+static class MatterNode {
+ public static bool Same(uint key,uint idOnObject){return idOnObject==key||(idOnObject&0xC0000000)==0xC0000000;}
 }

@@ -55,7 +55,7 @@ namespace FarmZilla.TheClassic {
   void AttackStateChanged(int i){if(attackRows[i].Checked&&supportRows[i].Checked)supportRows[i].Checked=false;}
   void RequestAttackStop(){attackStopRequested=true;attackRequested=false;}
   bool GameInFront(){uint pid;GetWindowThreadProcessId(GetForegroundWindow(),out pid);return principal.Items.OfType<FollowAccount>().Any(a=>a.Pid==pid);}
-  void UpdateAttackHotkey(){SetAttackHotkey(ready&&!closing&&attackMode.SelectedIndex==1&&GameInFront());}
+  void UpdateAttackHotkey(){SetAttackHotkey(ready&&!closing&&GameInFront());}
   void SetAttackHotkey(bool on){
    if(on==hotkeyOn||!IsHandleCreated)return;
    if(!on){UnregisterHotKey(Handle,AttackHotkey);hotkeyOn=false;return;}
@@ -65,7 +65,6 @@ namespace FarmZilla.TheClassic {
   protected override void WndProc(ref Message m){if(m.Msg==0x312&&m.WParam.ToInt32()==AttackHotkey){var _=RequestAttack();return;}base.WndProc(ref m);}
   Task RequestAttack(){
    if(closing||!ready)return Task.FromResult(0);
-   if(attackMode.SelectedIndex!=1){Note("ATTACK A tecla Atacar é usada no modo Manual por tecla.");return Task.FromResult(0);}
    if(!primaryAttack.Checked&&!attackRows.Any(c=>c.Enabled&&c.Checked)&&!supportRows.Any(c=>c.Visible&&c.Checked)){Note("ATTACK Marque Atacar no principal ou nos secundários desejados.");return Task.FromResult(0);}
    var primary=principal.SelectedItem as FollowAccount;if(primary==null){Note("ATTACK Escolha o principal.");return Task.FromResult(0);}
    try{if(!AttackController.MonsterId(attacks.ReadTarget(Ref(primary)))){Note("ATTACK Selecione um monstro no principal antes de apertar Atacar.");return Task.FromResult(0);}}catch(Exception e){Note("ATTACK "+e.Message);return Task.FromResult(0);}

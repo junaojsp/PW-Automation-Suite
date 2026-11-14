@@ -40,7 +40,7 @@ static class ClassicSimulator {
   var ids=new List<int>();
   for(uint i=0;i<count;i++){uint node;if(!mem.TryGetValue(buckets+i*4,out node))continue;int guard=0;while(node!=0&&guard++<8){uint next,obj,key;
     if(!mem.TryGetValue(node,out next)||!mem.TryGetValue(node+4,out obj)||!mem.TryGetValue(node+8,out key))break;
-    uint id,template;if(mem.TryGetValue(obj+ClassicLayout.MatterId,out id)&&id==key&&mem.TryGetValue(obj+ClassicLayout.MatterTemplate,out template))ids.Add(unchecked((int)template));
+    uint id,template;if(mem.TryGetValue(obj+ClassicLayout.MatterId,out id)&&MatterNode.Same(key,id)&&mem.TryGetValue(obj+ClassicLayout.MatterTemplate,out template))ids.Add(unchecked((int)template));
     node=next;}}
   return ids.ToArray();
  }
@@ -50,13 +50,17 @@ static class ClassicSimulator {
   check(found!=null&&packet.Length==10&&packet[0]==0x1C&&BitConverter.ToUInt32(packet,2)==inviter&&BitConverter.ToUInt32(packet,6)==ticket,"convite no Win_Pop é aceito com o pacote do botão Sim");
   check(PartyInvite.Match(box,"Game_InviteGroup",inviter)!=null,"o nome Game_InviteGroup continua válido");
   check(PartyInvite.Match(box,PartyInvite.BoxName,1)==null&&PartyInvite.Match(Dialog(inviter,ticket,false),PartyInvite.BoxName,inviter)==null,"outro popup ou janela escondida não é este convite");
+  var rec=new byte[(int)ClassicLayout.InviteRecord];Buffer.BlockCopy(BitConverter.GetBytes(inviter),0,rec,(int)ClassicLayout.InviteInviter,4);Buffer.BlockCopy(BitConverter.GetBytes(ticket),0,rec,(int)ClassicLayout.InviteTicket,4);
+  var queued=PartyInvite.FromRecord(rec,"Game_InviteGroup",inviter);var queuedPacket=queued==null?new byte[0]:PartyInvite.Accept(queued);
+  check(queued!=null&&queuedPacket.Length==10&&queuedPacket[0]==0x1C&&BitConverter.ToUInt32(queuedPacket,2)==inviter&&BitConverter.ToUInt32(queuedPacket,6)==ticket,"a fila do cliente aceita o convite sem achar a janela na memória");
+  check(PartyInvite.FromRecord(rec,"Win_Poplist",inviter)==null&&PartyInvite.Match(box,"Win_Poplist",inviter,true)!=null,"outro aviso da mesma fila é ignorado; o popup fixo aceita pelo id do líder");
   var empty=new byte[17];var filled=new byte[17];Buffer.BlockCopy(BitConverter.GetBytes((short)123),0,filled,1,2);var shifted=new byte[17];Buffer.BlockCopy(BitConverter.GetBytes((short)123),0,shifted,0,2);
-  check(!MacroSlot.Filled(empty)&&MacroSlot.Filled(filled)&&!MacroSlot.Filled(shifted),"macro 0 vazia explica o aviso; habilidade no byte 1 é reconhecida");
-  check(AttackHotkey.Refusal(true,0)=="A tecla Atacar é usada no modo Manual por tecla."&&AttackHotkey.Refusal(true,1)==null,"a tecla Atacar no modo Automático só avisa");
-  check(ClassicLayout.ComboStep==0x20&&AttackController.StallSeconds==5,"passo preso 5 s no combo+0x20 reinicia a macro");
+  check(!MacroSlot.Filled(empty)&&MacroSlot.Filled(filled)&&!MacroSlot.Filled(shifted)&&MacroSlot.Dump(empty)=="0,0,0,0,0,0,0,0","macro 0 vazia explica o aviso; habilidade no byte 1 é reconhecida");
+  check(AttackHotkey.Refusal(true,0)==null&&AttackHotkey.Refusal(true,1)==null&&AttackHotkey.Refusal(false,1)!=null,"a tecla Atacar funciona no Automático; sem atalhos ela avisa");
+  check(ClassicLayout.ComboStep==0x20&&AttackController.StallSeconds==15,"passo preso 15 s no combo+0x20 reinicia a macro");
   uint manager=0x200000,buckets=0x300000,node=0x400000,obj=0x500000;var mem=new Dictionary<uint,uint>();
-  mem[manager+0x18]=0;mem[manager+ClassicLayout.MatterHashCount]=1;mem[manager+ClassicLayout.MatterHashBuckets]=buckets;mem[buckets]=node;mem[node]=0;mem[node+4]=obj;mem[node+8]=0xC0000123;mem[obj+ClassicLayout.MatterId]=0xC0000123;mem[obj+ClassicLayout.MatterTemplate]=2862;
+  mem[manager+0x18]=0;mem[manager+ClassicLayout.MatterHashCount]=1;mem[manager+ClassicLayout.MatterHashBuckets]=buckets;mem[buckets]=node;mem[node]=0;mem[node+4]=obj;mem[node+8]=1;mem[obj+ClassicLayout.MatterId]=0xC0000123;mem[obj+ClassicLayout.MatterTemplate]=2862;
   var seen=Matters(mem,manager,ClassicLayout.MatterHashCount);var missed=Matters(mem,manager,0x18);
-  check(seen.Length==1&&seen[0]==2862&&missed.Length==0,"mat farm lê o minério em +0x28; a contagem antiga +0x18 não vê nada");
+  check(seen.Length==1&&seen[0]==2862&&missed.Length==0,"mat farm lê o minério em +0x28 mesmo quando a chave do nó não é o id");
  }
 }
