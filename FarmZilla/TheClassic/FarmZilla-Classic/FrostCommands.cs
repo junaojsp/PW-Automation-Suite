@@ -1,6 +1,6 @@
 using System;
 
-// Catalog of Avalon packets already validated inside FarmZilla (TeleportBridge, QuestService, Attack, Mat Farm).
+// Catalog of game packets (shared by the Avalon and The Classic clients) used inside FarmZilla (TeleportBridge, QuestService, Attack, Mat Farm).
 // Frost Farm lists them and turns coordinate captures into a Mat Farm trail. It does not send packets by itself.
 sealed class FrostCommand {
  public readonly string Name, Code, Packet, Use;
@@ -23,10 +23,10 @@ sealed class FrostCommand {
   new FrostCommand("Reviver pet WF","0x29","12 bytes · skill 329 · 0B 01 + id","F5 da WF no próprio personagem."),
   new FrostCommand("Chamar pet","0x64","6 bytes · 64 00 00 00 00 00","F6 da WF."),
   new FrostCommand("Navegação nativa","0x14A","mensagem interna do cliente, até 150 de trecho","Mat Farm: voo/caminhada até o ponto. Não controla altura sozinha."),
-  new FrostCommand("Subir / descer voo","player+0xB78","0x10 sobe · 0x20 desce","RotaVertical: só com o personagem já voando.")
+  new FrostCommand("Subir / descer voo","player+0xAF8","0x10 sobe · 0x20 desce","RotaVertical: só com o personagem já voando.")
  };
  public static string Summary(){
   if(Catalog==null||Catalog.Length==0)throw new InvalidOperationException("Catálogo Frost vazio.");
-  return Catalog.Length+" comandos Avalon já validados no FarmZilla.";
+  return Catalog.Length+" comandos do jogo usados no FarmZilla.";
  }
 }

@@ -16,7 +16,7 @@ namespace RotaAvalon {
  static class RotaPaths {
   public const string BridgeSha256="5d0183acf9c531e1aea90680ffffe3ce228ba76c0b062b8e675c283432b778b6";
   public static string TestRoot;
-  public static string Root{get{return TestRoot??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno","Rota");}}
+  public static string Root{get{return TestRoot??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FarmZillaClassic","Rota");}}
   static string Folder(string name){string d=Path.Combine(Root,name);Directory.CreateDirectory(d);return d;}
   public static string Logs{get{return Folder("logs");}}
   public static string Data{get{return Folder("dados_usuario");}}

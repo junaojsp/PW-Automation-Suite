@@ -181,7 +181,7 @@ internal sealed class FrostBot
 	{
 		List<Npc> list = new List<Npc>();
 		boss = null;
-		uint num = m.UInt32(world + 36);
+		uint num = m.UInt32(world + ClassicLayout.WorldNpcs);
 		uint num2 = m.UInt32(num + 28);
 		uint address = m.UInt32(num + 32);
 		if (num2 < 1 || num2 > 65536)
@@ -301,7 +301,7 @@ internal sealed class FrostBot
 				Say(a.Name, "levou " + (hp - clientSnapshot.Hp) + " de uma vez, vida " + clientSnapshot.Hp + (flag ? " (fugindo)" : ""));
 			}
 			hp = clientSnapshot.Hp;
-			List<Npc> list = Scan(processMemory, processMemory.UInt32(num2 + 32), wantBoss, out var boss);
+			List<Npc> list = Scan(processMemory, processMemory.UInt32(num2 + ClassicLayout.RunWorld), wantBoss, out var boss);
 			if (boss != null)
 			{
 				Interlocked.Exchange(ref bossLastSeen, DateTime.UtcNow.Ticks);
@@ -452,8 +452,8 @@ internal sealed class FrostBot
 				bool flag8 = false;
 				if (array != null)
 				{
-					flag8 = (BitConverter.ToUInt32(array, 572) & 2) != 0;
-					flag7 = BitConverter.ToUInt32(array, 788) == boss.Key;
+					flag8 = (BitConverter.ToUInt32(array, (int)ClassicLayout.NpcExtStates) & 2) != 0;
+					flag7 = BitConverter.ToUInt32(array, (int)ClassicLayout.NpcSkillTarget) == boss.Key;
 				}
 				if (flag8 && !flag4)
 				{

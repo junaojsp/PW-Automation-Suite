@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 namespace RotaAvalon {
     // 0.45.0 (owner: climb and descend in a straight line, like holding Space / Z): the host player's vertical flight
-    // direction (player+0xB78: 0x10 up, 0x20 down). 0.45.1: the game clears it about 33 times a second (seen live), so it
+    // direction (player+0xAF8: 0x10 up, 0x20 down). 0.45.1: the game clears it about 33 times a second (seen live), so it
     // is held by a small thread that puts it back about every millisecond while a direction is wanted — live test on
     // 04/11/2026: a character descending 5,3/s climbed 7,3 in 1,5 s with 49 rewrites. Released at once when not wanted.
     sealed class VerticalControl : IDisposable {
@@ -13,7 +13,7 @@ namespace RotaAvalon {
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
         [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint period);
         [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint period);
-        const uint Offset=0xB78,Up=0x10,Down=0x20;
+        const uint Offset=ClassicLayout.HostVertical,Up=0x10,Down=0x20;
         readonly IntPtr handle;readonly object gate=new object();Thread worker;volatile int want;volatile uint player;volatile bool closed;
         public VerticalControl(int pid){handle=OpenProcess(0x0008|0x0010|0x0020,false,pid);if(handle==IntPtr.Zero)throw new InvalidOperationException("Controle vertical indisponível.");}
         uint Read(uint address){var b=new byte[4];IntPtr n;if(!ReadProcessMemory(handle,(IntPtr)unchecked((int)address),b,4,out n)||n.ToInt32()!=4)throw new InvalidOperationException("Leitura do controle vertical falhou.");return BitConverter.ToUInt32(b,0);}

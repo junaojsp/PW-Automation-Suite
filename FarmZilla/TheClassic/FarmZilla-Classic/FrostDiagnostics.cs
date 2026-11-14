@@ -101,7 +101,7 @@ sealed class FrostDiagnosticsForm : Form {
   var page=new TabPage("Captura e trajeto"){BackColor=Rubi.Background,ForeColor=Rubi.Text,Padding=new Padding(8)};
   var top=new Panel{Dock=DockStyle.Top,Height=258,BackColor=Rubi.Background};
   LabelOn(top,"FROST FARM · AVALON NATIVO",4,4,400,22,Rubi.Accent);
-  LabelOn(top,"Captura coordenadas no leitor Avalon e gera trajeto do Mat Farm. Não envia pacotes sozinho.",4,28,400,36,Rubi.Muted);
+  LabelOn(top,"Captura coordenadas no leitor do jogo e gera trajeto do Mat Farm. Não envia pacotes sozinho.",4,28,400,36,Rubi.Muted);
   LabelOn(top,"Personagem para capturar a rota:",4,66,400,18,Rubi.Text);
   leader.SetBounds(4,86,284,28);leader.DropDownStyle=ComboBoxStyle.DropDownList;leader.BackColor=Rubi.Field;leader.ForeColor=Rubi.Text;top.Controls.Add(leader);
   refresh.Text="Atualizar";refresh.SetBounds(294,84,110,30);refresh.Click+=(s,e)=>RefreshCharacters();top.Controls.Add(refresh);
@@ -114,7 +114,7 @@ sealed class FrostDiagnosticsForm : Form {
   return page;
  }
  TabPage BuildCommandsPage(){
-  var page=new TabPage("Comandos Avalon"){BackColor=Rubi.Background,ForeColor=Rubi.Text,Padding=new Padding(8)};
+  var page=new TabPage("Comandos do jogo"){BackColor=Rubi.Background,ForeColor=Rubi.Text,Padding=new Padding(8)};
   var top=new Panel{Dock=DockStyle.Top,Height=76,BackColor=Rubi.Background};
   LabelOn(top,"CATÁLOGO DO FARMZILLA",4,4,400,22,Rubi.Accent);
   LabelOn(top,FrostCommand.Summary()+" O Frost lista; Espelho e Mat Farm executam.",4,28,400,40,Rubi.Muted);
@@ -126,7 +126,7 @@ sealed class FrostDiagnosticsForm : Form {
   page.Controls.Add(list);page.Controls.Add(top);
   return page;
  }
- static string Folder{get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno","Frost");}}
+ static string Folder{get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FarmZillaClassic","Frost");}}
  static Label LabelOn(Control parent,string text,int x,int y,int w,int h,Color color){var l=new Label{Text=text,ForeColor=color,Bounds=new Rectangle(x,y,w,h)};parent.Controls.Add(l);return l;}
  void Write(string message){DiagnosticLog.Write("Frost: "+message);if(log.TextLength>30000)log.Clear();log.AppendText(DateTime.Now.ToString("HH:mm:ss")+" "+message+Environment.NewLine);}
  void RefreshCharacters(){
@@ -135,7 +135,7 @@ sealed class FrostDiagnosticsForm : Form {
   if(leader.Items.Count>0)leader.SelectedIndex=0;Write("DESCOBERTA válidos="+leader.Items.Count+" falhas="+failures+" "+FrostCommand.Summary());
  }
  void Start(){
-  if(!allowed()){Write("CAPTURA_RECUSADA sessão indisponível.");return;}var chosen=leader.SelectedItem as Character;if(chosen==null){Write("Selecione um personagem Avalon carregado.");return;}
+  if(!allowed()){Write("CAPTURA_RECUSADA sessão indisponível.");return;}var chosen=leader.SelectedItem as Character;if(chosen==null){Write("Selecione um personagem carregado.");return;}
   try{
    client=new GameClient(chosen.Pid,new Dictionary<string,bool>());var snapshot=client.Read();Directory.CreateDirectory(Folder);capturePath=Path.Combine(Folder,"frost-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N")+".csv");
    capture=new StreamWriter(new FileStream(capturePath,FileMode.CreateNew,FileAccess.Write,FileShare.Read),new UTF8Encoding(true));capture.WriteLine(FrostCapture.Header);capture.Flush();samples=0;session.Clear();active=true;leader.Enabled=refresh.Enabled=exportTrail.Enabled=false;start.Text="Parar captura";

@@ -181,7 +181,7 @@ internal sealed class DgBot
 
 	public static int RouteSteps => DgRouteData.Lines.Length;
 
-	private static string LearnFile => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AvalonInterno", "frost-dg-aprendido.txt");
+	private static string LearnFile => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FarmZillaClassic", "frost-dg-aprendido.txt");
 
 	private HashSet<uint> bossTpl
 	{
@@ -587,8 +587,8 @@ internal sealed class DgBot
 			uint num = (uint)process.MainModule.BaseAddress.ToInt32();
 			uint imageEnd = num + (uint)process.MainModule.ModuleMemorySize;
 			uint num2 = processMemory.UInt32(num + gameClient.RootRva);
-			uint num3 = processMemory.UInt32(num2 + 32);
-			uint num4 = processMemory.UInt32(num3 + 36);
+			uint num3 = processMemory.UInt32(num2 + ClassicLayout.RunWorld);
+			uint num4 = processMemory.UInt32(num3 + ClassicLayout.WorldNpcs);
 			uint num5 = processMemory.UInt32(num4 + 28);
 			uint address = processMemory.UInt32(num4 + 32);
 			if (num5 < 1 || num5 > 65536)
@@ -645,7 +645,7 @@ internal sealed class DgBot
 						mob2.Template = processMemory.UInt32(num8 + 284);
 						mob2.X = processMemory.Float(num8 + 60);
 						mob2.Z = processMemory.Float(num8 + 68);
-						uint num10 = processMemory.UInt32(num8 + 644);
+						uint num10 = processMemory.UInt32(num8 + ClassicLayout.NpcName);
 						if (num10 > 65536)
 						{
 							byte[] array3 = processMemory.Read(num10, 64);
@@ -1803,8 +1803,8 @@ internal sealed class DgBot
 			uint num = (uint)process.MainModule.BaseAddress.ToInt32();
 			uint imageEnd = num + (uint)process.MainModule.ModuleMemorySize;
 			uint num2 = processMemory.UInt32(num + gameClient.RootRva);
-			uint num3 = processMemory.UInt32(num2 + 32);
-			uint num4 = processMemory.UInt32(num3 + 40);
+			uint num3 = processMemory.UInt32(num2 + ClassicLayout.RunWorld);
+			uint num4 = processMemory.UInt32(num3 + ClassicLayout.WorldMatters);
 			uint num5 = processMemory.UInt32(num4 + 24);
 			uint num6 = processMemory.UInt32(num4 + 28);
 			if (num6 == 0 || num5 < 1 || num5 > 65536)
@@ -2873,8 +2873,8 @@ internal sealed class DgBot
 			using Process process = Process.GetProcessById(a.Pid);
 			uint num = (uint)process.MainModule.BaseAddress.ToInt32();
 			uint num2 = processMemory.UInt32(num + gameClient.RootRva);
-			uint num3 = processMemory.UInt32(num2 + 32);
-			uint num4 = processMemory.UInt32(num3 + 36);
+			uint num3 = processMemory.UInt32(num2 + ClassicLayout.RunWorld);
+			uint num4 = processMemory.UInt32(num3 + ClassicLayout.WorldNpcs);
 			uint num5 = processMemory.UInt32(num4 + 28);
 			uint address = processMemory.UInt32(num4 + 32);
 			if (num5 < 1 || num5 > 65536)
@@ -2919,8 +2919,8 @@ internal sealed class DgBot
 			using Process process = Process.GetProcessById(a.Pid);
 			uint num = (uint)process.MainModule.BaseAddress.ToInt32();
 			uint num2 = processMemory.UInt32(num + gameClient.RootRva);
-			uint num3 = processMemory.UInt32(num2 + 32);
-			uint num4 = processMemory.UInt32(num3 + 36);
+			uint num3 = processMemory.UInt32(num2 + ClassicLayout.RunWorld);
+			uint num4 = processMemory.UInt32(num3 + ClassicLayout.WorldNpcs);
 			uint num5 = processMemory.UInt32(num4 + 28);
 			uint address = processMemory.UInt32(num4 + 32);
 			if (num5 < 1 || num5 > 65536)

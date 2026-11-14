@@ -13,7 +13,7 @@ sealed class LicensePayload {
 sealed class LicenseEnvelope {public string payload {get;set;}public string signature {get;set;}}
 static class LicenseCore {
  internal const string PublicKey="<RSAKeyValue><Modulus>ndzL/Q6TJZE2B9z7wzoAU/KS/Nl3Cs2mfMKcKSqvSkwL4WWihjHiz2lJaQ1VB/jfM4A0+vBatepKYpfuLmchVSF2svHZFZJ17iK35B5WQQYfZDdWqgJMrEcnkEdCWWT/SCRrnFIQf7ErPGdAiQqOBLwuQmIJ5G+h7WQfl+B1bclSySa7fz57NmSe6xV1Or3PEDgoFH6LzTh6UU5CeuPX+n+rLrHF1jU6pVYPRdS0zdjd6DQdOvvpIPKS9RUSeId2D44FAMlS0VsRI7OpkWYVnAnwfd5pafyyXEHVznqr/OLu7BbUuNv/Fa2qLcXIR0BCugLV9vjLIgvBJR/FOj/k5Q==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
- internal static string Home {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno");}}
+ internal static string Home {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FarmZillaClassic");}}
  internal static string DeviceCode(){
   using(var root=RegistryKey.OpenBaseKey(RegistryHive.LocalMachine,Environment.Is64BitOperatingSystem?RegistryView.Registry64:RegistryView.Registry32))
   using(var key=root.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography")){

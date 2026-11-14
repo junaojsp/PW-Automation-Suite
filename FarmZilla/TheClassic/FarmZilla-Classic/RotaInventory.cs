@@ -9,7 +9,7 @@ namespace RotaAvalon {
     }
     public static class GameInventory {
         public static InventorySnapshot Read(ProcessMemory memory,uint player,uint imageBase,uint imageEnd){
-            uint bag=memory.UInt32(checked(player+0x10F8));
+            uint bag=memory.UInt32(checked(player+ClassicLayout.HostPack));
             if(NearbyResources.NativeType(memory,bag,imageBase,imageEnd)!=".?AVCECInventory@@")throw new IOException("Inventário incompatível com o perfil.");
             uint vector=memory.UInt32(bag+0xC),capacity=memory.UInt32(bag+0x10),count=memory.UInt32(bag+0x14);
             if(count<1||count>256||capacity<count||capacity>256||vector<0x10000||(vector&3)!=0)throw new IOException("Cabeçalho do inventário inconsistente.");
@@ -23,7 +23,7 @@ namespace RotaAvalon {
                 if(memory.UInt32(vector+(uint)slot*4)!=item||memory.UInt32(item+0xC)!=(uint)id||memory.UInt32(item+0x14)!=(uint)quantity)throw new IOException("Inventário mudou durante a leitura; tente novamente.");
                 result.Items.Add(new InventoryItem{Slot=slot,Id=id,Quantity=quantity,NativeType=type});
             }
-            if(memory.UInt32(player+0x10F8)!=bag||memory.UInt32(bag+0xC)!=vector||memory.UInt32(bag+0x14)!=count)throw new IOException("Inventário mudou durante a leitura.");
+            if(memory.UInt32(player+ClassicLayout.HostPack)!=bag||memory.UInt32(bag+0xC)!=vector||memory.UInt32(bag+0x14)!=count)throw new IOException("Inventário mudou durante a leitura.");
             return result;
         }
     }

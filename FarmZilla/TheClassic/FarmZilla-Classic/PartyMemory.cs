@@ -6,7 +6,7 @@ sealed partial class CharacterMemory {
  [DllImport("kernel32.dll")]static extern uint VirtualQueryEx(IntPtr h,IntPtr a,out Region m,uint n);
  static readonly Dictionary<int,List<uint>> dialogCache=new Dictionary<int,List<uint>>();
  static readonly Dictionary<int,DateTime> lastScan=new Dictionary<int,DateTime>();
- public uint Team {get{return U(Host+0x818);}}
+ public uint Team {get{return U(Host+ClassicLayout.HostTeam);}}
  public PartySnapshot ReadParty(){uint team=Team;if(team==0)return null;if(U(team)!=Module+G.Team)throw new Exception("Estrutura da PT indisponível.");var party=new PartySnapshot{Leader=U(team+4)};uint count=U(team+0x18),items=U(team+0x14);if(count>64)throw new Exception("Lista da PT inválida.");for(uint i=0;i<count;i++){uint member=U(items+4*i);if(member==0||U(member)!=Module+G.TeamMember)throw new Exception("Membro da PT indisponível.");party.Members.Add(U(member+0xC));}return party;}
  PartyInvitation CheckInvite(uint address,uint inviter){try{byte[] b=Read(address,0x104);if(BitConverter.ToUInt32(b,0)!=Module+G.DlgMessageBox||b[0x90]==0||BitConverter.ToUInt32(b,0xFC)!=inviter)return null;string name=Encoding.ASCII.GetString(Read(BitConverter.ToUInt32(b,0x4C),32)).Split('\0')[0];if(name!="Game_InviteGroup")return null;return new PartyInvitation{Address=address,Inviter=inviter,Ticket=BitConverter.ToUInt32(b,0x100)};}catch{return null;}}
  public PartyInvitation FindPartyInvitation(int pid,uint inviter){List<uint> addresses;if(!dialogCache.TryGetValue(pid,out addresses)){addresses=new List<uint>();dialogCache[pid]=addresses;}foreach(uint address in addresses){var found=CheckInvite(address,inviter);if(found!=null)return found;}

@@ -21,7 +21,7 @@ sealed class UpdateRequest {
 static class AppUpdate {
  internal static string ClientAuthorization=null;
  internal const int MaxExe=32*1024*1024, MaxManifest=65536;
- internal static string Home {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno");}}
+ internal static string Home {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FarmZillaClassic");}}
  internal static string Repository {
   get {return OnlineApi.Service;}
   set {OnlineApi.Service=value;}

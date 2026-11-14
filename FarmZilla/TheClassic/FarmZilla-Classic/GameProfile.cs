@@ -5,16 +5,13 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
-// FarmZilla 0.50.0 — perfil do cliente do jogo.
-// Hash conhecido (34fca82c…): usa os endereços validados de sempre, sem procurar nada.
-// Hash desconhecido: lê o ElementClient.exe do disco (o mesmo arquivo do processo), procura todas as assinaturas
-// (GameSignatures) e só aceita se TODAS resolverem de forma única e as guardas de deslocamento conferirem; depois
-// confirma no módulo carregado (leitura de memória) que o código nos endereços achados é o mesmo do arquivo.
-// Qualquer falha = "Cliente diferente do perfil analisado." como antes.
+// FarmZilla The Classic — perfil do cliente do jogo.
+// Só o elementclient.exe analisado do PW The Classic (39d81c21…) é aceito; os endereços estão em GameSignatures.Data.cs e
+// ClassicLayout.cs. As assinaturas do Avalon não servem para o Classic, então qualquer outro hash é recusado.
 public sealed class GameProfile {
- public const string KnownSha256="34fca82cafa1f38825228626aa3e8f98c56274c095cb46e317b2d665aaf69684";
- public const uint KnownSizeOfImage=19456000;
- public readonly uint HostOffset=0x34,CharacterIdOffset=0x4F0,FollowManagerOffset=0x74;
+ public const string KnownSha256="39d81c21ca72f373a787c936da1611281593d950668f2077016d77c1424338ce";
+ public const uint KnownSizeOfImage=0xD66000;
+ public readonly uint HostOffset=ClassicLayout.RunHost,CharacterIdOffset=ClassicLayout.HostId,FollowManagerOffset=ClassicLayout.RunQueue;
  public readonly string Sha256;public readonly bool Known;public readonly uint SizeOfImage;readonly Dictionary<string,uint> map;readonly byte[][] code;
  GameProfile(string sha,bool known,uint size,Dictionary<string,uint> values,byte[][] codeBytes){Sha256=sha;Known=known;SizeOfImage=size;map=values;code=codeBytes;
   FollowPost=Rva("FollowPost");AttackSelect=Rva("AttackSelect");AttackNormal=Rva("AttackNormal");MacroStart=Rva("MacroStart");MacroStop=Rva("MacroStop");SendData=Rva("SendData");NpcClose=Rva("NpcClose");NpcCancel=Rva("NpcCancel");Root=Rva("Root");RotaRoot=Rva("RotaRoot");TeleportTable=Rva("TeleportTable");TeleportCount=Rva("TeleportCount");FollowWork=Rva("FollowWork");ComboSkill=Rva("ComboSkill");DlgNpc=Rva("DlgNpc");DlgTask=Rva("DlgTask");DlgTaskConfirm=Rva("DlgTaskConfirm");DlgTaskList=Rva("DlgTaskList");Team=Rva("Team");TeamMember=Rva("TeamMember");DlgMessageBox=Rva("DlgMessageBox");TaskInterface=Rva("TaskInterface");ItemTransmitScroll=Rva("ItemTransmitScroll");ItemTaskDice=Rva("ItemTaskDice");}
@@ -47,17 +44,7 @@ public sealed class GameProfile {
  static Entry Build(byte[] file){
   string sha;using(var h=SHA256.Create())sha=BitConverter.ToString(h.ComputeHash(file)).Replace("-","").ToLowerInvariant();
   if(sha==KnownSha256)return new Entry{Profile=Current()};
-  PeImage pe;try{pe=PeImage.Load(file);}catch(Exception ex){return new Entry{Failure="SHA-256 "+sha+": "+ex.Message};}
-  var r=SignatureScanner.Resolve(pe);
-  if(!r.Ok)return new Entry{Failure="SHA-256 "+sha+": "+r.Errors.Count+" assinatura(s) sem resultado único — "+string.Join("; ",r.Errors.ToArray())};
-  // Bytes de código esperados (do arquivo) para conferir no módulo carregado: 16 bytes a partir de +5 em cada função
-  // (os 5 primeiros podem estar com o desvio da própria captura do FarmZilla), relocações ignoradas.
-  var names=new List<string>();foreach(var t in GameSignatures.Targets)if(t.Sigs[0].Kind==GameSignatures.Kind.Fn||t.Sigs[0].Kind==GameSignatures.Kind.Rel)names.Add(t.Name);
-  var codeBytes=new byte[names.Count*2][];
-  for(int i=0;i<names.Count;i++){uint at=r.Rva[names[i]]+5;var b=new byte[16];var m=new byte[16];Buffer.BlockCopy(pe.Img,(int)at,b,0,16);
-   for(uint k=0;k<16;k++){bool rel=false;for(uint z=0;z<4;z++)if(at+k>=z&&pe.Relocs.Contains(at+k-z))rel=true;m[k]=(byte)(rel?0:1);}
-   codeBytes[2*i]=b;codeBytes[2*i+1]=m;}
-  var p=new GameProfile(sha,false,pe.SizeOfImage,r.Rva,codeBytes);p.codeNames=names.ToArray();return new Entry{Profile=p};}
+  return new Entry{Failure="SHA-256 "+sha+": não é o elementclient.exe do PW The Classic analisado (39d81c21…)."};}
 
  [DllImport("kernel32.dll",SetLastError=true)]static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool ReadProcessMemory(IntPtr p,IntPtr a,byte[] b,UIntPtr n,out UIntPtr got);
@@ -67,7 +54,7 @@ public sealed class GameProfile {
  public static GameProfile Require(int pid){using(var p=Process.GetProcessById(pid))return Require(p);}
  public static GameProfile TryFor(Process process,out string failure){
   var module=process.MainModule;var p=ForFile(module.FileName,out failure);if(p==null)return null;
-  if(p.Known)return p;
+  if(p.Known){if((uint)module.ModuleMemorySize!=p.SizeOfImage){failure="tamanho do módulo carregado diferente do cliente analisado";return null;}return p;}
   if((uint)module.ModuleMemorySize!=p.SizeOfImage){failure="tamanho do módulo carregado diferente do arquivo";return null;}
   string key=process.Id+"|"+process.StartTime.Ticks+"|"+p.Sha256;bool ok;
   lock(gate){if(confirmed.TryGetValue(key,out ok)){if(!ok)failure="código carregado diferente do arquivo";return ok?p:null;}}

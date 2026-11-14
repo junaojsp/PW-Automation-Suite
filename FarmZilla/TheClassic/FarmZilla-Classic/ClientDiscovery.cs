@@ -22,7 +22,7 @@ static class ClientDiscovery {
   if(hash==Known)return true;
   // 0.50.0: compilação nova só é aceita se o perfil completo por assinaturas resolver (GameProfile registra o motivo da recusa).
   string failure;var profile=GameProfile.ForFile(path.ToString(),out failure);
-  if(profile==null){log("PID "+pid+": encontrado, mas compilação diferente do perfil Avalon validado e assinaturas incompletas.");return false;}
+  if(profile==null){log("PID "+pid+": encontrado, mas não é o elementclient.exe do PW The Classic analisado.");return false;}
   log("PID "+pid+": compilação nova aceita pelo "+profile.Describe()+".");return true;
  }finally{CloseHandle(query);}}
 }

@@ -18,10 +18,10 @@ namespace RotaAvalon {
                 default:return ActivityKind.Other;}
         }
         public static ActivitySnapshot Read(ProcessMemory memory,uint actor,uint image,uint end){
-            uint manager=memory.UInt32(actor+0x1D1C);
+            uint manager=memory.UInt32(actor+ClassicLayout.HostWork);
             if(NearbyResources.NativeType(memory,manager,image,end)!=".?AVCECHPWorkMan@@")throw new IOException("Gerenciador de ações incompatível.");
             var result=new ActivitySnapshot{ReadAt=DateTime.Now};
-            for(int queue=0;queue<4;queue++){uint offset=(uint)(8+queue*16),begin=memory.UInt32(manager+offset),last=memory.UInt32(manager+offset+4),capacity=memory.UInt32(manager+offset+8),count=memory.UInt32(manager+offset+12);
+            for(int queue=0;queue<ClassicLayout.WorkQueues;queue++){uint offset=(uint)(8+queue*16),begin=memory.UInt32(manager+offset),last=memory.UInt32(manager+offset+4),capacity=memory.UInt32(manager+offset+8),count=memory.UInt32(manager+offset+12);
                 if(count>64||capacity>128||count>capacity||last<begin||last-begin!=count*4||(count>0&&(begin<0x10000||(begin&3)!=0)))throw new IOException("Fila de ações inconsistente.");
                 for(uint at=begin;at<last;at+=4){uint item=memory.UInt32(at);string type=NearbyResources.NativeType(memory,item,image,end);
                     if(type==null||!type.StartsWith(".?AVCECHPWork",StringComparison.Ordinal))throw new IOException("Ação nativa desconhecida.");
@@ -33,7 +33,7 @@ namespace RotaAvalon {
                 }
                 if(memory.UInt32(manager+offset)!=begin||memory.UInt32(manager+offset+4)!=last||memory.UInt32(manager+offset+12)!=count)throw new IOException("Fila mudou durante a leitura.");
             }
-            if(memory.UInt32(actor+0x1D1C)!=manager)throw new IOException("Gerenciador mudou durante a leitura.");return result;
+            if(memory.UInt32(actor+ClassicLayout.HostWork)!=manager)throw new IOException("Gerenciador mudou durante a leitura.");return result;
         }
     }
     public sealed class ResourceReward {

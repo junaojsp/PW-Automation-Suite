@@ -1,6 +1,6 @@
 using System;using System.Collections.Generic;using System.Collections.Concurrent;using System.Text;using System.Threading;using System.Linq;
 sealed partial class CharacterMemory {
- public ushort[] ActiveQuestIds(){uint task=U(Host+0x1D24);if(U(task)!=Module+G.TaskInterface||U(task+4)!=Host)throw new Exception("Interface de missoes invalida");uint list=U(task+8);int count=Read(list,8)[0];if(count>175)throw new Exception("Contagem de missoes invalida");byte[] data=Read(list,8+32*count);if(Read(list,1)[0]!=count)throw new Exception("Lista de missoes atualizando");var ids=new List<ushort>();for(int i=0;i<count;i++)ids.Add(BitConverter.ToUInt16(data,8+32*i));return ids.ToArray();}
+ public ushort[] ActiveQuestIds(){uint task=U(Host+ClassicLayout.HostTasks);if(U(task)!=Module+G.TaskInterface||U(task+4)!=Host)throw new Exception("Interface de missoes invalida");uint list=U(task+8);int count=Read(list,8)[0];if(count>175)throw new Exception("Contagem de missoes invalida");byte[] data=Read(list,8+32*count);if(Read(list,1)[0]!=count)throw new Exception("Lista de missoes atualizando");var ids=new List<ushort>();for(int i=0;i<count;i++)ids.Add(BitConverter.ToUInt16(data,8+32*i));return ids.ToArray();}
  static readonly ConcurrentDictionary<string,List<uint>> questWindowCache=new ConcurrentDictionary<string,List<uint>>();
  bool QuestWindowType(uint v){return v==G.DlgNpc||v==G.DlgTask||v==G.DlgTaskConfirm||v==G.DlgTaskList;}
  public List<uint> QuestWindows(CancellationToken token){string key=Host.ToString("X8")+":"+Module+":"+Id;List<uint> cached;if(questWindowCache.TryGetValue(key,out cached)){var valid=new List<uint>();foreach(uint address in cached)try{if(QuestWindowType(U(address)-Module))valid.Add(address);}catch{}if(valid.Count>0)return valid;}var found=new List<uint>();
@@ -11,6 +11,6 @@ sealed partial class CharacterMemory {
  public List<uint> NpcDialogs(CancellationToken token){return QuestWindows(token).Where(d=>U(d)==Module+G.DlgNpc).ToList();}
  public bool NpcVisible(uint dialog){return U(dialog)==Module+G.DlgNpc&&QuestWindowVisible(dialog);}
  public bool IsNpcDialog(uint dialog){return U(dialog)==Module+G.DlgNpc;}
- public bool NpcInteractionActive(uint dialog){if(!IsNpcDialog(dialog))return false;return U(U(dialog+0x34)+0xA54)!=0||U(Host+0xEFC)!=0||Read(Host+0xF0A,1)[0]!=0;}
+ public bool NpcInteractionActive(uint dialog){if(!IsNpcDialog(dialog))return false;return U(U(dialog+0x34)+ClassicLayout.UiNpcTalk)!=0||U(Host+ClassicLayout.HostNpcTalk)!=0||Read(Host+ClassicLayout.HostNpcBusy,1)[0]!=0;}
  public bool QuestWindowVisible(uint dialog){return QuestWindowType(U(dialog)-Module)&&Read(dialog+0x90,1)[0]!=0;}
 }

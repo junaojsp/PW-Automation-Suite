@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -45,8 +45,8 @@ namespace RotaAvalon {
     // Read-only, mapped in the Avalon client of 02/11/2026: same hash-table layout as the material manager.
     public static class NearbyMonsters {
         public static List<MonsterMarker> Read(ProcessMemory memory,uint root,uint imageBase,uint imageEnd,ClientSnapshot player){
-            var result=new List<MonsterMarker>();uint world=memory.UInt32(root+0x20);if(world<0x10000||(world&3)!=0)return result;
-            uint manager=memory.UInt32(world+0x24);if(manager<0x10000||NearbyResources.NativeType(memory,manager,imageBase,imageEnd)!=".?AVCECNPCMan@@")throw new IOException("Gerenciador de monstros não reconhecido.");
+            var result=new List<MonsterMarker>();uint world=memory.UInt32(root+ClassicLayout.RunWorld);if(world<0x10000||(world&3)!=0)return result;
+            uint manager=memory.UInt32(world+ClassicLayout.WorldNpcs);if(manager<0x10000||NearbyResources.NativeType(memory,manager,imageBase,imageEnd)!=".?AVCECNPCMan@@")throw new IOException("Gerenciador de monstros não reconhecido.");
             uint count=memory.UInt32(manager+0x1C),array=memory.UInt32(manager+0x20);if(count<1||count>65536||array<0x10000||(array&3)!=0)throw new IOException("Tabela de monstros inconsistente.");
             byte[] buckets=memory.Read(array,checked((int)count*4));if(buckets.Length!=count*4)throw new IOException("Tabela de monstros incompleta.");var seen=new HashSet<uint>();
             for(int bucket=0;bucket<buckets.Length;bucket+=4){uint node=BitConverter.ToUInt32(buckets,bucket);int chain=0;while(node!=0&&chain++<1000&&seen.Count<8000&&seen.Add(node)){byte[] link=memory.Read(node,12);if(link.Length!=12)break;node=BitConverter.ToUInt32(link,0);uint obj=BitConverter.ToUInt32(link,4),key=BitConverter.ToUInt32(link,8);if(obj<0x10000||(obj&3)!=0)continue;
@@ -64,9 +64,9 @@ namespace RotaAvalon {
             try{uint vt=memory.UInt32(address);if(vt<imageBase+4||vt>=imageEnd)return null;uint col=memory.UInt32(vt-4);if(col<imageBase||col>=imageEnd)return null;uint desc=memory.UInt32(col+12);if(desc<imageBase||desc>=imageEnd)return null;byte[] bytes=memory.Read(desc+8,96);string text=Encoding.ASCII.GetString(bytes);int zero=text.IndexOf('\0');return zero>=0?text.Substring(0,zero):null;}catch{return null;}
         }
         public static ResourceFrame Read(ProcessMemory memory,uint root,uint imageBase,uint imageEnd,ResourceCatalog catalog,ClientSnapshot player){
-            uint world=memory.UInt32(root+0x20);Pointer(world);
+            uint world=memory.UInt32(root+ClassicLayout.RunWorld);Pointer(world);
             if(NativeType(memory,world,imageBase,imageEnd)!=".?AVCECWorld@@")throw new IOException("Perfil do mundo não reconhecido.");
-            uint manager=memory.UInt32(world+0x28);Pointer(manager);
+            uint manager=memory.UInt32(world+ClassicLayout.WorldMatters);Pointer(manager);
             if(NativeType(memory,manager,imageBase,imageEnd)!=".?AVCECMatterMan@@")throw new IOException("Gerenciador de objetos não reconhecido.");
             var frame=new ResourceFrame{ReadAt=DateTime.Now,World=world};uint terrain=memory.UInt32(world+0x0c);Pointer(terrain);byte[] geometry=memory.Read(terrain+0x204,16);
             if(geometry.Length==16)frame.Terrain=new TerrainBounds{Left=F(geometry,0),Top=F(geometry,4),Right=F(geometry,8),Bottom=F(geometry,12)};
@@ -82,7 +82,7 @@ namespace RotaAvalon {
                 double x=F(record,0x3c),y=F(record,0x40),z=F(record,0x44);if(!GameClient.ValidCoordinate(x)||!GameClient.ValidCoordinate(y)||!GameClient.ValidCoordinate(z))continue;
                 double dx=x-player.X,dy=y-player.Y,dz=z-player.Z;frame.Resources.Add(new ResourceMarker{InstanceId=key,TemplateId=id,Name=String.IsNullOrWhiteSpace(definition.nome)?"Recurso "+id:definition.nome,RequiredLevel=definition.nivelMinimo,ItemId=definition.item1Id,X=x,Y=y,Z=z,Distance=Math.Sqrt(dx*dx+dy*dy+dz*dz),HorizontalDistance=Math.Sqrt(dx*dx+dz*dz),LevelAllowed=player.Level>=definition.nivelMinimo});
             }}
-            if(memory.UInt32(root+0x20)!=world||memory.UInt32(world+0x28)!=manager)throw new IOException("O mapa mudou durante a leitura.");
+            if(memory.UInt32(root+ClassicLayout.RunWorld)!=world||memory.UInt32(world+ClassicLayout.WorldMatters)!=manager)throw new IOException("O mapa mudou durante a leitura.");
             frame.Resources=frame.Resources.OrderBy(r=>r.Distance).ToList();return frame;
         }
     }

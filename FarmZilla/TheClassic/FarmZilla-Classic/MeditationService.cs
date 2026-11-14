@@ -1,5 +1,5 @@
 using System;using System.Linq;using System.Collections.Generic;
-sealed partial class CharacterMemory {public bool Sitting {get{return (U(Host+0x7D4)&0x20)!=0;}}}
+sealed partial class CharacterMemory {public bool Sitting {get{return (U(Host+ClassicLayout.HostFlags)&0x20)!=0;}}}
 sealed class MeditationResult {public bool Blocked;public string Error;}
 interface IMeditationRuntime {bool Sitting(CharacterRef c);MeditationResult Set(CharacterRef c,bool sitting);}
 sealed class NativeMeditationRuntime:IMeditationRuntime {
