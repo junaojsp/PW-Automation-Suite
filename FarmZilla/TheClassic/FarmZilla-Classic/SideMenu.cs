@@ -16,7 +16,7 @@ partial class AvalonInterno {
   PendingTool("Vm Farm",178);PendingTool("Token Farm",220);
   var frostButton=SideAt("Frost Farm",262,OpenFrostAutomation);sideFrostInline=frostButton;frostButton.AccessibleName="Frost Farm";frostButton.AccessibleDescription="DG Frost na mesma janela; líder, secundários e registro";hints.SetToolTip(frostButton,"Abre a Frost nesta janela e mantém as configurações compartilhadas de Auto Pot.");PendingTool("Skill Sender",304);
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
-  var footer=RubiLabel("FarmZilla · Rubi",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
+  var footer=RubiLabel("FarmZilla · The Classic",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);
   InitializeInlinePot();sidePersonagens.Selected=true;Invalidate();
  }finally{ResumeLayout(false);}}

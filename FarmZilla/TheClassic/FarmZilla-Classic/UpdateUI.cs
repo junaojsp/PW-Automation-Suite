@@ -1,16 +1,14 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 partial class AvalonInterno {
- string updateSummary="Atualizar aplicativo";Button updateSettingsButton;System.Windows.Forms.Timer updateTimer;bool updateChecking;string pendingUpdate;string pendingControlUpdate;
- void InitUpdates(){
-  updateTimer=new System.Windows.Forms.Timer{Interval=30*60*1000};updateTimer.Tick+=(s,e)=>{var task=CheckUpdate(false);};
-  Shown+=async(s,e)=>{updateTimer.Start();await Task.Delay(3000);if(!IsDisposed)await CheckUpdate(false);};
-  FormClosed+=(s,e)=>{updateTimer.Dispose();if(pendingControlUpdate!=null)try{FarmZillaControlUpdate.LaunchInstaller(pendingControlUpdate,Application.ExecutablePath);}catch(Exception ex){MessageBox.Show("Atualização não iniciada: "+ex.Message,"FarmZilla");}if(pendingUpdate!=null)try{AppUpdate.LaunchInstaller(pendingUpdate,Application.ExecutablePath);}catch(Exception ex){MessageBox.Show("Atualização não iniciada: "+ex.Message+"\nAbra o aplicativo e tente novamente.","FarmZilla");}};
- }
+ string updateSummary="Atualizar aplicativo";Button updateSettingsButton;bool updateChecking;string pendingUpdate;string pendingControlUpdate;
+ // The Classic: the update channels (FarmZilla Control and the private repository) publish the Avalon executable.
+ static readonly bool UpdatesDisabled=true;
+ void InitUpdates(){updateSummary="Atualização automática desativada (The Classic)";}
  bool ConfigureRepository(){
   using(var dialog=new Form{Text="Atualizações do aplicativo",ClientSize=new Size(350,160),FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false}){
    var label=new Label{Text="Endereço HTTPS do servidor privado de atualizações",Left=12,Top=12,Width=325,Height=35};
@@ -22,6 +20,7 @@ partial class AvalonInterno {
  bool MatFarmRunning(){foreach(var w in rotaWindows)if(!w.IsDisposed&&w.FarmRunning)return true;return false;}
  async Task CheckUpdate(bool interactive){
   if(updateChecking||closeInProgress)return;
+  if(UpdatesDisabled){if(interactive)MessageBox.Show(this,"Esta versão do FarmZilla The Classic não se atualiza sozinha; use o executável gerado pelo build.","FarmZilla");return;}
   if(LicenseGate.ControlMode){
    updateChecking=true;
    try{
