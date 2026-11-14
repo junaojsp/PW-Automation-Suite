@@ -19,23 +19,32 @@ $tests = Join-Path $output 'DiagnosticTests.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Compilação dos testes falhou.' }
 & $tests
 if ($LASTEXITCODE -ne 0) { throw 'Testes do diagnóstico falharam.' }
-if ((Get-Item $exe).VersionInfo.FileVersion -ne '0.3.0.0') { throw 'Versão interna incorreta.' }
+if ((Get-Item $exe).VersionInfo.FileVersion -ne '0.4.0.0') { throw 'Versão interna incorreta.' }
 Get-FileHash $exe -Algorithm SHA256 | Format-List | Out-String | Set-Content (Join-Path $output 'SHA256.txt')
 
 # Compile the command-capable test app from the SAME InternalBridge used by Avalon.
 $followSources = $sources + @(
   (Join-Path $PSScriptRoot 'FollowProfile.cs'),
   (Join-Path $PSScriptRoot 'ClassicFollow.cs'),
+  (Join-Path $PSScriptRoot 'ClassicMirrorLayout.cs'),
+  (Join-Path $shared 'RubiPalette.cs'),
+  (Join-Path $shared 'FarmZillaFrame.cs'),
+  (Join-Path $shared 'SideItem.cs'),
+  (Join-Path $shared 'Theme.cs'),
+  (Join-Path $shared 'TickBox.cs'),
+  (Join-Path $shared 'UiScale.cs'),
+  (Join-Path $shared 'ClassIcons.cs'),
   (Join-Path $shared 'Bridge.cs'),
   (Join-Path $shared 'ProcessGate.cs')
 )
+$iconArg = '/win32icon:' + (Join-Path $shared 'FarmZilla.ico')
 $mirror = Join-Path $output 'FarmZilla-TheClassic-Teste.exe'
-& $compiler /nologo /target:winexe /platform:x86 /main:FarmZilla.TheClassic.ClassicMirrorProgram $refs "/out:$mirror" $followSources
+& $compiler /nologo /target:winexe /platform:x86 /main:FarmZilla.TheClassic.ClassicMirrorProgram $iconArg $refs "/out:$mirror" $followSources
 if ($LASTEXITCODE -ne 0) { throw 'Compilação do Espelho de teste falhou.' }
 $followTests = Join-Path $output 'ClassicFollowTests.exe'
-& $compiler /nologo /target:exe /platform:x86 /main:ClassicFollowTests $refs "/out:$followTests" (Join-Path $PSScriptRoot 'ClassicFollowTests.cs') $followSources
+& $compiler /nologo /target:exe /platform:x86 /main:ClassicFollowTests $iconArg $refs "/out:$followTests" (Join-Path $PSScriptRoot 'ClassicFollowTests.cs') $followSources
 if ($LASTEXITCODE -ne 0) { throw 'Compilação dos testes de seguir falhou.' }
 & $followTests
 if ($LASTEXITCODE -ne 0) { throw 'Testes de seguir falharam.' }
-if ((Get-Item $mirror).VersionInfo.FileVersion -ne '0.3.0.0') { throw 'Versão do Espelho incorreta.' }
+if ((Get-Item $mirror).VersionInfo.FileVersion -ne '0.4.0.0') { throw 'Versão do Espelho incorreta.' }
 Get-FileHash $mirror -Algorithm SHA256 | Format-List | Out-String | Add-Content (Join-Path $output 'SHA256.txt')

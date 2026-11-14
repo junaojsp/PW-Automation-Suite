@@ -7,6 +7,14 @@ on:
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bridge.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ProcessGate.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/RubiPalette.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZillaFrame.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/SideItem.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Theme.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/TickBox.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/UiScale.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ClassIcons.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.ico'
       - '.github/workflows/farmzilla-tclassic-build.yml'
   pull_request:
     paths:
@@ -14,6 +22,14 @@ on:
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bridge.cs'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ProcessGate.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/RubiPalette.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZillaFrame.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/SideItem.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Theme.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/TickBox.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/UiScale.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ClassIcons.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/FarmZilla.ico'
       - '.github/workflows/farmzilla-tclassic-build.yml'
 permissions:
   contents: read
@@ -29,7 +45,7 @@ jobs:
       - name: Disponibilizar diagnóstico The Classic
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-TheClassic-0.3.0-TESTE-x86
+          name: FarmZilla-TheClassic-0.4.0-TESTE-x86
           path: |
             FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Diagnostico.exe
             FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Teste.exe

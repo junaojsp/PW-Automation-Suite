@@ -1,8 +1,8 @@
-# FarmZilla The Classic — teste 0.3.0
+# FarmZilla The Classic — teste 0.4.0
 
 Pacote Windows .NET Framework x86 com dois executáveis:
 
-- **FarmZilla-TheClassic-Teste.exe**: seleção de principal/secundários e teste manual de Seguir/Parar, usando a mesma ponte interna do FarmZilla Avalon com perfil Classic.
+- **FarmZilla-TheClassic-Teste.exe**: seleção de principal/secundários no layout FarmZilla e teste manual de Seguir/Parar, usando a mesma ponte interna do Avalon com perfil Classic.
 - **FarmZilla-TheClassic-Diagnostico.exe**: leitura de personagem e relatório JSON, sem comandos.
 
 O teste de seguir ainda precisa de confirmação no jogo. Ataque, buffs, macros, teleporte,
@@ -13,10 +13,10 @@ pacote no canal Avalon do painel.
 
 1. Extraia o ZIP em uma pasta separada do FarmZilla Avalon. Abra duas contas The Classic e entre no mapa; deixe os personagens próximos.
 2. Abra **FarmZilla-TheClassic-Teste.exe**. O log já estará ativo; clique em **Sincronizar contas** caso necessário.
-3. Escolha o principal e marque um secundário diferente.
-4. Clique em **Seguir principal**, caminhe com o principal e observe o secundário.
+3. Escolha o principal e selecione um secundário diferente em uma das nove linhas do Espelho.
+4. Clique em **Seguir principal**, caminhe com o principal e observe o secundário. O botão passa a **Parar seguimento**.
 5. Clique em **Parar seguimento**, caminhe novamente e confira se o secundário parou de acompanhar.
-6. Clique em **Abrir pasta do log** e envie o arquivo desta sessão junto com o resultado observado.
+6. Clique em **Registros** e envie o arquivo desta sessão junto com o resultado observado.
 
 O log fica em `%LOCALAPPDATA%\FarmZilla\TheClassic\logs\teste-DATA-HORA-PID.log`.
 Ele registra versão/hash do cliente, contas e snapshots descobertos, comandos, IDs/thread,
@@ -54,3 +54,12 @@ Execute `./FarmZilla/TheClassic/Build-Diagnostic.ps1` no Windows com Visual Stud
 O workflow próprio entrega os dois EXEs, hashes, documentação e capturas da interface.
 Os testes de leitura usam memória simulada; o teste da ponte usa exclusivamente uma janela
 criada pelo próprio processo de teste, nunca um cliente de jogo.
+
+## Layout compartilhado
+
+O Classic usa os mesmos arquivos `RubiPalette.cs`, `FarmZillaFrame.cs`, `SideItem.cs`, `Theme.cs`,
+`TickBox.cs`, `UiScale.cs`, `ClassIcons.cs` e o mesmo ícone do FarmZilla. Cores, moldura, cartões, botões,
+seletores e menu são compilados da mesma fonte. A seleção mantém o backend de seguir/parar validado.
+O log automático fica em segundo plano e o botão Registros abre sua pasta. Ferramentas, ataque,
+suporte e demais comandos ainda não validados para o perfil Classic aparecem desabilitados.
+Nenhum desses controles chama uma rotina de cliente com offsets Avalon.
