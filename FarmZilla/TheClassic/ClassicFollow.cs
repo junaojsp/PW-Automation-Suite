@@ -90,8 +90,8 @@ namespace FarmZilla.TheClassic {
   public ClassicMirrorForm(bool discover=true){
    BuildMirrorLayout();service=new ClassicFollowService(Note);
    sync.Click+=async(s,e)=>await Work(Discover);follow.Click+=async(s,e)=>await Work(()=>Send(owned.Count>0));stop.Click+=async(s,e)=>await Work(()=>Send(true));logs.Click+=(s,e)=>{try{Process.Start(new ProcessStartInfo{FileName=ClassicLog.Folder,UseShellExecute=true});}catch(Exception ex){Note("LOG_OPEN_ERROR "+ex.Message);}};
-   Shown+=async(s,e)=>{if(!discover)return;try{ClassicLog.Write("START version=0.4.0 executable=TheClassic-Teste profile="+Analyzer.ReferenceSha);Note("Log automático: "+ClassicLog.PathName);Note("Teste manual: só seguir/parar. Ataque, buffs e teleporte não estão habilitados.");ready=true;await Work(Discover);}catch(Exception ex){MessageBox.Show(this,"Não foi possível criar o log: "+ex.Message);follow.Enabled=stop.Enabled=false;}};
-   FormClosing+=async(s,e)=>{if(closing)return;e.Cancel=true;if(busy){Note("CLOSE_WAIT aguarde a operação atual.");return;}await Work(()=>Send(true));closing=true;ClassicLog.Write("CLOSE");Close();};
+   Shown+=async(s,e)=>{if(!discover)return;try{ClassicLog.Write("START version=0.5.0 executable=TheClassic-Teste profile="+Analyzer.ReferenceSha);Note("Log automático: "+ClassicLog.PathName);Note("Teste: seguir/parar e ataque/suporte por macro. Buffs, grupo e teleporte ainda não estão habilitados.");ready=true;await Work(Discover);}catch(Exception ex){MessageBox.Show(this,"Não foi possível criar o log: "+ex.Message);follow.Enabled=stop.Enabled=false;}};
+   FormClosing+=async(s,e)=>{if(closing)return;e.Cancel=true;if(busy){Note("CLOSE_WAIT aguarde a operação atual.");return;}await StopAttacks();await Work(()=>Send(true));closing=true;ClassicLog.Write("CLOSE");Close();};
   }
   void Note(string text){ClassicLog.Write(text);if(IsDisposed)return;if(InvokeRequired){BeginInvoke(new Action(()=>Append(text)));}else Append(text);}
   void Append(string text){if(IsDisposed)return;UpdateMirrorStatus(text);if(output.TextLength>60000)output.Clear();output.AppendText(DateTime.Now.ToString("HH:mm:ss.fff")+" "+text+Environment.NewLine);}

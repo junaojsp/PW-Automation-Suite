@@ -19,7 +19,7 @@ $tests = Join-Path $output 'DiagnosticTests.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Compilação dos testes falhou.' }
 & $tests
 if ($LASTEXITCODE -ne 0) { throw 'Testes do diagnóstico falharam.' }
-if ((Get-Item $exe).VersionInfo.FileVersion -ne '0.4.0.0') { throw 'Versão interna incorreta.' }
+if ((Get-Item $exe).VersionInfo.FileVersion -ne '0.5.0.0') { throw 'Versão interna incorreta.' }
 Get-FileHash $exe -Algorithm SHA256 | Format-List | Out-String | Set-Content (Join-Path $output 'SHA256.txt')
 
 # Compile the command-capable test app from the SAME InternalBridge used by Avalon.
@@ -27,6 +27,11 @@ $followSources = $sources + @(
   (Join-Path $PSScriptRoot 'FollowProfile.cs'),
   (Join-Path $PSScriptRoot 'ClassicFollow.cs'),
   (Join-Path $PSScriptRoot 'ClassicMirrorLayout.cs'),
+  (Join-Path $PSScriptRoot 'AttackProfile.cs'),
+  (Join-Path $PSScriptRoot 'AttackBridge.cs'),
+  (Join-Path $PSScriptRoot 'ClassicAttack.cs'),
+  (Join-Path $PSScriptRoot 'ClassicAttackUI.cs'),
+  (Join-Path $shared 'AttackService.cs'),
   (Join-Path $shared 'RubiPalette.cs'),
   (Join-Path $shared 'FarmZillaFrame.cs'),
   (Join-Path $shared 'SideItem.cs'),
@@ -46,5 +51,10 @@ $followTests = Join-Path $output 'ClassicFollowTests.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Compilação dos testes de seguir falhou.' }
 & $followTests
 if ($LASTEXITCODE -ne 0) { throw 'Testes de seguir falharam.' }
-if ((Get-Item $mirror).VersionInfo.FileVersion -ne '0.4.0.0') { throw 'Versão do Espelho incorreta.' }
+$attackTests = Join-Path $output 'ClassicAttackTests.exe'
+& $compiler /nologo /target:exe /platform:x86 /main:ClassicAttackTests $iconArg $refs "/out:$attackTests" (Join-Path $PSScriptRoot 'ClassicAttackTests.cs') $followSources
+if ($LASTEXITCODE -ne 0) { throw 'Compilação dos testes de ataque falhou.' }
+& $attackTests
+if ($LASTEXITCODE -ne 0) { throw 'Testes de ataque falharam.' }
+if ((Get-Item $mirror).VersionInfo.FileVersion -ne '0.5.0.0') { throw 'Versão do Espelho incorreta.' }
 Get-FileHash $mirror -Algorithm SHA256 | Format-List | Out-String | Add-Content (Join-Path $output 'SHA256.txt')
