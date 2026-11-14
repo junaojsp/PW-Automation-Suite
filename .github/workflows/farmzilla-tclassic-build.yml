@@ -5,11 +5,15 @@ on:
     paths:
       - 'FarmZilla/TheClassic/**'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bridge.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ProcessGate.cs'
       - '.github/workflows/farmzilla-tclassic-build.yml'
   pull_request:
     paths:
       - 'FarmZilla/TheClassic/**'
       - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/GameSignatures*.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/Bridge.cs'
+      - 'FarmZilla/FarmZilla/outputs/FarmZilla-0.51.20/ProcessGate.cs'
       - '.github/workflows/farmzilla-tclassic-build.yml'
 permissions:
   contents: read
@@ -25,9 +29,11 @@ jobs:
       - name: Disponibilizar diagnóstico The Classic
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-TheClassic-0.2.0-DIAGNOSTICO-x86
+          name: FarmZilla-TheClassic-0.3.0-TESTE-x86
           path: |
             FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Diagnostico.exe
+            FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Teste.exe
+            FarmZilla/TheClassic/artifacts/espelho-layout.png
             FarmZilla/TheClassic/artifacts/SHA256.txt
             FarmZilla/TheClassic/artifacts/diagnostico-layout.png
             FarmZilla/TheClassic/README.md

@@ -30,3 +30,22 @@ valida atributos e nome, e confere novamente ponteiros/ID antes de devolver a am
 As coordenadas exportadas são internas X/Y/Z; ainda não há conversão validada para os números
 mostrados no minimapa. O alvo é somente seu ID, sem nome/tipo resolvido. Inventário permanece pendente.
 Nenhuma amostra ou coincidência de assinatura habilita automações.
+
+## Integração de seguir/parar — teste 0.3.0
+
+Reutiliza `InternalBridge` e `ProcessGate` do FarmZilla. Na ponte compartilhada, somente os
+campos de ligação passam a vir do perfil; o perfil Avalon conserva `Host +0x34`, ID `+0x4F0`
+e gerente de mensagens `Run +0x74`. O perfil Classic fornece `+0x28`, `+0x4B8`, `+0x68`.
+
+- Enfileiramento da mensagem `0xEE`: método VA `0x825090` (RVA `0x425090`).
+- UI do jogo em `0x712F54–0x712F96` e `0x7144E4–0x714526`: mensagem de 32 bytes,
+  opcode em `+0`, alvo em `+0xC`; contexto é `[Run +0x68]+8`.
+- Trabalho de seguir: vtable RVA `0x9E8238`; alvo em `work +0x20`.
+- Gerente de trabalhos: `Host +0x13F8`, vtable RVA `0x9E8140`;
+  construção em `0x4FB43D–0x4FB484` de três vetores de 16 bytes a partir de `+8`.
+- O leitor consulta as duas filas usadas no FarmZilla (`+8`, `+0x18`).
+
+O comando Parar conserva o argumento `1` usado pelo FarmZilla; sua semântica no Classic
+precisa ser confirmada pelo teste em jogo. A confirmação exige a ausência de trabalho ativo de seguir.
+O autoteste prova mensagem/thread/restauração em uma janela do próprio processo, não a semântica do jogo.
+Não há retomada automática nem repetição em segundo plano nesta entrega.
