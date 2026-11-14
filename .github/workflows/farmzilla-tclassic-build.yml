@@ -25,11 +25,12 @@ jobs:
       - name: Disponibilizar diagnóstico The Classic
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-TheClassic-0.1.0-DIAGNOSTICO-x86
+          name: FarmZilla-TheClassic-0.2.0-DIAGNOSTICO-x86
           path: |
             FarmZilla/TheClassic/artifacts/FarmZilla-TheClassic-Diagnostico.exe
             FarmZilla/TheClassic/artifacts/SHA256.txt
             FarmZilla/TheClassic/artifacts/diagnostico-layout.png
             FarmZilla/TheClassic/README.md
+            FarmZilla/TheClassic/PROFILE.md
           if-no-files-found: error
           retention-days: 14
