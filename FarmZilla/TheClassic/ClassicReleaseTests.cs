@@ -75,5 +75,9 @@ static class ClassicSimulator {
   var plan=RotaAvalon.FarmPlanner.Build(new[]{marker,blocked},new[]{3098,1},player,400);
   check(plan.Points.Count==1&&plan.Points[0].ResourceId==3098,"nível 6 planeja o mat de tier 1 e deixa de fora o mínimo real");
   check(FollowFlight.ShouldTakeoff(true,true,false)&&!FollowFlight.ShouldTakeoff(true,false,false)&&!FollowFlight.ShouldTakeoff(true,true,true)&&!FollowFlight.ShouldTakeoff(false,true,false),"seguidor no chão decola só quando o líder está no ar");
+  double nx,nz,nx2,nz2;RotaAvalon.FlightFace.Hold(10,20,out nx,out nz);RotaAvalon.FlightFace.Hold(10,20,out nx2,out nz2);
+  check(nx==nx2&&nz==nz2&&nx==18&&nz==20,"a subida e a descida não invertem a direção");
+  check(RotaAvalon.MapMark.SealRadius(0.15)>=8&&RotaAvalon.MapMark.KindLetter(2865)=="E"&&RotaAvalon.MapMark.KindLetter(2862)=="M","no zoom do farm o mat e a erva continuam visíveis");
+  using(var swatch=RotaAvalon.MapMark.Swatch(2865))check(swatch!=null&&swatch.Width==24&&swatch.GetPixel(4,4).R>150,"a lista mostra uma marca de erva quando o ícone do jogo não abre");
  }
 }
