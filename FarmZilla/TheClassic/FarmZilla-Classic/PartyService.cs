@@ -9,7 +9,7 @@ static partial class PartyService {
    using(var a=Open(main))using(var b=Open(secondary)){var first=a.ReadParty();var second=b.ReadParty();if(first!=null&&first.Leader!=main.Id)throw new Exception("O principal precisa ser líder para convidar.");if(second!=null)throw new Exception("O secundário já está em outra PT; não foi removido.");}
    byte[] invite=new byte[6];invite[0]=0x1B;Buffer.BlockCopy(BitConverter.GetBytes(secondary.Id),0,invite,2,4);progress.Report("Convidando "+secondary.Name+" · tentativa "+attempt+"/2.");token.ThrowIfCancellationRequested();Send(main,invite,result);
    bool accepted=false;var clock=Stopwatch.StartNew();while(clock.ElapsedMilliseconds<12000){token.ThrowIfCancellationRequested();if(Together(main,secondary)){result.Message=secondary.Name+": entrada na PT confirmada.";return result;}
-    if(!accepted){using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation!=null){token.ThrowIfCancellationRequested();byte[] answer=new byte[10];answer[0]=0x1C;Buffer.BlockCopy(BitConverter.GetBytes(main.Id),0,answer,2,4);Buffer.BlockCopy(BitConverter.GetBytes(invitation.Ticket),0,answer,6,4);Send(secondary,answer,result);accepted=true;progress.Report(secondary.Name+": convite do principal aceito pelo app.");}}}
+    if(!accepted){using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation!=null){token.ThrowIfCancellationRequested();byte[] answer=PartyInvite.Accept(invitation);Send(secondary,answer,result);accepted=true;progress.Report(secondary.Name+": convite do principal aceito pelo app.");}}}
     if(token.WaitHandle.WaitOne(50))token.ThrowIfCancellationRequested();
    }
   }result.Message=secondary.Name+": não entrou na PT. Confira distância, limite do grupo e restrições de convite.";
@@ -34,7 +34,7 @@ static partial class PartyService {
       if(Together(main,secondary)){results[i].Message=secondary.Name+": entrada na PT confirmada.";waiting.Remove(i);continue;}
       if(accepted.Contains(i))continue;
       using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation==null)continue;
-       byte[] answer=new byte[10];answer[0]=0x1C;Buffer.BlockCopy(BitConverter.GetBytes(main.Id),0,answer,2,4);Buffer.BlockCopy(BitConverter.GetBytes(invitation.Ticket),0,answer,6,4);
+       byte[] answer=PartyInvite.Accept(invitation);
        try{Send(secondary,answer,results[i]);accepted.Add(i);progress.Report(secondary.Name+": convite do principal aceito pelo app.");}catch(Exception e){results[i].Message=secondary.Name+": "+e.Message;waiting.Remove(i);if(results[i].Blocked)return results;}}}
      if(waiting.Count>0&&token.WaitHandle.WaitOne(40))token.ThrowIfCancellationRequested();}
     pending=waiting;}

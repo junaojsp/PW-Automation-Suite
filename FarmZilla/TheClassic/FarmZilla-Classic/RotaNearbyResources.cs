@@ -70,14 +70,14 @@ namespace RotaAvalon {
             if(NativeType(memory,manager,imageBase,imageEnd)!=".?AVCECMatterMan@@")throw new IOException("Gerenciador de objetos não reconhecido.");
             var frame=new ResourceFrame{ReadAt=DateTime.Now,World=world};uint terrain=memory.UInt32(world+0x0c);Pointer(terrain);byte[] geometry=memory.Read(terrain+0x204,16);
             if(geometry.Length==16)frame.Terrain=new TerrainBounds{Left=F(geometry,0),Top=F(geometry,4),Right=F(geometry,8),Bottom=F(geometry,12)};
-            uint count=memory.UInt32(manager+0x18),array=memory.UInt32(manager+0x1c);
+            uint count=memory.UInt32(manager+ClassicLayout.MatterHashCount),array=memory.UInt32(manager+ClassicLayout.MatterHashBuckets);
             // 0.46.5 (owner 05/11: map and materials vanished in town): with no object loaded nearby the game leaves the table
             // empty (array 0) — that is "no materials here", not "world unavailable", so map and list still show.
             if(array==0)return frame;
             Pointer(array);if(count<1||count>65536)throw new IOException("Tabela de objetos inconsistente.");
             byte[] buckets=memory.Read(array,checked((int)count*4));if(buckets.Length!=count*4)throw new IOException("Tabela de objetos incompleta.");var seenNodes=new HashSet<uint>();var seenObjects=new HashSet<uint>();
             for(int bucket=0;bucket<buckets.Length;bucket+=4){uint node=U(buckets,bucket);int chain=0;while(node!=0){Pointer(node);if(!seenNodes.Add(node)||chain++>10000||seenNodes.Count>20000)throw new IOException("Tabela de objetos mudou durante a leitura.");byte[] link=memory.Read(node,12);if(link.Length!=12)break;node=U(link,0);uint obj=U(link,4),key=U(link,8);if(!seenObjects.Add(obj)||obj<0x10000||(obj&3)!=0)continue;frame.ObjectsInspected++;
-                byte[] record=memory.Read(obj,0x118);if(record.Length!=0x118||U(record,0x110)!=key)continue;int id=unchecked((int)U(record,0x114));ResourceDefinition definition;if(!catalog.Definitions.TryGetValue(id,out definition))continue;
+                byte[] record=memory.Read(obj,0x118);if(record.Length!=0x118||U(record,(int)ClassicLayout.MatterId)!=key)continue;int id=unchecked((int)U(record,(int)ClassicLayout.MatterTemplate));ResourceDefinition definition;if(!catalog.Definitions.TryGetValue(id,out definition))continue;
                 string type=NativeType(memory,obj,imageBase,imageEnd);if(type!=".?AVCECMatter@@"&&type!=".?AVCECTracedMatter@@")continue;
                 double x=F(record,0x3c),y=F(record,0x40),z=F(record,0x44);if(!GameClient.ValidCoordinate(x)||!GameClient.ValidCoordinate(y)||!GameClient.ValidCoordinate(z))continue;
                 double dx=x-player.X,dy=y-player.Y,dz=z-player.Z;frame.Resources.Add(new ResourceMarker{InstanceId=key,TemplateId=id,Name=String.IsNullOrWhiteSpace(definition.nome)?"Recurso "+id:definition.nome,RequiredLevel=definition.nivelMinimo,ItemId=definition.item1Id,X=x,Y=y,Z=z,Distance=Math.Sqrt(dx*dx+dy*dy+dz*dz),HorizontalDistance=Math.Sqrt(dx*dx+dz*dz),LevelAllowed=player.Level>=definition.nivelMinimo});

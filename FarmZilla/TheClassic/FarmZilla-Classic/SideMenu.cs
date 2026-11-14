@@ -9,7 +9,7 @@ partial class AvalonInterno {
   minimizeButton=Controls.OfType<Button>().Single(b=>b.Text=="—");closeButton=Controls.OfType<Button>().Single(b=>b.Text=="×");
   foreach(Control c in Controls){c.Left+=SideWidth;if(c.Top>=50)panelBody.Add(c);}
   ClientSize=new Size(SideWidth+PanelWidth,PanelHeight);
-  var brand=RubiLabel("FARMZILLA",50,13,115,20,10,FontStyle.Bold,Rubi.Accent);EnableRubiDrag(brand);var engine=RubiLabel("MOTOR AVALON · x86",50,33,116,15,7,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(engine);
+  var brand=RubiLabel("FARMZILLA",50,13,115,20,10,FontStyle.Bold,Rubi.Accent);EnableRubiDrag(brand);var engine=RubiLabel("THE CLASSIC · x86",50,33,116,15,7,FontStyle.Regular,Rubi.Muted);EnableRubiDrag(engine);
   RubiLabel("FERRAMENTAS",16,72,130,16,7,FontStyle.Bold,Rubi.Text);
   sidePersonagens=SideAt("Espelho",94,ShowEspelhoInline);sideRota=SideAt("Mat Farm",136,()=>{ShowEspelhoInline();ShowRotaView(true);});
   // Reference layout: reserve the four tools without attaching game operations.

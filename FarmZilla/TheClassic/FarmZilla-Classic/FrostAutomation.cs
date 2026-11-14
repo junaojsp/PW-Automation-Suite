@@ -16,7 +16,7 @@ sealed class FrostAutomationForm : Form {
  public bool Running {get{return starting||(boss!=null&&boss.Running)||(dungeon!=null&&dungeon.Running);}}
  public FrostAutomationForm(Func<List<DgBot.Account>> accounts,Func<bool> allowed,Func<Task> prepare,bool discover=true){
   this.accounts=accounts;this.allowed=allowed;this.prepare=prepare;Text="FarmZilla · Frost · teste Bagaceira";ClientSize=new Size(390,604);StartPosition=FormStartPosition.CenterParent;BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",9);
-  AddLabel("BOT FROST · TESTE AVALON",12,10,366,22,Rubi.Accent);AddLabel("Rotinas Bagaceira. DG de teste: um ciclo, sem remontagem automática.",12,36,366,36,Rubi.Muted);
+  AddLabel("BOT FROST · THE CLASSIC",12,10,366,22,Rubi.Accent);AddLabel("Rotinas Bagaceira. DG de teste: um ciclo, sem remontagem automática.",12,36,366,36,Rubi.Muted);
   AddLabel("Líder",12,80,280,20,Rubi.Text);leader.SetBounds(12,102,240,26);leader.DropDownStyle=ComboBoxStyle.DropDownList;Controls.Add(leader);
   refresh.Text="Sincronizar";refresh.SetBounds(260,100,118,30);refresh.Click+=(s,e)=>RefreshAccounts();Controls.Add(refresh);
   AddLabel("Secundários (líder incluído automaticamente)",12,142,366,20,Rubi.Text);followers.SetBounds(12,166,366,132);followers.CheckOnClick=true;followers.BackColor=Rubi.Panel;followers.ForeColor=Rubi.Text;Controls.Add(followers);

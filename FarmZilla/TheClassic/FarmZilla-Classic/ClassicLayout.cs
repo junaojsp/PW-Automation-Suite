@@ -17,6 +17,12 @@ static class ClassicLayout {
  public const uint ConfirmLabels=0x250,ConfirmCount=0x26C;                                 // (0x258, 0x274)
  // CECWorld.
  public const uint WorldNpcs=0x20,WorldMatters=0x24;                                       // (0x24, 0x28)
+ // CECMatterMan: a tabela por id começa em +0x10. Os baldes ficam em +0xC e a quantidade em +0x18 dessa tabela,
+ // portanto no gerenciador são +0x1C e +0x28. O Avalon lia a quantidade em +0x18 e, no Classic, isso para o farm.
+ public const uint MatterHashBuckets=0x1C,MatterHashCount=0x28;
+ public const uint MatterId=0x110,MatterTemplate=0x114;
+ // CECComboSkill: passo atual, incrementado pelo cliente ao escolher a habilidade seguinte.
+ public const uint ComboStep=0x20;
  // CECHPWorkMan: 3 filas (+0x08, +0x18, +0x28); +0x38 é a prioridade atual, não uma quarta fila (Avalon: 4).
  public const int WorkQueues=3;
  // CECPet: id do dono (o Classic não guarda o id do pet no personagem como o Avalon em host+0x91C).

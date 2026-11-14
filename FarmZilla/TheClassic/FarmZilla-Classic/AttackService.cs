@@ -17,7 +17,7 @@ sealed class NativeAttackRuntime:IAttackRuntime {
  public bool RunningSupport(CharacterRef c,uint combo){using(var s=Open(c))return s.OwnedMacroRunning(combo,2);}
  public AttackResult StopSupport(CharacterRef c){return Use(c,(b,r)=>{if(b.StopMacro(2))r.Message=c.Name+": suporte encerrado.";});}
  public AttackResult ReleaseSupport(CharacterRef c){var result=new AttackResult();TeleportBridge b=null;try{b=new TeleportBridge(c.Pid);if(b.CharacterId!=c.Id)throw new Exception("Personagem mudou.");b.SendControl(new byte[]{0x2A,0});b.SendControl(new byte[]{0x08,0});}catch(Exception e){result.Message=c.Name+": "+e.Message;}finally{if(b!=null){try{b.Dispose();}catch(Exception e){result.Message=c.Name+": "+e.Message;}result.Blocked=!b.RestoreSucceeded;if(result.Blocked)result.Message=c.Name+": ponte sem restauração; reinicie esse cliente.";}}return result;}
- public int Step(CharacterRef c,uint combo){using(var s=Open(c))return s.RunningMacro()==combo?(int)s.U(combo+0x20):-1;}
+ public int Step(CharacterRef c,uint combo){using(var s=Open(c))return s.RunningMacro()==combo?(int)s.U(combo+ClassicLayout.ComboStep):-1;}
  // ESC on the secondary: only when it still has a monster selected; confirmed by reading the selection afterwards.
  public AttackResult Release(CharacterRef c){using(var s=Open(c))if(!AttackController.MonsterId(s.SelectedTarget))return new AttackResult();
   // 0.19.20 used the selection call with id 0, which the client ignores ("alvo não foi limpo"); 0.19.21 sends the real ESC commands.

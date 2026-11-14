@@ -100,7 +100,7 @@ sealed class FrostDiagnosticsForm : Form {
  TabPage BuildCapturePage(){
   var page=new TabPage("Captura e trajeto"){BackColor=Rubi.Background,ForeColor=Rubi.Text,Padding=new Padding(8)};
   var top=new Panel{Dock=DockStyle.Top,Height=258,BackColor=Rubi.Background};
-  LabelOn(top,"FROST FARM · AVALON NATIVO",4,4,400,22,Rubi.Accent);
+  LabelOn(top,"FROST FARM · THE CLASSIC",4,4,400,22,Rubi.Accent);
   LabelOn(top,"Captura coordenadas no leitor do jogo e gera trajeto do Mat Farm. Não envia pacotes sozinho.",4,28,400,36,Rubi.Muted);
   LabelOn(top,"Personagem para capturar a rota:",4,66,400,18,Rubi.Text);
   leader.SetBounds(4,86,284,28);leader.DropDownStyle=ComboBoxStyle.DropDownList;leader.BackColor=Rubi.Field;leader.ForeColor=Rubi.Text;top.Controls.Add(leader);

@@ -8,12 +8,25 @@ sealed partial class CharacterMemory {
  static readonly Dictionary<int,DateTime> lastScan=new Dictionary<int,DateTime>();
  public uint Team {get{return U(Host+ClassicLayout.HostTeam);}}
  public PartySnapshot ReadParty(){uint team=Team;if(team==0)return null;if(U(team)!=Module+G.Team)throw new Exception("Estrutura da PT indisponível.");var party=new PartySnapshot{Leader=U(team+4)};uint count=U(team+0x18),items=U(team+0x14);if(count>64)throw new Exception("Lista da PT inválida.");for(uint i=0;i<count;i++){uint member=U(items+4*i);if(member==0||U(member)!=Module+G.TeamMember)throw new Exception("Membro da PT indisponível.");party.Members.Add(U(member+0xC));}return party;}
- PartyInvitation CheckInvite(uint address,uint inviter){try{byte[] b=Read(address,0x104);if(BitConverter.ToUInt32(b,0)!=Module+G.DlgMessageBox||b[0x90]==0||BitConverter.ToUInt32(b,0xFC)!=inviter)return null;string name=Encoding.ASCII.GetString(Read(BitConverter.ToUInt32(b,0x4C),32)).Split('\0')[0];if(name!="Game_InviteGroup")return null;return new PartyInvitation{Address=address,Inviter=inviter,Ticket=BitConverter.ToUInt32(b,0x100)};}catch{return null;}}
+ PartyInvitation CheckInvite(uint address,uint inviter){try{byte[] b=Read(address,0x104);if(BitConverter.ToUInt32(b,0)!=Module+G.DlgMessageBox)return null;string name=Encoding.ASCII.GetString(Read(BitConverter.ToUInt32(b,0x4C),32)).Split('\0')[0];var found=PartyInvite.Match(b,name,inviter);if(found!=null)found.Address=address;return found;}catch{return null;}}
  public PartyInvitation FindPartyInvitation(int pid,uint inviter){List<uint> addresses;if(!dialogCache.TryGetValue(pid,out addresses)){addresses=new List<uint>();dialogCache[pid]=addresses;}foreach(uint address in addresses){var found=CheckInvite(address,inviter);if(found!=null)return found;}
   DateTime last;if(lastScan.TryGetValue(pid,out last)&&(DateTime.UtcNow-last).TotalSeconds<1)return null;lastScan[pid]=DateTime.UtcNow;var nextAddresses=new List<uint>();uint vtable=Module+G.DlgMessageBox;
   for(uint at=0x10000;at<0x7FFF0000;){Region m;if(VirtualQueryEx(handle,new IntPtr(unchecked((int)at)),out m,28)==0)break;ulong next=(ulong)m.Base+m.Size;if(next<=at||next>0x7FFF0000)break;at=(uint)next;if(m.State!=0x1000||m.Type!=0x20000||(m.Protection&0x101)!=0)continue;
    for(uint off=0;off<m.Size;off+=1048576){int n=(int)Math.Min(1048576,m.Size-off);byte[] b;try{b=Read(m.Base+off,n);}catch{continue;}for(int i=0;i+4<=b.Length;i+=4)if(BitConverter.ToUInt32(b,i)==vtable)nextAddresses.Add(m.Base+off+(uint)i);}
   }dialogCache[pid]=nextAddresses;foreach(uint address in nextAddresses){var found=CheckInvite(address,inviter);if(found!=null)return found;}return null;
  }
+}
+// The Classic message box is created as "Win_Pop". While an invite is on screen the client copies the inviter id to +0xFC
+// and the ticket to +0x100 — the same two dwords the Yes button puts in packet 0x1C. Requiring the Avalon name
+// "Game_InviteGroup" made the invite visible in game and invisible to the app.
+static class PartyInvite {
+ public const string BoxName="Win_Pop",InviteName="Game_InviteGroup";
+ public static PartyInvitation Match(byte[] dialog,string name,uint inviter){
+  if(dialog==null||dialog.Length<0x104||dialog[0x90]==0||name==null)return null;
+  uint data=BitConverter.ToUInt32(dialog,0xFC);
+  if(data!=inviter||(name!=BoxName&&name!=InviteName))return null;
+  return new PartyInvitation{Inviter=data,Ticket=BitConverter.ToUInt32(dialog,0x100)};
+ }
+ public static byte[] Accept(PartyInvitation invitation){var answer=new byte[10];answer[0]=0x1C;Buffer.BlockCopy(BitConverter.GetBytes(invitation.Inviter),0,answer,2,4);Buffer.BlockCopy(BitConverter.GetBytes(invitation.Ticket),0,answer,6,4);return answer;}
 }
 
