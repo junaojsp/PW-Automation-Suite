@@ -31,6 +31,7 @@ $followSources = $sources + @(
   (Join-Path $shared 'FarmZillaFrame.cs'),
   (Join-Path $shared 'SideItem.cs'),
   (Join-Path $shared 'Theme.cs'),
+  (Join-Path $shared 'TickBox.cs'),
   (Join-Path $shared 'UiScale.cs'),
   (Join-Path $shared 'ClassIcons.cs'),
   (Join-Path $shared 'Bridge.cs'),

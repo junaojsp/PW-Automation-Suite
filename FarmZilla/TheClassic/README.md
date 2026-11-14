@@ -58,7 +58,7 @@ criada pelo próprio processo de teste, nunca um cliente de jogo.
 ## Layout compartilhado
 
 O Classic usa os mesmos arquivos `RubiPalette.cs`, `FarmZillaFrame.cs`, `SideItem.cs`, `Theme.cs`,
-`UiScale.cs`, `ClassIcons.cs` e o mesmo ícone do FarmZilla. Cores, moldura, cartões, botões,
+`TickBox.cs`, `UiScale.cs`, `ClassIcons.cs` e o mesmo ícone do FarmZilla. Cores, moldura, cartões, botões,
 seletores e menu são compilados da mesma fonte. A seleção mantém o backend de seguir/parar validado.
 O log automático fica em segundo plano e o botão Registros abre sua pasta. Ferramentas, ataque,
 suporte e demais comandos ainda não validados para o perfil Classic aparecem desabilitados.

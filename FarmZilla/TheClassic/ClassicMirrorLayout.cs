@@ -15,7 +15,7 @@ namespace FarmZilla.TheClassic {
   void Drag(Control c){c.MouseDown+=(s,e)=>{if(e.Button==MouseButtons.Left){DragNative.ReleaseCapture();DragNative.SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}};}
   void Pending(Control c){c.Enabled=false;c.AccessibleDescription="Ainda não validado para o The Classic";hints.SetToolTip(c,c.AccessibleDescription);}
   Button ButtonAt(string text,int x,int y,int w,int h,bool enabled=false){var b=new NeonButton{Text=text,Bounds=new Rectangle(x,y,w,h)};Controls.Add(b);if(!enabled)Pending(b);return b;}
-  CheckBox PendingBox(string text,int x,int y,int width){var box=new CheckBox{Text=text,Bounds=new Rectangle(x,y,width,20),FlatStyle=FlatStyle.Flat,ForeColor=Rubi.Muted,BackColor=Rubi.Panel};Controls.Add(box);Pending(box);return box;}
+  CheckBox PendingBox(string text,int x,int y,int width){bool caption=text.Length>0;var box=new TickBox{Bounds=new Rectangle(x,y,caption?13:width,caption?16:20),ForeColor=Rubi.Muted,BackColor=Rubi.Panel};Controls.Add(box);Pending(box);if(caption){var label=LabelAt(text,x+16,y,Math.Max(1,width-16),20,7.5f,Rubi.Muted);hints.SetToolTip(label,"Ainda não validado para o The Classic");}return box;}
   void BuildMirrorLayout(){
    Text="FarmZilla · The Classic · 0.4.0";AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(562,690);FormBorderStyle=FormBorderStyle.None;MaximizeBox=false;BackColor=Rubi.Background;ForeColor=Rubi.Text;Font=new Font("Segoe UI",9*UiScale.F);DoubleBuffered=true;
    try{Icon=System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);}catch{}
