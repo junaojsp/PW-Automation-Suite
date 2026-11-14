@@ -1,10 +1,11 @@
-﻿using System;using System.IO;using System.Security.Cryptography;using System.Text;using System.Web.Script.Serialization;
+using System;using System.IO;using System.Security.Cryptography;using System.Text;using System.Web.Script.Serialization;
 static class UpdateTests {
  static int count;static JavaScriptSerializer json=new JavaScriptSerializer();
  static void Assert(bool ok,string name){if(!ok)throw new Exception(name);Console.WriteLine("PASS "+name);count++;}
  static void Reject(Action action,string name){bool rejected=false;try{action();}catch{rejected=true;}Assert(rejected,name);}
  static string Sign(UpdateManifest m,RSACryptoServiceProvider rsa){byte[] payload=Encoding.UTF8.GetBytes(json.Serialize(m));return json.Serialize(new UpdateEnvelope{payload=Convert.ToBase64String(payload),signature=Convert.ToBase64String(rsa.SignData(payload,"SHA256"))});}
  static void Main(){
+  var profile=GameProfile.Current();Assert(profile.HostOffset==0x34&&profile.CharacterIdOffset==0x4F0&&profile.FollowManagerOffset==0x74,"Offsets do seguir Avalon preservados");
   using(var rsa=new RSACryptoServiceProvider(2048)){rsa.PersistKeyInCsp=false;string key=rsa.ToXmlString(false);
    byte[] exe=new byte[1024];exe[0]=0x4d;exe[1]=0x5a;Array.Copy(BitConverter.GetBytes(128),0,exe,60,4);Array.Copy(BitConverter.GetBytes(0x4550),0,exe,128,4);Array.Copy(BitConverter.GetBytes((ushort)0x14c),0,exe,132,2);Array.Copy(BitConverter.GetBytes((ushort)0x10b),0,exe,152,2);
    string hash;using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(exe)).Replace("-","");

@@ -14,6 +14,7 @@ using System.Security.Cryptography;
 public sealed class GameProfile {
  public const string KnownSha256="34fca82cafa1f38825228626aa3e8f98c56274c095cb46e317b2d665aaf69684";
  public const uint KnownSizeOfImage=19456000;
+ public readonly uint HostOffset=0x34,CharacterIdOffset=0x4F0,FollowManagerOffset=0x74;
  public readonly string Sha256;public readonly bool Known;public readonly uint SizeOfImage;readonly Dictionary<string,uint> map;readonly byte[][] code;
  GameProfile(string sha,bool known,uint size,Dictionary<string,uint> values,byte[][] codeBytes){Sha256=sha;Known=known;SizeOfImage=size;map=values;code=codeBytes;
   FollowPost=Rva("FollowPost");AttackSelect=Rva("AttackSelect");AttackNormal=Rva("AttackNormal");MacroStart=Rva("MacroStart");MacroStop=Rva("MacroStop");SendData=Rva("SendData");NpcClose=Rva("NpcClose");NpcCancel=Rva("NpcCancel");Root=Rva("Root");RotaRoot=Rva("RotaRoot");TeleportTable=Rva("TeleportTable");TeleportCount=Rva("TeleportCount");FollowWork=Rva("FollowWork");ComboSkill=Rva("ComboSkill");DlgNpc=Rva("DlgNpc");DlgTask=Rva("DlgTask");DlgTaskConfirm=Rva("DlgTaskConfirm");DlgTaskList=Rva("DlgTaskList");Team=Rva("Team");TeamMember=Rva("TeamMember");DlgMessageBox=Rva("DlgMessageBox");TaskInterface=Rva("TaskInterface");ItemTransmitScroll=Rva("ItemTransmitScroll");ItemTaskDice=Rva("ItemTaskDice");}

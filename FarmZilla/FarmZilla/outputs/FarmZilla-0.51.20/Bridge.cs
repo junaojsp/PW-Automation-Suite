@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -37,10 +37,11 @@ public sealed class InternalBridge : IDisposable {
  void Write(uint at,byte[] b){UIntPtr got;if(!WriteProcessMemory(process,Pointer(at),b,new UIntPtr((uint)b.Length),out got)||got.ToUInt32()!=b.Length)throw Fail("Gravação da ponte");}
  uint Api(Process target,string dll,string name){IntPtr local=GetModuleHandle(dll),address=GetProcAddress(local,name);if(address==IntPtr.Zero)throw Fail("API "+name);string owner=null;uint ownerBase=0;foreach(ProcessModule m in Process.GetCurrentProcess().Modules){uint start=Addr(m.BaseAddress),end=start+(uint)m.ModuleMemorySize;if(Addr(address)>=start&&Addr(address)<end){owner=m.ModuleName;ownerBase=start;break;}}if(owner==null)throw new Exception("Módulo local da API não encontrado.");foreach(ProcessModule m in target.Modules)if(string.Equals(m.ModuleName,owner,StringComparison.OrdinalIgnoreCase))return Addr(m.BaseAddress)+Addr(address)-ownerBase;throw new Exception("Módulo remoto da API não encontrado: "+owner);}
  ProcessGate.Token gate;
- public InternalBridge(int pid){if(IntPtr.Size!=4)throw new Exception("Ponte exige processo x86.");gate=ProcessGate.Enter(pid);try{using(var target=Process.GetProcessById(pid)){
+ public InternalBridge(int pid):this(pid,0){}
+ public InternalBridge(int pid,uint expectedCharacterId){if(IntPtr.Size!=4)throw new Exception("Ponte exige processo x86.");gate=ProcessGate.Enter(pid);try{using(var target=Process.GetProcessById(pid)){
  G=GameProfile.Require(target);
  window=target.MainWindowHandle;if(window==IntPtr.Zero)throw new Exception("Janela do jogo não encontrada.");uint owner;UiThread=GetWindowThreadProcessId(window,out owner);if(owner!=pid)throw new Exception("Janela não pertence ao cliente.");
- process=OpenProcess(0x43A,false,pid);if(process==IntPtr.Zero)throw Fail("Abrir cliente");Module=Addr(target.MainModule.BaseAddress);uint root=Read(Module+G.Root),run=Read(root+0x1C);Host=Read(run+0x34);CharacterId=Read(Host+0x4F0);uint manager=Read(run+0x74);if(CharacterId==0||manager<0x10000)throw new Exception("Personagem não está pronto.");
+ process=OpenProcess(0x43A,false,pid);if(process==IntPtr.Zero)throw Fail("Abrir cliente");Module=Addr(target.MainModule.BaseAddress);uint root=Read(Module+G.Root),run=Read(root+0x1C);Host=Read(run+G.HostOffset);CharacterId=Read(Host+G.CharacterIdOffset);if(expectedCharacterId!=0&&CharacterId!=expectedCharacterId)throw new Exception("Personagem mudou antes da instalação da ponte.");uint manager=Read(run+G.FollowManagerOffset);if(CharacterId==0||manager<0x10000)throw new Exception("Personagem não está pronto.");
  setLong=Api(target,"user32.dll","SetWindowLongA");getLong=Api(target,"user32.dll","GetWindowLongA");callOld=Api(target,"user32.dll","CallWindowProcA");getThread=Api(target,"kernel32.dll","GetCurrentThreadId");
  allocation=VirtualAllocEx(process,IntPtr.Zero,new UIntPtr(8192),0x3000,4);if(allocation==IntPtr.Zero)throw Fail("Alocar ponte");data=Addr(allocation);hook=data+4096;installer=hook+512;
  byte[] state=new byte[64];Buffer.BlockCopy(BitConverter.GetBytes(manager+8),0,state,4,4);Buffer.BlockCopy(BitConverter.GetBytes(Module+G.FollowPost),0,state,8,4);Write(data,state);
