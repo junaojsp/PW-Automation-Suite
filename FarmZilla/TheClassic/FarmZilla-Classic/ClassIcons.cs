@@ -1,13 +1,15 @@
 using System;using System.Collections.Generic;using System.Drawing;using System.Drawing.Drawing2D;using System.IO;using System.IO.Compression;using System.Text;
 // Class icons come from the game installed on this PC (surfaces.pck, the same 25 px emblems as the party window).
 // Nothing from the game is shipped with FarmZilla: the archive index and six small images are read once, in memory.
-// Profession ids follow the Avalon client (host+0x74C).
+// Profession ids follow the The Classic client (host+0x6DC; names from its table at 0x9C3848). The Avalon has only the six
+// classes with an emblem file below; the other Classic classes are named but drawn without an emblem.
 static class ClassIcons {
  public const int Warrior=0,Mage=1,Venomancer=3,Barbarian=4,Archer=6,Cleric=7;
  static readonly Dictionary<int,int> fileOf=new Dictionary<int,int>{{Warrior,1},{Mage,2},{Venomancer,3},{Barbarian,4},{Archer,5},{Cleric,6}};
  static readonly Dictionary<int,Image> icons=new Dictionary<int,Image>();static readonly object gate=new object();static bool tried;
  public static bool Known(int c){lock(gate)return icons.ContainsKey(c);}
- public static string Name(int c){switch(c){case Warrior:return "Guerreiro";case Mage:return "Mago";case Venomancer:return "Feiticeira";case Barbarian:return "Bárbaro";case Archer:return "Arqueiro";case Cleric:return "Sacerdote";default:return "";}}
+ static readonly string[] names={"Guerreiro","Mago","Espiritualista","Feiticeira","Bárbaro","Mercenário","Arqueiro","Sacerdote","Arcano","Místico","Retalhador","Tormentador"};
+ public static string Name(int c){if(c>=0&&c<names.Length)return names[c];return c>=0&&c<32?"Classe "+c:"";}
  public static void Draw(Graphics g,RectangleF r,int c){Image icon;lock(gate)if(!icons.TryGetValue(c,out icon))return;var state=g.Save();g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.PixelOffsetMode=PixelOffsetMode.HighQuality;g.SmoothingMode=SmoothingMode.AntiAlias;g.DrawImage(icon,r);g.Restore(state);}
  // Loads the icons once from <game folder>\surfaces.pck. Returns a short note for the log, or null when nothing changed.
  public static string Load(string gameExe){lock(gate){if(tried)return null;tried=true;}
