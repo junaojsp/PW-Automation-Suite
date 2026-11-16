@@ -98,10 +98,12 @@ sealed class AutoQuestCityScan {
  }
  public static AutoQuestCityScan Capture(int pid,uint expectedId,string expectedName){
   ushort[] active;uint npc=0;byte busy=0;
+  List<AutoQuestRawTaskRecord> raw;
   using(var memory=new CharacterMemory(pid)){
    if(memory.Id!=expectedId||memory.Name!=expectedName)
     throw new IOException("Identidade mudou antes do escaneamento.");
    active=memory.ActiveQuestIds();
+   raw=memory.ReadAutoQuestRawTaskRecords();
    npc=memory.U(memory.Host+ClassicLayout.HostNpcTalk);
    busy=memory.Read(memory.Host+ClassicLayout.HostNpcBusy,1)[0];
   }
@@ -137,9 +139,20 @@ sealed class AutoQuestCityScan {
    output.AppendLine("MISSAO ATIVA INTERNA; id="+id+"; título="+(name??"NÃO DECODIFICADO")+
     "; estágio/objetivo/progresso/NPC=DESCONHECIDOS");
   }
+  output.AppendLine("PLANEJADOR; "+AutoQuestScanPlanner.Describe(
+   AutoQuestScanPlanner.Select(new AutoQuestActor{X=actor.X,Y=actor.Y,Z=actor.Z,
+    Hp=actor.Hp,CharacterVerified=true,ExclusiveLock=true,FlightKnown=false},
+    new AutoQuestObservedTask[0])));
+  output.AppendLine("REGISTROS BRUTOS; "+raw.Count+
+   "; somente evidência para comparar antes/depois da interação manual com NPC.");
+  foreach(var record in raw.Take(150))
+   output.AppendLine("REGISTRO BRUTO; id="+record.Id+"; bytes32="+record.Hex);
   output.AppendLine("NPCs CARREGADOS; "+npcs.Npcs.Count+" NPCs candidatos; itens varridos="+
    npcs.ObjectsSeen+"; monstros excluídos="+npcs.MonstersSkipped+
    "; leitura="+(npcs.ScanError??"ok"));
+  output.AppendLine("NPCs MAIS PROXIMOS; "+String.Join("; ",
+   npcs.Npcs.Take(10).Select(n=>"id="+n.InstanceId+
+    " distânciaXZ="+n.Distance.ToString("0.0"))));
   foreach(var item in npcs.Npcs)
    output.AppendLine("NPC CANDIDATO; id interno="+item.InstanceId+"; tipo="+item.Type+
     "; XYZ="+item.X.ToString("0.0")+","+item.Y.ToString("0.0")+","+item.Z.ToString("0.0")+
@@ -151,7 +164,9 @@ sealed class AutoQuestCityScan {
    output.AppendLine("LINHA DE TELA DE ENTREGA; id="+row+
     "; título de catálogo="+(catalog.Title((int)row)??"NÃO DECODIFICADO")+
     "; requer confirmação na interface (não é missão disponível automaticamente).");
-  output.AppendLine("PENDENCIA; leitura de títulos de missões filhas, lista de ofertas por NPC, requisitos, coordenadas e alvos depende do decodificador de tasks.data + NPC; nenhum comando enviado.");
+  output.AppendLine("PENDENCIA; catálogo e NPCs próximos não provam vínculo NPC/missão. "+
+   "Faltam leitura da oferta, objetivo, progresso e destino da etapa no cliente. "+
+   "Nenhuma missão selecionada e nenhum comando de movimento enviado.");
   File.WriteAllText(file,output.ToString(),Encoding.UTF8);
   return new AutoQuestCityScan(file,catalog,npcs,active.Length,matches,delivery.Length,zone);
  }
