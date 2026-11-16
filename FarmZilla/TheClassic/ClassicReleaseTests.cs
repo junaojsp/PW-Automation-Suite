@@ -34,6 +34,7 @@ static class ClassicReleaseTests {
   AutoQuestEvidenceTests.Run(Check);
    AutoQuestBetaTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
+  AutoQuestRecoveryTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
@@ -113,6 +114,72 @@ static class AutoQuestBetaTests {
   check(AutoQuestBetaSession.MaxMinutes<=15&&
     AutoQuestBetaSession.MaxStepGround<=120&&AutoQuestBetaSession.MaxStepFlight<=300,
     "Auto Quest beta: tempo/trechos limitados para a primeira execucao com log");
+ }
+}
+
+// Replays the exact known successful walking corridor and the failure in front of the wall.
+// Offline tests do not claim terrain geometry/collision or a verified quest objective.
+static class AutoQuestRecoveryTests {
+ static double Distance(double x,double z,double tx,double tz){
+  return Math.Sqrt((tx-x)*(tx-x)+(tz-z)*(tz-z));
+ }
+ public static void Run(Action<bool,string> check){
+  check(AutoQuestGroundCorridor.ValidSpacing()&&AutoQuestGroundCorridor.Count==40,
+   "Auto Quest: pontos do corredor gravado em 0.6.5 são contínuos e espaçados por menos de 45 unidades");
+  check(AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1750,1773.4)&&
+   !AutoQuestGroundCorridor.IsKnownDestination("ProFile",1750,1773.4)&&
+   !AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1750,1500)&&
+   !AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1765,1788)&&
+   AutoQuestGroundCorridor.For("ProFile",1710,978,1750,1773.4)==null,
+   "Auto Quest: corredor aprendido só se aplica ao personagem/região do teste comprovado");
+  bool rejectsWrongStart=false;
+  try{AutoQuestGroundCorridor.For("CheirosoWB",1687.7,1301.5,1750,1773.4);}
+  catch(System.IO.IOException){rejectsWrongStart=true;}
+  check(rejectsWrongStart,"Auto Quest: início no ponto da parede não reutiliza trilha como atalho");
+  var corridor=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
+  check(corridor!=null&&corridor.Next(1725,979.9,false).Index<=4,
+   "Auto Quest: do NPC começa pelos primeiros pontos, sem salto direto ao alvo");
+  bool rejectsDrift=false;
+  try{corridor.Next(1687.7,1301.5,false);}
+  catch(System.IO.IOException){rejectsDrift=true;}
+  check(rejectsDrift,"Auto Quest: personagem fora do corredor não atravessa parede por atalho");
+  var middle=AutoQuestGroundCorridor.Sample(20);
+  check(middle.X>=1537&&middle.X<=1541&&middle.Z>1300&&middle.Z<1320,
+   "Auto Quest: na altura da parede usa saída oeste do caminho real (X cerca de 1539)");
+  // Advance the same corridor using each observed waypoint; never skip straight to Z=1773.
+  int prev=corridor.Next(1725,979.9,false).Index;
+  bool ordered=true;
+  for(int i=prev;i<AutoQuestGroundCorridor.Count;i++){
+   var wp=AutoQuestGroundCorridor.Sample(i);
+   int next=corridor.Next(wp.X,wp.Z,false).Index;
+   if(next<i||next>i+2)ordered=false;
+  }
+  check(ordered,"Auto Quest: a trilha avançará gradualmente, um waypoint por vez");
+  var reversing=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
+  var firstBack=reversing.Next(1750,1773.4,true);
+  var secondBack=reversing.Next(firstBack.X,firstBack.Z,true);
+  check(firstBack.Index==38&&secondBack.Index==37,
+   "Auto Quest: retorno do mob vai pela trilha reversa, sem cortar por cima do muro");
+  var reverseEnd=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
+  var next=reverseEnd.Next(1750,1773.4,true);
+  for(int i=0;i<50&&next.Index>=0;i++)next=reverseEnd.Next(next.X,next.Z,true);
+  check(next.Index==-1&&Distance(next.X,next.Z,1725,979.9)<1,
+   "Auto Quest: o retorno termina na origem real registrada, não só no primeiro sample");
+  var backward=AutoQuestUnstuck.Candidate(1000,1000,1100,1000,1);
+  var left=AutoQuestUnstuck.Candidate(1000,1000,1100,1000,2);
+  var right=AutoQuestUnstuck.Candidate(1000,1000,1100,1000,3);
+  check(Math.Abs(backward.X-978)<0.01&&Math.Abs(backward.Z-1000)<0.01&&
+   Math.Abs(left.X-1000)<0.01&&Math.Abs(left.Z-1022)<0.01&&
+   Math.Abs(right.X-1000)<0.01&&Math.Abs(right.Z-978)<0.01,
+   "Auto Quest: as três tentativas limitadas são recuar, esquerda e direita");
+  check(!AutoQuestUnstuck.Moved(1001,1001,1000,1000)&&
+   AutoQuestUnstuck.Moved(1006,1000,1000,1000)&&
+   AutoQuestUnstuck.MaxAttempts==3&&AutoQuestUnstuck.NoGainSeconds==8,
+   "Auto Quest: avanço de seis unidades libera recuperação e prazo de oito segundos");
+  bool refusedFourth=false;
+  try{AutoQuestUnstuck.Candidate(1000,1000,1100,1000,4);}
+  catch(ArgumentOutOfRangeException){refusedFourth=true;}
+  check(refusedFourth,"Auto Quest: quarta manobra é bloqueada pela política");
  }
 }
 

@@ -133,8 +133,12 @@ sealed class AutoQuestBetaSession : IDisposable {
  void Run(CancellationToken token){
   var clock=Stopwatch.StartNew();AutoQuestNativeCommands commands=null;
   bool ownsF12=false,ownsMovement=false;string conclusion="encerrado";
-  double originX=0,originZ=0,legX=0,legZ=0,fromX=0,fromZ=0;
-  TimeSpan? legSince=null,landingSince=null,lastDescent=null;
+  double originX=0,originZ=0,legX=0,legZ=0,bestToLeg=0;
+  double recoverX=0,recoverZ=0,recoverStartX=0,recoverStartZ=0;
+  bool legGuided=false,recovering=false,pendingRecovery=false;
+  int recoveryAttempts=0;
+  TimeSpan? legSince=null,lastGainAt=null,recoverySentAt=null,landingSince=null,lastDescent=null;
+  AutoQuestGroundCorridor learnedWalk=null;
   Sample previous=null;
   var policy=new AutoQuestTravelPolicy();
   string lastDecision="";int readErrors=0;long lastPulseMs=-10000;
@@ -145,6 +149,14 @@ sealed class AutoQuestBetaSession : IDisposable {
     throw new IOException("Destino já está próximo do personagem; escolha um ponto de teste distante.");
    if(internalTaskId!=0&&!first.Records.Any(x=>x.Id==internalTaskId))
     throw new IOException("ID interno "+internalTaskId+" não está ativo; limpe o campo para testar só a rota.");
+   // The previous 0.6.5 walk is evidence of the correct city exit.
+   learnedWalk=AutoQuestGroundCorridor.For(characterName,originX,originZ,goalX,goalZ);
+   if(learnedWalk!=null)
+    Log("ROTA APRENDIDA","Usando "+AutoQuestGroundCorridor.Count+
+     " pontos do log 0.6.5 via saída OESTE da cidade; retorno pelo mesmo corredor.");
+   else Log("ROTA NÃO MAPEADA",
+    "Destino sem trilha terrestre validada. Trechos diretos monitorados; "+
+    "destravamento limitado a 3 manobras antes de interromper.");
    commands=new AutoQuestNativeCommands(pid,characterId,characterName);
    Log("ORIGEM",Position(first)+"; retorno gravado: "+originX.ToString("0.0")+","+originZ.ToString("0.0"));
    previous=first;Observe(null,first);
@@ -167,7 +179,7 @@ sealed class AutoQuestBetaSession : IDisposable {
     if(Interlocked.CompareExchange(ref returnRequested,0,0)!=0&&phase<2){
      if(ownsF12){commands.Cultivate(false);ownsF12=false;Log("F12","Desligado antes de voltar");}
      if(ownsMovement){commands.Halt();ownsMovement=false;Log("NAVEGAÇÃO","Comando de parada antes de retornar");}
-     phase=2;legSince=null;landingSince=null;
+     phase=2;legSince=null;lastGainAt=null;recovering=false;pendingRecovery=false;landingSince=null;
      Log("FASE","Retornando à origem registrada pelo teste; entrega manual no NPC");
     }
     if(phase==0||phase==2){
@@ -207,7 +219,7 @@ sealed class AutoQuestBetaSession : IDisposable {
       if(order.Command==AutoQuestTravelCommand.Pause)throw new IOException(order.Reason);
       if(order.Command==AutoQuestTravelCommand.TryTakeoff){
        try{
-        commands.Takeoff(tx,tz);ownsMovement=true;legSince=null;
+        commands.Takeoff(tx,tz);ownsMovement=true;legSince=null;lastGainAt=null;
         Log("COMANDO","TENTAR DECOLAR UMA VEZ; "+Position(s));
        }catch(Exception ex){
         // A missing flight item may cause the native client to reject takeoff.
@@ -217,23 +229,82 @@ sealed class AutoQuestBetaSession : IDisposable {
        }
       }else if(order.Command==AutoQuestTravelCommand.GroundAutoPath||
        order.Command==AutoQuestTravelCommand.FlyToTarget){
-       if(legSince.HasValue){
-        if(Distance(s.X,s.Z,legX,legZ)>Arrival&&clock.Elapsed-legSince.Value<TimeSpan.FromSeconds(24)){
-         // Never spam the native bridge while a previously submitted leg is moving.
-        }else if(Distance(s.X,s.Z,legX,legZ)>Arrival&&
-         Distance(s.X,s.Z,fromX,fromZ)<3)
-         throw new IOException("Nenhum progresso após 24 segundos no trecho; rota parada.");
-        else legSince=null;
+       if(recovering){
+        if(order.Command!=AutoQuestTravelCommand.GroundAutoPath)
+         throw new IOException("Modo de viagem mudou durante o destravamento; interromper por segurança.");
+        if(AutoQuestUnstuck.Moved(s.X,s.Z,recoverStartX,recoverStartZ)){
+         commands.Halt();
+         Log("DESTRAVAMENTO","Movimento confirmado após manobra "+recoveryAttempts+
+          "; refazendo ponto da rota; "+Position(s));
+         recovering=false;recoverySentAt=null;legSince=null;lastGainAt=null;
+        }else if(clock.Elapsed-recoverySentAt.Value>=
+          TimeSpan.FromSeconds(AutoQuestUnstuck.ManeuverTimeoutSeconds)){
+         commands.Halt();
+         Log("DESTRAVAMENTO","Manobra "+recoveryAttempts+
+          " sem movimento suficiente após 5 segundos; "+Position(s));
+         recovering=false;recoverySentAt=null;
+         if(recoveryAttempts>=AutoQuestUnstuck.MaxAttempts)
+          throw new IOException("Três tentativas de destravamento sem resultado; Auto Quest parado.");
+         pendingRecovery=true;
+        }
        }
-       if(!legSince.HasValue){
+       if(legSince.HasValue&&!recovering){
+        double remaining=Distance(s.X,s.Z,legX,legZ);
+        double threshold=legGuided?AutoQuestGroundCorridor.WaypointReach:Arrival;
+        if(remaining<=threshold){legSince=null;lastGainAt=null;}
+        else{
+         // Position changed isn't enough: require progress toward the waypoint.
+         if(remaining<bestToLeg-1.5){bestToLeg=remaining;lastGainAt=clock.Elapsed;}
+         TimeSpan noGain=clock.Elapsed-(lastGainAt??legSince.Value);
+         if(noGain>=TimeSpan.FromSeconds(AutoQuestUnstuck.NoGainSeconds)||
+            clock.Elapsed-legSince.Value>=TimeSpan.FromSeconds(60)){
+          Log("OBSTACULO DETECTADO","sem aproximação ao waypoint por "+
+           noGain.TotalSeconds.ToString("0")+" s; waypoint="+
+           legX.ToString("0.0")+","+legZ.ToString("0.0")+
+           "; distância="+remaining.ToString("0.0")+
+           "; modo="+(legGuided?"ROTA APRENDIDA":"direto")+
+           "; "+Position(s));
+          commands.Halt();ownsMovement=false;
+          recoverX=legX;recoverZ=legZ;
+          legSince=null;lastGainAt=null;
+          if(order.Command==AutoQuestTravelCommand.FlyToTarget)
+           throw new IOException("Voo sem progresso confirmado; sessão pausada sem desvio não validado.");
+          if(recoveryAttempts>=AutoQuestUnstuck.MaxAttempts)
+           throw new IOException("Limite de três tentativas de destravamento atingido.");
+          pendingRecovery=true;
+         }
+        }
+       }
+       if(pendingRecovery){
+        if(!s.FlightKnown||s.IsFlying)
+         throw new IOException("Destravamento por terra exige personagem no solo.");
+        var escape=AutoQuestUnstuck.Candidate(s.X,s.Z,recoverX,recoverZ,
+         recoveryAttempts+1);
+        recoveryAttempts++;
+        commands.GroundPath(escape.X,s.Y,escape.Z);
+        ownsMovement=true;
+        recoverStartX=s.X;recoverStartZ=s.Z;recoverySentAt=clock.Elapsed;
+        recovering=true;pendingRecovery=false;
+        Log("DESTRAVAMENTO","tentativa="+recoveryAttempts+"/"+AutoQuestUnstuck.MaxAttempts+
+         "; método="+(recoveryAttempts==1?"RECUAR":recoveryAttempts==2?"ESQUERDA":"DIREITA")+
+         "; alvo="+escape.X.ToString("0.0")+","+escape.Z.ToString("0.0")+
+         "; "+Position(s));
+       }else if(!legSince.HasValue&&!recovering){
         var size=order.Command==AutoQuestTravelCommand.FlyToTarget?MaxStepFlight:MaxStepGround;
-        double x=Step(s.X,tx,tz-s.Z,size),z=Step(s.Z,tz,tx-s.X,size);
+        double targetX=tx,targetZ=tz;
+        int waypoint=-1;bool guided=false;
+        if(order.Command==AutoQuestTravelCommand.GroundAutoPath&&learnedWalk!=null){
+         var point=learnedWalk.Next(s.X,s.Z,phase==2);
+         targetX=point.X;targetZ=point.Z;waypoint=point.Index;guided=true;
+        }
+        double x=Step(s.X,targetX,targetZ-s.Z,size),z=Step(s.Z,targetZ,targetX-s.X,size);
         if(order.Command==AutoQuestTravelCommand.FlyToTarget)commands.FlightPath(x,z);
         else commands.GroundPath(x,s.Y,z);
-        ownsMovement=true;legSince=clock.Elapsed;
-        legX=x;legZ=z;fromX=s.X;fromZ=s.Z;
+        ownsMovement=true;legSince=clock.Elapsed;legGuided=guided;
+        legX=x;legZ=z;bestToLeg=Distance(s.X,s.Z,x,z);lastGainAt=clock.Elapsed;
         Log("COMANDO",order.Command+"; trecho="+x.ToString("0.0")+","+z.ToString("0.0")+
-         "; restante="+dist.ToString("0.0")+"; "+Position(s));
+         "; waypoint="+waypoint+"; modo="+(guided?"ROTA APRENDIDA VIA OESTE":"direto")+
+         "; restante até objetivo="+dist.ToString("0.0")+"; "+Position(s));
        }
       }else if(order.Command.ToString()!=lastDecision){
        Log("PLANEJADOR",order.Command+"; "+order.Reason);
