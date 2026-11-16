@@ -151,8 +151,8 @@ static class AutoQuestRecoveryTests {
   bool ordered=true;
   for(int i=prev;i<AutoQuestGroundCorridor.Count;i++){
    var wp=AutoQuestGroundCorridor.Sample(i);
-   int next=corridor.Next(wp.X,wp.Z,false).Index;
-   if(next<i||next>i+2)ordered=false;
+   int waypointIndex=corridor.Next(wp.X,wp.Z,false).Index;
+   if(waypointIndex<i||waypointIndex>i+2)ordered=false;
   }
   check(ordered,"Auto Quest: a trilha avançará gradualmente, um waypoint por vez");
   var reversing=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
