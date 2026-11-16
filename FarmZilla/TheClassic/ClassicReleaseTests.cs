@@ -31,6 +31,7 @@ static class ClassicReleaseTests {
   AutoQuestWorkflowTests.Run(Check);
   AutoQuestTravelTests.Run(Check);
   AutoQuestVerifiedDriverTests.Run(Check);
+  AutoQuestEvidenceTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
@@ -383,6 +384,78 @@ static class AutoQuestVerifiedDriverTests {
   check(changes.Count==1&&changes[0].Kind=="ALTERADO"&&changes[0].Detail.Contains("06:02>03")&&
     removed.Count==1&&removed[0].Kind=="REMOVIDO",
    "Quest log 0.6.5: correlacionar progresso candidato e saída no NPC, sem supor conclusão");
+ }
+}
+
+// Exact 0.6.5 task 1329 bytes from the user's ground-navigation recording.
+// No quest completion, counter, NPC identity or reward is inferred from this replay.
+static class AutoQuestEvidenceTests {
+ static AutoQuestRawTaskRecord Rec(ushort id,int occurrence,string hex){
+  var data=new byte[hex.Length/2];
+  for(int i=0;i<data.Length;i++)data[i]=Convert.ToByte(hex.Substring(i*2,2),16);
+  return new AutoQuestRawTaskRecord{Id=id,Occurrence=occurrence,Data=data};
+ }
+ static List<AutoQuestEvidence> Replay(AutoQuestEvidenceTracker tracker,
+   AutoQuestRawTaskRecord[] before,AutoQuestRawTaskRecord[] after,
+   bool nearNpc,bool action){
+  return tracker.Observe(before,after,AutoQuestRawTaskDiff.Changes(before,after),nearNpc,action);
+ }
+ public static void Run(Action<bool,string> check){
+  const string initial="3105FFFFFFFF02D3F1FA6A0000D8D8A541000000000000000000000000000000";
+  const string updated="3105FFFFFFFF03D3F1FA6A0000D8D8A541000000000000000000000000000000";
+  var initialRecord=Rec(1329,0,initial);
+  var updatedRecord=Rec(1329,0,updated);
+  var tracker=new AutoQuestEvidenceTracker();
+  var added=Replay(tracker,new AutoQuestRawTaskRecord[0],
+    new[]{initialRecord},true,false);
+  var changed=Replay(tracker,new[]{initialRecord},
+    new[]{updatedRecord},false,true);
+  var removed=Replay(tracker,new[]{updatedRecord},
+    new AutoQuestRawTaskRecord[0],true,false);
+  check(added.Count==1&&added[0].Kind==AutoQuestEvidenceKind.AddedNearNpc&&
+    changed.Count==1&&changed[0].Kind==AutoQuestEvidenceKind.Offset06ChangedDuringActivity&&
+    changed[0].Detail.Contains("02 -> 03")&&removed.Count==2&&
+    removed.Any(e=>e.Kind==AutoQuestEvidenceKind.RemovedNearNpc)&&
+    removed.Any(e=>e.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
+    "Quest evidência 0.6.5: 1329 adicionado NPC, offset +06 02>03 após atividade, removido NPC");
+  var actor=new AutoQuestActor{X=1708,Y=221,Z=980,Hp=1627,
+   CharacterVerified=true,ExclusiveLock=true,FlightKnown=true};
+  var unverified=new AutoQuestObservedTask{QuestId=1329,Stage=AutoQuestStage.Unknown,
+   StageRevision=0,StageVerified=false};
+  check(AutoQuestWorkflow.Decide(actor,new[]{unverified}).Move==AutoQuestMove.AwaitVerifiedData,
+    "Quest evidência: ciclo correlacionado NÃO vira objetivo ou entrega validada");
+  var noisy=new AutoQuestEvidenceTracker();
+  var unrelated=Rec(544,0,"2002FFFFFF170243CCFA6A000058F29641000000000000000000000000000000");
+  var shifted=Rec(544,0,"2002FFFFFF160243CCFA6A000058F29641000000000000000000000000000000");
+  var noise=Replay(noisy,new[]{unrelated},new[]{shifted},true,false);
+  check(noise.Count==0,"Quest evidência: reindex da lista no NPC não é progresso ou ciclo");
+  var withoutNpc=new AutoQuestEvidenceTracker();
+  Replay(withoutNpc,new AutoQuestRawTaskRecord[0],new[]{initialRecord},false,true);
+  Replay(withoutNpc,new[]{initialRecord},new[]{updatedRecord},false,true);
+  var outside=Replay(withoutNpc,new[]{updatedRecord},new AutoQuestRawTaskRecord[0],true,false);
+  check(!outside.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
+    "Quest evidência: mudança fora do NPC sem aceitação associada não produz ciclo");
+  var withoutActivity=new AutoQuestEvidenceTracker();
+  Replay(withoutActivity,new AutoQuestRawTaskRecord[0],new[]{initialRecord},true,false);
+  var random=Replay(withoutActivity,new[]{initialRecord},new[]{updatedRecord},false,false);
+  var removedWithoutActivity=Replay(withoutActivity,new[]{updatedRecord},
+   new AutoQuestRawTaskRecord[0],true,false);
+  check(random.Count==0&&!removedWithoutActivity.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
+    "Quest evidência: alteração sem atividade associada não se confunde com progresso");
+  var occurrences=new AutoQuestEvidenceTracker();
+  var secondInitial=Rec(1329,1,initial);
+  var secondUpdated=Rec(1329,1,updated);
+  Replay(occurrences,new AutoQuestRawTaskRecord[0],new[]{initialRecord},true,false);
+  Replay(occurrences,new[]{initialRecord},new[]{initialRecord,secondInitial},true,false);
+  Replay(occurrences,new[]{initialRecord,secondInitial},new[]{initialRecord,secondUpdated},false,true);
+  var differentOccurrence=Replay(occurrences,new[]{initialRecord,secondUpdated},
+    new[]{secondUpdated},true,false);
+  check(!differentOccurrence.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
+    "Quest evidência: alteração da ocorrência 1 não completa ciclo da ocorrência 0");
+  tracker.Reset();
+  var afterReset=Replay(tracker,new[]{updatedRecord},new AutoQuestRawTaskRecord[0],true,false);
+  check(!afterReset.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
+    "Quest evidência: reiniciar gravação não reutiliza contexto de outra sessão");
  }
 }
 
