@@ -61,6 +61,7 @@ partial class AvalonInterno {
   sharedPotBar.Bounds=new Rectangle(SideWidth,654,PanelWidth,36);sharedPotBar.Visible=true;
   potDrawer.Bounds=new Rectangle(SideWidth+PanelWidth,50,310,PanelHeight-50);potDrawer.Visible=potDrawerOpen;
   if(frostInlineHost!=null)frostInlineHost.Bounds=new Rectangle(SideWidth,50,PanelWidth,604);
+  if(autoQuestHost!=null)autoQuestHost.Bounds=new Rectangle(SideWidth,50,PanelWidth,604);
   minimizeButton.Left=ClientSize.Width-69;closeButton.Left=ClientSize.Width-39;
   var area=Screen.FromControl(this).WorkingArea;
   Location=new Point(Math.Max(area.Left,Math.Min(Left,area.Right-Width)),Math.Max(area.Top,Math.Min(Top,area.Bottom-Height)));
