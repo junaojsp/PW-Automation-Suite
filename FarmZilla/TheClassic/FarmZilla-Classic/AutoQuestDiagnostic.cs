@@ -22,7 +22,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
   FilePath=Path.Combine(folder,"autoquest-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+pid+".txt");
  }
  void Log(string message){
-  lock(fileLock){if(lines>=1600)return;
+  lock(fileLock){if(lines>=1800)return;
    File.AppendAllText(FilePath,DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+" | "+message+Environment.NewLine,Encoding.UTF8);
    lines++;
   }
@@ -30,9 +30,10 @@ sealed class AutoQuestDiagnostic : IDisposable {
  public void Start(){
   if(worker!=null)throw new InvalidOperationException("Diagnóstico já iniciado.");
   Log("AUTO QUEST THE CLASSIC - diagnóstico SOMENTE LEITURA - FarmZilla "+ReleaseInfo.Version);
-  Log("INICIO; personagem="+characterName+"; PID="+pid+"; id="+characterId+"; duração máxima 240 s; amostragem 1 s");
+  Log("INICIO; personagem="+characterName+"; PID="+pid+"; id="+characterId+"; duração máxima 900 s; amostragem 1 s");
   Log("Contagem dos IDs internos NÃO representa o contador de missões iniciadas da interface.");
-  Log("Eventos observados: posição XYZ, voo, estado de movimento, alvo selecionado, interação NPC, janelas de missão e variação dos IDs internos.");
+  Log("Eventos observados: posição, voo, NPC, alvo, 32 bytes de cada registro de tarefa e suas alterações por offset.");
+  Log("ATENÇÃO: não há decodificação confirmada de nome da missão, progresso ou NPC de entrega.");
   worker=Task.Run(()=>Run(stop.Token));
  }
  sealed class Snapshot {
@@ -41,6 +42,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
   public float X,Y,Z;public int Hp,MaxHp,Level;
   public bool NpcWindow,TaskConfirmWindow;
   public ushort[] RawQuestIds;public uint[] ConfirmRows;
+  public List<AutoQuestRawTaskRecord> RawTaskRecords;
  }
  static bool VisibleDialog(CharacterMemory m,uint run,uint uiOffset,uint expectedVtable){
   try{
@@ -53,10 +55,10 @@ sealed class AutoQuestDiagnostic : IDisposable {
  static uint ReadU(CharacterMemory m,uint at){try{return m.U(at);}catch{return 0;}}
  static byte ReadB(CharacterMemory m,uint at){try{return m.Read(at,1)[0];}catch{return 0;}}
  Snapshot Read(){
-  ushort[] ids;uint target,context;byte npcBusy;bool dialog,confirm;
+  ushort[] ids;List<AutoQuestRawTaskRecord> rawTasks;uint target,context;byte npcBusy;bool dialog,confirm;
   using(var m=new CharacterMemory(pid)){
    if(m.Id!=characterId||m.Name!=characterName)throw new InvalidOperationException("Personagem alterado: interromper diagnóstico.");
-   ids=m.ActiveQuestIds();target=ReadU(m,m.Host+ClassicLayout.HostTarget);
+   rawTasks=m.ReadAutoQuestRawTaskRecords();ids=rawTasks.Select(r=>r.Id).ToArray();target=ReadU(m,m.Host+ClassicLayout.HostTarget);
    context=ReadU(m,m.Host+ClassicLayout.HostNpcTalk);npcBusy=ReadB(m,m.Host+ClassicLayout.HostNpcBusy);
    uint root=m.U(m.Module+m.G.Root),run=m.U(root+0x1C);
    dialog=VisibleDialog(m,run,ClassicLayout.UiNpcTalk,m.G.DlgNpc);
@@ -68,7 +70,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
    uint[] confirmRows=new uint[0];try{confirmRows=game.ReadConfirmRows().Take(20).ToArray();}catch{}
    return new Snapshot{Name=s.Name,Level=s.Level,Hp=s.Hp,MaxHp=s.MaxHp,
     X=s.X,Y=s.Y,Z=s.Z,Target=target,NpcContext=context,NpcBusy=npcBusy,
-    NpcWindow=dialog,TaskConfirmWindow=confirm,RawQuestIds=ids,
+    NpcWindow=dialog,TaskConfirmWindow=confirm,RawQuestIds=ids,RawTaskRecords=rawTasks,
     ConfirmRows=confirmRows,Flight=s.FlightStateKnown?(s.IsFlying?"voando":"solo"):"estado de voo não validado",
     Action=action};
   }
@@ -81,6 +83,9 @@ sealed class AutoQuestDiagnostic : IDisposable {
     "; ação="+now.Action+"; alvo="+Hex(now.Target)+"; contexto NPC="+Hex(now.NpcContext)+
     "; janela NPC="+now.NpcWindow+"; janela entrega="+now.TaskConfirmWindow+
     "; IDs internos ("+now.RawQuestIds.Length+")="+String.Join(",",now.RawQuestIds));
+   foreach(var entry in now.RawTaskRecords)
+    Log("REGISTRO_BRUTO_INICIAL; id="+entry.Id+"; ocorrência="+entry.Occurrence+
+     "; posição="+entry.Position+"; bytes32="+entry.Hex);
    return;
   }
   if(before.Target!=now.Target)Log("ALVO ALTERADO; "+Hex(before.Target)+" -> "+Hex(now.Target)+"; XYZ="+Coords(now));
@@ -101,12 +106,17 @@ sealed class AutoQuestDiagnostic : IDisposable {
   if(added.Length>0||removed.Length>0)
    Log("REGISTROS DE MISSÃO ALTERADOS; adicionados="+String.Join(",",added)+"; removidos="+String.Join(",",removed)+
     "; total interno="+now.RawQuestIds.Length+"; XYZ="+Coords(now));
+  // Byte deltas reveal which fields change during killing, NPC conversations and delivery.
+  // Do NOT label those fields as quest progress until verified against the in-game journal.
+  var rawChanges=AutoQuestRawTaskDiff.Changes(before.RawTaskRecords,now.RawTaskRecords);
+  foreach(var delta in rawChanges.Take(16))Log("ALTERAÇÃO_REGISTRO_BRUTO; "+delta.Describe()+"; XYZ="+Coords(now));
+  if(rawChanges.Count>16)Log("REGISTROS BRUTOS; "+(rawChanges.Count-16)+" mudanças adicionais omitidas nesta amostra.");
  }
  void Run(CancellationToken token){
   Snapshot previous=null;DateTime lastPosition=DateTime.MinValue;int errors=0;
   var watch=Stopwatch.StartNew();
   try{
-   while(watch.Elapsed.TotalSeconds<240&&!token.IsCancellationRequested){
+   while(watch.Elapsed.TotalSeconds<900&&!token.IsCancellationRequested){
     try{
      Snapshot current=Read();errors=0;
      Observe(previous,current);
@@ -127,7 +137,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
     if(token.WaitHandle.WaitOne(1000))break;
    }
   }catch(Exception ex){try{Log("FALHA DE GRAVAÇÃO; "+ex.Message);}catch{}}
-  finally{try{Log("FIM; "+(token.IsCancellationRequested?"parado pelo usuário":watch.Elapsed.TotalSeconds>=240?"limite de 240 s":"leitura interrompida")+
+  finally{try{Log("FIM; "+(token.IsCancellationRequested?"parado pelo usuário":watch.Elapsed.TotalSeconds>=900?"limite de 900 s":"leitura interrompida")+
    "; duração="+watch.Elapsed.TotalSeconds.ToString("0")+" s; linhas="+lines);}catch{}}
  }
  public async Task StopAsync(){stop.Cancel();if(worker!=null)await worker;}
