@@ -17,7 +17,7 @@ sealed class AutoQuestBetaForm : Form {
  bool closingForStop,allowClose;
  public AutoQuestBetaForm(int processId,uint id,string name){
   pid=processId;characterId=id;characterName=name;
-  Text="Auto Quest 0.6.9 · teste assistido com log";
+  Text="Auto Quest 0.6.10 · teste assistido com log";
   ClientSize=new Size(545,530);
   StartPosition=FormStartPosition.CenterParent;
   FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;
@@ -30,7 +30,7 @@ sealed class AutoQuestBetaForm : Form {
   zBox=AddInput(295,79,97);
   AddLabel("ID interno*",400,59,130,20);
   taskBox=AddInput(400,79,122);
-  attemptFlight=new CheckBox{Text="Tentar voar; se não decolar, usar auto caminho",Left=18,Top=119,
+  attemptFlight=new CheckBox{Text="Modo voo: altitude fixa; se não decolar, PARAR sem caminhar",Left=18,Top=119,
    Width=512,Height=24,Checked=true,ForeColor=Rubi.Text};
   Controls.Add(attemptFlight);
   help=AddLabel("* Opcional. Sem ID, testa só o deslocamento (F12 fica bloqueado).",18,147,510,40);

@@ -138,6 +138,7 @@ sealed class AutoQuestBetaSession : IDisposable {
   TimeSpan? legSince=null,lastGainAt=null,landingSince=null,lastDescent=null;
   AutoQuestGroundCorridor learnedWalk=null;
   AutoQuestAdaptiveDetour detour=null;
+  AutoQuestFlightGuard flightGuard=null;
   double lastDetourX=Double.NaN,lastDetourZ=Double.NaN;
   int detourCycles=0;
   Sample previous=null;
@@ -146,6 +147,13 @@ sealed class AutoQuestBetaSession : IDisposable {
   try{
    var first=Read();
    originX=first.X;originZ=first.Z;
+   if(first.FlightKnown&&first.IsFlying){
+    flightGuard=new AutoQuestFlightGuard(first.Y,first.X,first.Z,goalX,goalZ);
+    Log("VOO ALTITUDE TRAVADA","Y referência="+flightGuard.ReferenceY.ToString("0.0")+
+     "; altura nativa fixa="+flightGuard.FixedHeight+
+     "; limite de subida="+AutoQuestFlightGuard.MaxRiseWorld.ToString("0.0")+
+     " unidades de mundo; trecho máximo="+AutoQuestFlightGuard.MaxFlightLeg.ToString("0")+" XZ.");
+   }
    if(Distance(originX,originZ,goalX,goalZ)<20)
     throw new IOException("Destino já está próximo do personagem; escolha um ponto de teste distante.");
    if(internalTaskId!=0&&!first.Records.Any(x=>x.Id==internalTaskId))
@@ -169,9 +177,31 @@ sealed class AutoQuestBetaSession : IDisposable {
      if(token.WaitHandle.WaitOne(1200))break;continue;
     }
     Observe(previous,s);previous=s;
+    if(s.FlightKnown&&s.IsFlying&&phase<=2){
+     if(flightGuard==null){
+      flightGuard=new AutoQuestFlightGuard(s.Y,s.X,s.Z,goalX,goalZ);
+      Log("VOO ALTITUDE TRAVADA","Decolagem confirmada; Y referência="+
+       flightGuard.ReferenceY.ToString("0.0")+"; altura nativa fixa="+
+       flightGuard.FixedHeight+"; tolerância vertical +/-"+
+       AutoQuestFlightGuard.MaxRiseWorld.ToString("0.0")+" mundo.");
+     }
+     double toActive=Distance(s.X,s.Z,phase==2?originX:goalX,
+      phase==2?originZ:goalZ);
+     if(toActive>Arrival){
+      var problem=flightGuard.Validate(s.X,s.Y,s.Z,phase==0);
+      if(problem!=null){
+       Log("VOO ALERTA ALTITUDE/RUMO",problem+"; "+Position(s));
+       throw new IOException(problem);
+      }
+     }
+    }
     if(clock.ElapsedMilliseconds-lastPulseMs>=5000){
      Log("PULSO","fase="+phase+"; "+Position(s)+"; destino="+
-      (phase==2?originX.ToString("0.0")+","+originZ.ToString("0.0"):goalX.ToString("0.0")+","+goalZ.ToString("0.0")));
+      (phase==2?originX.ToString("0.0")+","+originZ.ToString("0.0"):goalX.ToString("0.0")+","+goalZ.ToString("0.0"))+
+      "; distânciaXZ="+Distance(s.X,s.Z,phase==2?originX:goalX,
+       phase==2?originZ:goalZ).ToString("0.0")+
+      (flightGuard!=null?"; Y referência="+flightGuard.ReferenceY.ToString("0.0")+
+       "; deltaY="+flightGuard.DeltaY(s.Y).ToString("+0.0;-0.0;0.0"):""));
      lastPulseMs=clock.ElapsedMilliseconds;
     }
     if(internalTaskId!=0&&!s.Records.Any(x=>x.Id==internalTaskId)&&phase<=2){
@@ -257,6 +287,11 @@ sealed class AutoQuestBetaSession : IDisposable {
        }
       }else if(order.Command==AutoQuestTravelCommand.GroundAutoPath||
        order.Command==AutoQuestTravelCommand.FlyToTarget){
+       if(order.Command==AutoQuestTravelCommand.GroundAutoPath&&allowFlight)
+        throw new IOException("Modo voo ativado, mas decolagem não confirmada. "+
+         "Teste interrompido sem fallback para a rota caminhando.");
+       if(order.Command==AutoQuestTravelCommand.FlyToTarget&&flightGuard==null)
+        throw new IOException("Voo confirmado sem amostra de altitude de referência.");
        if(legSince.HasValue){
         double remaining=Distance(s.X,s.Z,legX,legZ);
         double threshold=legGuided?AutoQuestGroundCorridor.WaypointReach:Arrival;
@@ -295,20 +330,26 @@ sealed class AutoQuestBetaSession : IDisposable {
         }
        }
        if(!legSince.HasValue&&detour==null){
-        var size=order.Command==AutoQuestTravelCommand.FlyToTarget?MaxStepFlight:MaxStepGround;
+        var size=order.Command==AutoQuestTravelCommand.FlyToTarget?
+         AutoQuestFlightGuard.MaxFlightLeg:MaxStepGround;
         double targetX=tx,targetZ=tz;int waypoint=-1;bool guided=false;
         if(order.Command==AutoQuestTravelCommand.GroundAutoPath&&learnedWalk!=null){
          var point=learnedWalk.Next(s.X,s.Z,phase==2);
          targetX=point.X;targetZ=point.Z;waypoint=point.Index;guided=true;
         }
         double x=Step(s.X,targetX,targetZ-s.Z,size),z=Step(s.Z,targetZ,targetX-s.X,size);
-        if(order.Command==AutoQuestTravelCommand.FlyToTarget)commands.FlightPath(x,z);
+        if(order.Command==AutoQuestTravelCommand.FlyToTarget)
+         commands.FlightPath(x,z,flightGuard.FixedHeight);
         else commands.GroundPath(x,s.Y,z);
         ownsMovement=true;legSince=clock.Elapsed;legGuided=guided;
         legX=x;legZ=z;bestToLeg=Distance(s.X,s.Z,x,z);lastGainAt=clock.Elapsed;
         Log("COMANDO",order.Command+"; trecho="+x.ToString("0.0")+","+z.ToString("0.0")+
          "; waypoint="+waypoint+"; modo="+(guided?"ROTA APRENDIDA VIA OESTE":"direto")+
-         "; restante até objetivo="+dist.ToString("0.0")+"; "+Position(s));
+         "; restante até objetivo="+dist.ToString("0.0")+
+         (order.Command==AutoQuestTravelCommand.FlyToTarget?
+          "; altura FIXA="+flightGuard.FixedHeight+
+          "; Y referência="+flightGuard.ReferenceY.ToString("0.0"):"")+
+         "; "+Position(s));
        }
       }else if(order.Command.ToString()!=lastDecision){
        Log("PLANEJADOR",order.Command+"; "+order.Reason);

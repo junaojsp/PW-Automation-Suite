@@ -182,3 +182,20 @@ A nova beta **não considera um pequeno movimento como saída da parede**:
 **Não é leitura geométrica do mapa nem garantia universal de encontrar passagem.** O cliente ainda não disponibiliza navmesh/colisões decodificadas, e nenhum passo é considerado bem-sucedido só porque o comando foi aceito. Se não conseguir contornar dentro dos limites, o teste para e salva o TXT.
 
 O módulo de scanner de missões por região adicionado na 0.6.8 continua separado; não altera Mat Farm, Espelho, Frost, NPC, aceite/entrega de quests ou F12.
+
+
+## Auto Quest 0.6.10 — teste de voo com altura de referência
+
+**Falha observada**: ProFile iniciou voando em X=1720/Z=980, Y=237,4, com destino X=765,6/Z=327,3 (log de 16/11, 11:45:56). Após cerca de 37 segundos o personagem estava em X=1565/Z=876, Y=426,7. X e Z foram na direção correta; **Y subiu continuamente sem estabilizar**.
+
+**Correção conservadora, ainda sujeita a teste no jogo:**
+
+- A primeira amostra confirmada em voo fixa uma **referência Y** e o comando FlightHeight usa o valor equivalente **Y/10**, arredondado **uma única vez**. A versão anterior calculava um novo alvo com a altura crescente a cada trecho, o que podia reforçar a subida.
+- Em vez de trechos de 280 XZ, usa trechos de **90 unidades**; emite FlyTo, aguarda 80 ms (mesma ordem que a navegação aérea da Rota), depois envia **a mesma altura fixa**.
+- A cada leitura (~1,2 s), mede Y e distância horizontal ao objetivo. Se subir **mais de 18 unidades de mundo** da referência, cair mais de 18 ou afastar-se 45 unidades horizontalmente do plano inicial, **encerra automaticamente**. Não presume que o comando nativo garantiu estabilidade.
+- Ao parar, envia parada da navegação e **desliga o controle automático de altitude** pelo comando nativo já conhecido de tipo 2, para não deixar uma subida em andamento.
+- **Modo voo** marcado: se o personagem não decolar, para com erro e **não** cai para caminhada/rota terrestre não mapeada. Desmarcar o modo voo preserva o teste terrestre anterior.
+- TXT: VOO ALTITUDE TRAVADA, PULSO com distânciaXZ, referência e deltaY, VOO ALERTA ALTITUDE/RUMO para paradas; os comandos mostram altura FIXA.
+- Não muda Mat Farm, Frost, Espelho, NPCs, leitura de quests nem F12. O scanner regional 0.6.8 segue disponível.
+
+**Como testar:** abra o EXE 0.6.10; com ProFile já voando em uma altitude segura, selecione Auto Quest -> Teste beta com log; confirme o destino X=765,6/Z=327,3, mantenha **Modo voo** marcado e acompanhe os primeiros 10–20 segundos. Caso Y continue subindo, a beta deverá parar sozinha com a causa gravada no TXT. O teste **não** valida missões/objetivos/NPCs e **não** garante altitude estável até o teste no cliente real.
