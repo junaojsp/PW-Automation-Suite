@@ -15,7 +15,7 @@ partial class AvalonInterno {
   // Reference layout: reserve the four tools without attaching game operations.
   PendingTool("Vm Farm",178);PendingTool("Token Farm",220);
   var frostButton=SideAt("Frost Farm",262,OpenFrostAutomation);sideFrostInline=frostButton;frostButton.AccessibleName="Frost Farm";frostButton.AccessibleDescription="DG Frost na mesma janela; líder, secundários e registro";hints.SetToolTip(frostButton,"Abre a Frost nesta janela e mantém as configurações compartilhadas de Auto Pot.");PendingTool("Skill Sender",304);
-  sideAutoQuest=SideAt("Auto Quest",346,OpenAutoQuest);sideAutoQuest.AccessibleName="Auto Quest";hints.SetToolTip(sideAutoQuest,"The Classic: analisar personagem e missões ativas em modo somente leitura.");
+  sideAutoQuest=SideAt("Auto Quest",346,OpenAutoQuest);sideAutoQuest.AccessibleName="Auto Quest";hints.SetToolTip(sideAutoQuest,"The Classic: diagnóstico somente leitura e teste beta assistido com log, rota e F12 opcional.");
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
   var footer=RubiLabel("FarmZilla · The Classic",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);

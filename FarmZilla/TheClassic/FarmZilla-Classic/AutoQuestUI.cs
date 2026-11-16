@@ -7,10 +7,11 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
 
-// Auto Quest The Classic: fase 1, leitura validada e sem comandos de jogo. No mission/game commands are sent.
+// Auto Quest: diagnóstico somente leitura e beta assistida em diálogo separado.
+// A beta envia somente movimento e F12 por consentimento, nunca NPC/entrega.
 partial class AvalonInterno {
  Panel autoQuestHost;bool autoQuestView;SideItem sideAutoQuest;
- ComboBox autoQuestCharacters;Label autoQuestStatus,autoQuestResult;Button autoQuestInspect,autoQuestRecord,autoQuestStop,autoQuestOpenFolder;
+ ComboBox autoQuestCharacters;Label autoQuestStatus,autoQuestResult;Button autoQuestInspect,autoQuestRecord,autoQuestStop,autoQuestOpenFolder,autoQuestBeta;
  AutoQuestDiagnostic questDiagnostic;string questLastLog;
  bool autoQuestReading;
  void EnsureAutoQuest(){
@@ -30,7 +31,7 @@ partial class AvalonInterno {
  Panel BuildAutoQuestScreen(){
   var surface=new Panel{Dock=DockStyle.Fill,BackColor=Rubi.Background};
   surface.Controls.Add(QuestLabel("AUTO QUEST",15,16,300,28,true));
-  surface.Controls.Add(QuestLabel("Missões automáticas · estrutura inicial",15,47,355,20));
+  surface.Controls.Add(QuestLabel("Diagnóstico e teste beta assistido · controles separados",15,47,355,20));
   var status=QuestCard(82,60);surface.Controls.Add(status);
   status.Controls.Add(QuestLabel("STATUS DO MÓDULO",12,8,330,20,true));
   autoQuestStatus=QuestLabel("Aguardando leitura · nenhuma missão é executada",12,33,340,20);
@@ -47,13 +48,16 @@ partial class AvalonInterno {
    BackColor=Rubi.Field,ForeColor=Rubi.Text,Enabled=false};
   type.Items.AddRange(new object[]{"Eliminar monstros","Coletar itens","Interagir com NPC","Cadeia de missões"});
   type.SelectedIndex=0;characters.Controls.Add(type);
-  var tasks=QuestCard(286,163);surface.Controls.Add(tasks);
+  var tasks=QuestCard(286,189);surface.Controls.Add(tasks);
   tasks.Controls.Add(QuestLabel("ETAPAS PLANEJADAS",12,10,332,20,true));
   var steps=new[]{"Identificar e aceitar missão","Localizar objetivo e navegar","Executar combate ou coleta","Conferir progresso da missão","Retornar ao NPC e entregar"};
   for(int i=0;i<steps.Length;i++)tasks.Controls.Add(new CheckBox{
    Text=steps[i],Bounds=new Rectangle(15,36+i*24,333,21),Checked=false,Enabled=false,
    FlatStyle=FlatStyle.Flat,BackColor=Rubi.Panel,ForeColor=Rubi.Muted});
-  var commands=QuestCard(460,106);surface.Controls.Add(commands);
+  autoQuestBeta=new NeonButton{Text="Teste beta com log",Bounds=new Rectangle(15,157,333,29)};
+  autoQuestBeta.Click+=(sender,args)=>OpenAutoQuestBeta();
+  tasks.Controls.Add(autoQuestBeta);
+  var commands=QuestCard(484,116);surface.Controls.Add(commands);
   commands.Controls.Add(QuestLabel("CONTROLES",12,9,325,20,true));
   var start=new NeonButton{Text="Analisar",Bounds=new Rectangle(12,34,166,30),Enabled=true};
   autoQuestInspect=start;start.Click+=async(sender,args)=>await ReadAutoQuestSnapshot();
@@ -65,7 +69,7 @@ partial class AvalonInterno {
   autoQuestOpenFolder.Click+=(sender,args)=>OpenAutoQuestLog();
   commands.Controls.Add(start);commands.Controls.Add(autoQuestRecord);
   commands.Controls.Add(autoQuestStop);commands.Controls.Add(autoQuestOpenFolder);
-  autoQuestResult=QuestLabel("Somente leitura · não aceita ou entrega missões.",14,575,358,26);
+  autoQuestResult=QuestLabel("Beta: navegação assistida · NPC e entrega manuais.",14,613,358,28);
   surface.Controls.Add(autoQuestResult);
   return surface;
  }
@@ -103,6 +107,7 @@ partial class AvalonInterno {
   }finally{autoQuestCharacters.EndUpdate();}
   if(autoQuestInspect!=null)autoQuestInspect.Enabled=options.Length>0;
   if(autoQuestRecord!=null)autoQuestRecord.Enabled=options.Length>0;
+  if(autoQuestBeta!=null)autoQuestBeta.Enabled=options.Length>0;
  }
  sealed class AutoQuestSnapshot {
   public string Name;public int Level,MonsterCount;public float X,Y,Z;
@@ -181,6 +186,31 @@ partial class AvalonInterno {
     if(autoQuestInspect!=null)autoQuestInspect.Enabled=autoQuestCharacters.Enabled;
     if(autoQuestRecord!=null)autoQuestRecord.Enabled=autoQuestCharacters.Enabled;
    }
+  }
+ }
+ void OpenAutoQuestBeta(){
+  if(closeInProgress||authorizationDenied||controlLocked||autoQuestReading)return;
+  if(questDiagnostic!=null&&questDiagnostic.Running){
+   autoQuestStatus.Text="Pare a gravação antes do teste beta.";return;
+  }
+  var entry=autoQuestCharacters==null?null:autoQuestCharacters.SelectedItem as Entry;
+  if(entry==null||blocked.Contains(entry.Pid)||RotaLock.Busy(entry.Pid)){
+   autoQuestStatus.Text="Personagem ocupado; escolha um personagem livre.";return;
+  }
+  if(busy||missions.Working||teleport.Working||altoOn||altoBusy){
+   autoQuestStatus.Text="Desligue seguimento, Alto Cultivo, teleporte e ações ativas antes do teste.";
+   return;
+  }
+  // The beta's RotaLock lease excludes other routes and most mirror/Frost operations.
+  // It is launched only on an explicit click and stops before the dialog closes.
+  try{
+   using(var dialog=new AutoQuestBetaForm(entry.Pid,entry.Id,entry.Name))
+    dialog.ShowDialog(this);
+   autoQuestStatus.Text="Teste beta finalizado. Confira o TXT local.";
+   RefreshAutoQuestCharacters();
+  }catch(Exception ex){
+   autoQuestStatus.Text="Teste beta não iniciado.";
+   autoQuestResult.Text=ex.Message;
   }
  }
  void OpenAutoQuestLog(){

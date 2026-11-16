@@ -32,6 +32,7 @@ static class ClassicReleaseTests {
   AutoQuestTravelTests.Run(Check);
   AutoQuestVerifiedDriverTests.Run(Check);
   AutoQuestEvidenceTests.Run(Check);
+   AutoQuestBetaTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
@@ -88,6 +89,33 @@ static class ClassicSimulator {
 
 
 // The planned workflow is tested offline. These tests DO NOT claim live NPC/quest decoding is complete.
+static class AutoQuestBetaTests {
+ public static void Run(Action<bool,string> check){
+  check(AutoQuestBetaSession.ValidDestination(1750,1773.4)&&
+    AutoQuestBetaSession.ValidDestination(765.6,327.3)&&
+    !AutoQuestBetaSession.ValidDestination(Double.NaN,100)&&
+    !AutoQuestBetaSession.ValidDestination(0,100),
+    "Auto Quest beta: aceita os dois destinos dos logs, bloqueia coordenadas invalidas");
+  double x=AutoQuestBetaSession.Step(0,600,800,AutoQuestBetaSession.MaxStepGround);
+  double z=AutoQuestBetaSession.Step(0,800,600,AutoQuestBetaSession.MaxStepGround);
+  check(Math.Abs(Math.Sqrt(x*x+z*z)-110)<0.01&&
+    Math.Abs(AutoQuestBetaSession.Step(0,600,800,AutoQuestBetaSession.MaxStepFlight)-168)<0.01,
+    "Auto Quest beta: respeita limites menores que os da ponte nativa em solo e voo");
+  check(!AutoQuestBetaSession.CanCombat(false,true,false,"Idle",1329,true)&&
+    !AutoQuestBetaSession.CanCombat(true,false,false,"Idle",1329,true)&&
+    !AutoQuestBetaSession.CanCombat(true,true,true,"Idle",1329,true)&&
+    !AutoQuestBetaSession.CanCombat(true,true,false,"FlightTransition",1329,true)&&
+    !AutoQuestBetaSession.CanCombat(true,true,false,"Moving",1329,true)&&
+    !AutoQuestBetaSession.CanCombat(true,true,false,"Idle",0,true)&&
+    !AutoQuestBetaSession.CanCombat(true,true,false,"Idle",1329,false)&&
+    AutoQuestBetaSession.CanCombat(true,true,false,"Idle",1329,true),
+    "Auto Quest beta: so libera F12 no local, pousado, sem transicao e com ID ativo");
+  check(AutoQuestBetaSession.MaxMinutes<=15&&
+    AutoQuestBetaSession.MaxStepGround<=120&&AutoQuestBetaSession.MaxStepFlight<=300,
+    "Auto Quest beta: tempo/trechos limitados para a primeira execucao com log");
+ }
+}
+
 static class AutoQuestWorkflowTests {
  static AutoQuestActor Actor(double x=10,double z=10,bool owned=false,bool flying=false){
   return new AutoQuestActor{X=x,Y=100,Z=z,Hp=500,CharacterVerified=true,ExclusiveLock=true,
