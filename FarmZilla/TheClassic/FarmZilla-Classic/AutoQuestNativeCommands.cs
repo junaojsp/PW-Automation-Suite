@@ -90,8 +90,10 @@ sealed class AutoQuestNativeCommands : IAutoQuestGameCommands, IDisposable {
    var state=client.Read();
    if(!state.FlightStateKnown)throw new IOException("Estado de voo transitório.");
    if(!state.IsFlying)return;
-   // A bounded descent pulse, re-evaluated against the REAL flight state by the driver.
+   // Disable the old cruise-height target before descent. Otherwise the
+   // flight auto-height may try to climb while the user expects landing.
    try{
+    RotaAvalon.NativeBridge.FlightHeightOff(client,library);
     RotaAvalon.NativeBridge.KeyMove(client,false,library);
     client.Vertical(-1);
     Thread.Sleep(300);
