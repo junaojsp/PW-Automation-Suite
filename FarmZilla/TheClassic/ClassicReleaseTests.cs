@@ -39,6 +39,7 @@ static class ClassicReleaseTests {
   AutoQuestFlightGuardTests.Run(Check);
   AutoQuestCatalogTests.Run(Check);
   AutoQuestScanPlannerTests.Run(Check);
+  AutoQuestExistingQuestPlannerTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
@@ -757,5 +758,32 @@ static class AutoQuestScanPlannerTests {
   raw.LocationVerified=false;
   check(AutoQuestScanPlanner.Select(actor,new[]{raw}).Move==AutoQuestMove.AwaitVerifiedData,
    "Auto Quest scanner: recusa localização não validada mesmo com estágio conhecido");
+ }
+}
+
+static class AutoQuestExistingQuestPlannerTests {
+ public static void Run(Action<bool,string> check){
+  var actor=new AutoQuestActor{X=1720,Y=237,Z=980,Hp=1081,
+   CharacterVerified=true,ExclusiveLock=true,FlightKnown=true,IsFlying=true};
+  var offered=new AutoQuestObservedTask{QuestId=900,Stage=AutoQuestStage.AcceptAtNpc,
+   StageVerified=true,StageRevision=1,LocationVerified=true,
+   AvailableVerified=true,NpcInstanceId=123,X=1721,Y=237,Z=981};
+  var accepted=new AutoQuestObservedTask{QuestId=1333,Stage=AutoQuestStage.KillMonsters,
+   StageVerified=true,StageRevision=2,LocationVerified=true,AcceptedVerified=true,
+   Required=10,Progress=2,RegionKey="sector",X=765.6,Y=237,Z=327.3};
+  var decision=AutoQuestExistingQuestPlanner.Select(actor,new[]{offered,accepted});
+  check(decision.Move==AutoQuestMove.MoveToRegion&&decision.QuestIds.SequenceEqual(new ushort[]{1333}),
+   "Auto Quest 0.6.12: accepted objective wins over nearby new NPC offer");
+  accepted.LocationVerified=false;
+  decision=AutoQuestExistingQuestPlanner.Select(actor,new[]{offered,accepted});
+  check(decision.Move==AutoQuestMove.AwaitVerifiedData,
+   "Auto Quest 0.6.12: incomplete accepted quest blocks new quest offers");
+  accepted.StageVerified=false;
+  decision=AutoQuestExistingQuestPlanner.Select(actor,new[]{offered,accepted});
+  check(decision.Move==AutoQuestMove.AwaitVerifiedData,
+   "Auto Quest 0.6.12: undecoded task ID never authorizes accepting new quests");
+  decision=AutoQuestExistingQuestPlanner.Select(actor,new[]{offered});
+  check(decision.Move==AutoQuestMove.WaitForLanding,
+   "Auto Quest 0.6.12: verified new NPC offer allowed only without undecoded owned tasks");
  }
 }
