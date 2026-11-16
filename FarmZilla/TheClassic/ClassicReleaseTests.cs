@@ -30,6 +30,7 @@ static class ClassicReleaseTests {
   ClassicSimulator.Run(Check);
   AutoQuestWorkflowTests.Run(Check);
   AutoQuestTravelTests.Run(Check);
+  AutoQuestVerifiedDriverTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
@@ -239,6 +240,115 @@ static class AutoQuestTravelTests {
     new AutoQuestTravelPolicy().Select(Actor(true),nearFlying,TimeSpan.Zero).Command==AutoQuestTravelCommand.Land&&
     afterLanding.Move==AutoQuestMove.StartF12,
    "Auto Quest: ao chegar voando pousa e só então inicia F12");
+ }
+}
+
+// No client is controlled in these tests: all action sinks are recording fakes.
+static class AutoQuestVerifiedDriverTests {
+ sealed class Fake : IAutoQuestGameCommands {
+  public readonly List<string> Sent=new List<string>();
+  public readonly List<double> GroundX=new List<double>(),AirX=new List<double>();
+  public void Takeoff(double x,double z){Sent.Add("takeoff");}
+  public void GroundPath(double x,double y,double z){Sent.Add("walk");GroundX.Add(x);}
+  public void FlightPath(double x,double z){Sent.Add("fly");AirX.Add(x);}
+  public void Descend(){Sent.Add("descend");}
+  public void Cultivate(bool enabled){Sent.Add(enabled?"f12_on":"f12_off");}
+  public void Halt(){Sent.Add("halt");}
+ }
+ static AutoQuestActor Actor(double x=0,double z=0,bool flying=false,bool known=true){
+  return new AutoQuestActor{X=x,Y=100,Z=z,Hp=1000,
+   CharacterVerified=true,ExclusiveLock=true,FlightKnown=known,IsFlying=flying};
+ }
+ static AutoQuestObservedTask Fight(double x=1000,double z=0,int progress=0,int required=3){
+  return new AutoQuestObservedTask{QuestId=1329,Title="Teste",Stage=AutoQuestStage.KillMonsters,
+   StageRevision=1,StageVerified=true,LocationVerified=true,AcceptedVerified=true,
+   RegionKey="Area verificada",Required=required,Progress=progress,X=x,Y=100,Z=z};
+ }
+ public static void Run(Action<bool,string> check){
+  var unknown=new AutoQuestObservedTask{QuestId=1329,Stage=AutoQuestStage.Unknown,
+   StageRevision=0,StageVerified=false,LocationVerified=false};
+  var f0=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f0)){
+   var r=d.Tick(Actor(),new[]{unknown},TimeSpan.Zero);
+   check(r.Stage==AutoQuestMove.AwaitVerifiedData&&f0.Sent.Count==0,
+    "Quest driver: só IDs brutos e bytes sem decodificação não autorizam comando");
+  }
+  var f1=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f1)){
+   var a=d.Tick(Actor(),new[]{Fight()},TimeSpan.Zero,false);
+   var b=d.Tick(Actor(),new[]{Fight()},TimeSpan.FromSeconds(5),false);
+   check(a.Travel==AutoQuestTravelCommand.GroundAutoPath&&a.Issued&&
+     f1.GroundX.Count==1&&Math.Abs(f1.GroundX[0]-120)<0.01&&!b.Issued,
+    "Quest driver: sem voo, auto caminho em perna de 120 sem repetir a cada tick");
+   var stalled=d.Tick(Actor(),new[]{Fight()},TimeSpan.FromSeconds(21),false);
+   check(stalled.Travel==AutoQuestTravelCommand.Pause&&!d.Running&&f1.Sent.Contains("halt"),
+    "Quest driver: sem progresso em 20 s para em vez de comandar caminho indefinidamente");
+  }
+  var f2=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f2)){
+   d.Tick(Actor(),new[]{Fight()},TimeSpan.Zero);
+   d.Tick(Actor(),new[]{Fight()},TimeSpan.FromSeconds(3));
+   d.Tick(Actor(),new[]{Fight()},TimeSpan.FromSeconds(6));
+   check(f2.Sent.SequenceEqual(new[]{"takeoff","walk"})&&Math.Abs(f2.GroundX[0]-120)<0.01,
+    "Quest driver: tenta voar uma vez, espera seis segundos e segue pelo chão");
+  }
+  var f3=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f3)){
+   d.Tick(Actor(0,0,true),new[]{Fight()},TimeSpan.Zero);
+   d.Tick(Actor(300,0,true),new[]{Fight()},TimeSpan.FromSeconds(12));
+   check(f3.Sent.SequenceEqual(new[]{"fly","fly"})&&
+     f3.AirX.Count==2&&Math.Abs(f3.AirX[0]-300)<0.01&&Math.Abs(f3.AirX[1]-600)<0.01,
+    "Quest driver: rota aérea em trechos de 300, reavaliando posição");
+  }
+  var f4=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f4)){
+   var t=Fight(1000,0,0,1);
+   d.Tick(Actor(1000,0,true),new[]{t},TimeSpan.Zero);
+   d.Tick(Actor(1000,0,true),new[]{t},TimeSpan.FromSeconds(1));
+   d.Tick(Actor(1000,0,true),new[]{t},TimeSpan.FromSeconds(2));
+   var farm=d.Tick(Actor(1000),new[]{t},TimeSpan.FromSeconds(3));
+   t.Progress=1;
+   var stop=d.Tick(Actor(1000),new[]{t},TimeSpan.FromSeconds(4));
+   check(f4.Sent.SequenceEqual(new[]{"descend","descend","f12_on","f12_off"})&&
+     farm.Stage==AutoQuestMove.StartF12&&stop.Stage==AutoQuestMove.StopF12,
+    "Quest driver: descida, F12 só após pouso e desligamento ao concluir objetivos");
+  }
+  var f5=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f5)){
+   var t=Fight(1000,0);t.Stage=AutoQuestStage.DeliverToNpc;t.NpcInstanceId=330;
+   t.ReadyForDeliveryVerified=true;
+   var r=d.Tick(Actor(1000),new[]{t},TimeSpan.Zero);
+   check(r.Stage==AutoQuestMove.DeliverQuest&&f5.Sent.Count==0,
+    "Quest driver: não inventa pacote NPC/entrega mesmo com etapa validada");
+  }
+  var f6=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f6)){
+   var t=Fight(1000,0);
+   d.Tick(Actor(1000),new[]{t},TimeSpan.Zero);
+   var unsafeActor=Actor(1000);unsafeActor.ExclusiveLock=false;
+   var r=d.Tick(unsafeActor,new[]{t},TimeSpan.FromSeconds(1));
+   check(r.Travel==AutoQuestTravelCommand.Pause&&!d.Running&&
+     f6.Sent.SequenceEqual(new[]{"f12_on","f12_off"}),
+    "Quest driver: perda de exclusividade desliga só F12 que ele próprio iniciou");
+  }
+  var f7=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f7)){
+   var noFlight=Actor(0,0,false,false);
+   var r=d.Tick(noFlight,new[]{Fight()},TimeSpan.Zero);
+   check(r.Travel==AutoQuestTravelCommand.WaitForFlightState&&f7.Sent.Count==0,
+    "Quest driver: estado de voo desconhecido não inicia viagem");
+  }
+  // Real 0.6.5 diagnostic for ID 1329: byte +06 changed 02->03 during combat,
+  // then ID disappeared after the NPC. Neither is a verified objective counter or reward.
+  byte[] record=new byte[32];record[0]=0x31;record[1]=0x05;record[6]=0x02;
+  byte[] changed=(byte[])record.Clone();changed[6]=0x03;
+  var oldRow=new AutoQuestRawTaskRecord{Id=1329,Occurrence=0,Data=record};
+  var newRow=new AutoQuestRawTaskRecord{Id=1329,Occurrence=0,Data=changed};
+  var changes=AutoQuestRawTaskDiff.Changes(new[]{oldRow},new[]{newRow});
+  var removed=AutoQuestRawTaskDiff.Changes(new[]{newRow},new AutoQuestRawTaskRecord[0]);
+  check(changes.Count==1&&changes[0].Kind=="ALTERADO"&&changes[0].Detail.Contains("06:02>03")&&
+    removed.Count==1&&removed[0].Kind=="REMOVIDO",
+   "Quest log 0.6.5: correlacionar progresso candidato e saída no NPC, sem supor conclusão");
  }
 }
 
