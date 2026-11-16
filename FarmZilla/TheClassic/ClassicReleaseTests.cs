@@ -309,7 +309,7 @@ static class AutoQuestVerifiedDriverTests {
    var farm=d.Tick(Actor(1000),new[]{t},TimeSpan.FromSeconds(3));
    t.Progress=1;
    var stop=d.Tick(Actor(1000),new[]{t},TimeSpan.FromSeconds(4));
-   check(f4.Sent.SequenceEqual(new[]{"descend","descend","f12_on","f12_off"})&&
+   check(f4.Sent.SequenceEqual(new[]{"descend","descend","halt","f12_on","f12_off"})&&
      farm.Stage==AutoQuestMove.StartF12&&stop.Stage==AutoQuestMove.StopF12,
     "Quest driver: descida, F12 só após pouso e desligamento ao concluir objetivos");
   }
