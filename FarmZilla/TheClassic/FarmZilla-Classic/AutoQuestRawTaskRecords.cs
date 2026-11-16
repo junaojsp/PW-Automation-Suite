@@ -29,7 +29,7 @@ static class AutoQuestRawTaskDiff {
   return index;
  }
  public static List<AutoQuestRawTaskChange> Changes(IEnumerable<AutoQuestRawTaskRecord> previous,IEnumerable<AutoQuestRawTaskRecord> current){
-  var old=Index(previous),now=Index(current);
+  Dictionary<string,AutoQuestRawTaskRecord> old=Index(previous),now=Index(current);
   var changes=new List<AutoQuestRawTaskChange>();
   foreach(var item in now.OrderBy(x=>x.Value.Id).ThenBy(x=>x.Value.Occurrence)){
    AutoQuestRawTaskRecord before;
