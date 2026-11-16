@@ -26,11 +26,20 @@ static class LayoutPreview {
    form.Show();form.Update();
    Check(form.ClientSize==new Size(562,690),"Tamanho inicial inesperado");
    var tools=form.Controls.OfType<SideItem>().ToArray();
-   Check(tools.Length==6,"Menu incompleto");
+   Check(tools.Length==7,"Menu incompleto: esperado Espelho, Mat, VM, Token, Frost, Skill e Auto Quest");
+   Check(tools.Any(t=>t.Text=="Auto Quest"),"Auto Quest ausente do menu");
    Check(tools.Single(t=>t.Selected).Text=="Espelho","A tela inicial deve ser Espelho");
    Check(Get(form,"frostAutomation")==null,"Frost não deve abrir na inicialização");
    foreach(var t in tools){Check(t.Right<172,"Ferramenta invade Espelho");Check(!tools.Any(o=>o!=t&&o.Bounds.IntersectsWith(t.Bounds)),"Menu sobreposto");}
    Bounds(form);Capture(form,"farmzilla-layout.png");
+   // Auto Quest is an embedded preparation screen; it must not launch missions.
+   typeof(Control).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(tools.Single(t=>t.Text=="Auto Quest"),new object[]{EventArgs.Empty});
+   var quest=(Panel)Get(form,"autoQuestHost");
+   Check(quest!=null&&quest.Visible&&tools.Single(t=>t.Selected).Text=="Auto Quest","Auto Quest não abriu no painel interno");
+   Check(quest.Controls.OfType<Panel>().Any(),"Conteúdo Auto Quest ausente");
+   Bounds(form);Capture(form,"farmzilla-autoquest-layout.png");
+   Call(form,"ShowEspelhoInline");
+   Check(!quest.Visible&&tools.Single(t=>t.Selected).Text=="Espelho","Retorno Auto Quest → Espelho falhou");
    var bar=(Panel)Get(form,"sharedPotBar");
    var gear=bar.Controls.OfType<Button>().Single(b=>b.AccessibleName=="Configurar Auto Pot");gear.PerformClick();
    var drawer=(Panel)Get(form,"potDrawer");
