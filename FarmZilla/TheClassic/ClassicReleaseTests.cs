@@ -29,6 +29,7 @@ static class ClassicReleaseTests {
   catch(Exception e){Check(false,"tira de ícones TGA: "+e.Message);}
   ClassicSimulator.Run(Check);
   AutoQuestWorkflowTests.Run(Check);
+  AutoQuestTravelTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
@@ -178,6 +179,69 @@ static class AutoQuestWorkflowTests {
 
 
 // Pure fixture tests: validate byte-delta collection without reading a game client.
+// Travel is planned offline until verified quest targets and the live Auto Quest executor exist.
+static class AutoQuestTravelTests {
+ static AutoQuestActor Actor(bool flying=false,bool stateKnown=true){
+  return new AutoQuestActor{X=10,Y=100,Z=10,Hp=1000,
+   CharacterVerified=true,ExclusiveLock=true,FlightKnown=stateKnown,IsFlying=flying};
+ }
+ static AutoQuestDecision Target(){
+  return new AutoQuestDecision{Move=AutoQuestMove.MoveToRegion,QuestIds=new ushort[]{1329,1331},
+   RegionKey="regiao-confirmada",X=1800,Y=200,Z=1700};
+ }
+ public static void Run(Action<bool,string> check){
+  var destination=Target();
+  var foot=new AutoQuestTravelPolicy();
+  var ground=foot.Select(Actor(),destination,TimeSpan.Zero,false);
+  check(ground.Command==AutoQuestTravelCommand.GroundAutoPath&&ground.X==1800&&ground.Z==1700,
+   "Auto Quest: sem voo equipado usa auto caminho sem tentar decolar");
+  var air=new AutoQuestTravelPolicy();
+  check(air.Select(Actor(),destination,TimeSpan.Zero,true).Command==AutoQuestTravelCommand.TryTakeoff,
+   "Auto Quest: com voo equipado tenta decolar uma vez");
+  check(air.Select(Actor(),destination,TimeSpan.FromSeconds(3),true).Command==AutoQuestTravelCommand.WaitForTakeoff,
+   "Auto Quest: aguarda decolagem sem repetir comandos");
+  check(air.Select(Actor(true),destination,TimeSpan.FromSeconds(4),true).Command==AutoQuestTravelCommand.FlyToTarget,
+   "Auto Quest: estado voando confirmado usa percurso aéreo");
+  var landedAction=AutoQuestDecision.Of(AutoQuestMove.WaitForLanding,"Aguardar pouso.");
+  check(air.Select(Actor(true),landedAction,TimeSpan.FromSeconds(5)).Command==AutoQuestTravelCommand.Land,
+   "Auto Quest: manda pousar antes de NPC ou F12");
+  check(air.Select(Actor(),landedAction,TimeSpan.FromSeconds(6)).Command==AutoQuestTravelCommand.None,
+   "Auto Quest: pouso confirmado libera reavaliação do planejador");
+  var fallback=new AutoQuestTravelPolicy();
+  check(fallback.Select(Actor(),destination,TimeSpan.Zero).Command==AutoQuestTravelCommand.TryTakeoff,
+   "Auto Quest: equipamento desconhecido não é confundido com ausência de voo");
+  check(fallback.Select(Actor(),destination,TimeSpan.FromSeconds(6)).Command==AutoQuestTravelCommand.GroundAutoPath,
+   "Auto Quest: sem decolagem em seis segundos troca para caminho terrestre");
+  var nextNpc=new AutoQuestDecision{Move=AutoQuestMove.MoveToNpc,QuestIds=new ushort[]{1329},
+   NpcInstanceId=123,X=1712,Y=220,Z=982};
+  check(fallback.Select(Actor(),nextNpc,TimeSpan.FromSeconds(30),true).Command==AutoQuestTravelCommand.GroundAutoPath,
+   "Auto Quest: não repete decolagem falhada ao voltar para outro NPC");
+  fallback.Reset();
+  check(fallback.Select(Actor(),nextNpc,TimeSpan.FromSeconds(31),true).Command==AutoQuestTravelCommand.TryTakeoff,
+   "Auto Quest: nova sessão ou equipamento alterado permite nova tentativa");
+  check(new AutoQuestTravelPolicy().Select(Actor(false,false),destination,TimeSpan.Zero).Command==AutoQuestTravelCommand.WaitForFlightState,
+   "Auto Quest: estado de voo incerto bloqueia comandos");
+  var denied=Actor();denied.ExclusiveLock=false;
+  check(new AutoQuestTravelPolicy().Select(denied,destination,TimeSpan.Zero).Command==AutoQuestTravelCommand.Pause,
+   "Auto Quest: preservar trava de exclusividade Espelho/Mat/Frost");
+  var invalid=Target();invalid.X=Double.NaN;
+  check(new AutoQuestTravelPolicy().Select(Actor(),invalid,TimeSpan.Zero).Command==AutoQuestTravelCommand.Pause,
+   "Auto Quest: destino sem coordenadas válidas não gera navegação");
+  check(new AutoQuestTravelPolicy().Select(Actor(),AutoQuestDecision.Of(AutoQuestMove.AwaitVerifiedData,
+    "Sem estágio validado."),TimeSpan.Zero).Command==AutoQuestTravelCommand.None,
+   "Auto Quest: não navega quando faltam dados reais da missão");
+  var task=new AutoQuestObservedTask{QuestId=1329,Stage=AutoQuestStage.KillMonsters,
+   StageRevision=1,StageVerified=true,LocationVerified=true,AcceptedVerified=true,
+   RegionKey="bosque",Required=3,Progress=0,X=10,Y=100,Z=10};
+  var nearFlying=AutoQuestWorkflow.Decide(Actor(true),new[]{task});
+  var afterLanding=AutoQuestWorkflow.Decide(Actor(),new[]{task});
+  check(nearFlying.Move==AutoQuestMove.WaitForLanding&&
+    new AutoQuestTravelPolicy().Select(Actor(true),nearFlying,TimeSpan.Zero).Command==AutoQuestTravelCommand.Land&&
+    afterLanding.Move==AutoQuestMove.StartF12,
+   "Auto Quest: ao chegar voando pousa e só então inicia F12");
+ }
+}
+
 static class AutoQuestRawTaskTests {
  static AutoQuestRawTaskRecord Record(ushort id,int occurrence=0,byte flag=0){
   var bytes=new byte[32];Buffer.BlockCopy(BitConverter.GetBytes(id),0,bytes,0,2);
