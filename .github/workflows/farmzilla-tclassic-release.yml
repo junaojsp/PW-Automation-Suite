@@ -30,7 +30,7 @@ jobs:
       - name: Disponibilizar executável
         uses: actions/upload-artifact@v4
         with:
-          name: FarmZilla-Classic-0.6.3-AutoQuest-DIAGNOSTICO-x86
+          name: FarmZilla-Classic-0.6.4-AutoQuest-REGISTROS-x86
           path: |
             FarmZilla/TheClassic/artifacts/FarmZilla-Classic.exe
             FarmZilla/TheClassic/artifacts/SHA256-Classic.txt
