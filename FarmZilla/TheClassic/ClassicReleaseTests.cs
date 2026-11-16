@@ -36,6 +36,7 @@ static class ClassicReleaseTests {
   AutoQuestRawTaskTests.Run(Check);
   AutoQuestRecoveryTests.Run(Check);
   AutoQuestAdaptiveDetourTests.Run(Check);
+  AutoQuestFlightGuardTests.Run(Check);
   AutoQuestCatalogTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
@@ -234,6 +235,37 @@ static class AutoQuestAdaptiveDetourTests {
    AutoQuestAdaptiveDetour.MaxFailures==6&&
    AutoQuestAdaptiveDetour.MinMovement>7,
    "Auto Quest 0.6.9: limite de comandos, falhas e movimento mínimo superior ao do log");
+ }
+}
+
+// Regression of the real ProFile flight log, 2026-11-16 11:45:56..11:46:38:
+// X/Z approach the destination correctly but Y climbs from 237.4 to 426.7.
+static class AutoQuestFlightGuardTests {
+ public static void Run(Action<bool,string> check){
+  var flight=new AutoQuestFlightGuard(237.4,1720.0,980.1,765.6,327.3);
+  check(flight.FixedHeight==24&&
+   Math.Abs(flight.ReferenceY-237.4)<0.01&&
+   AutoQuestFlightGuard.MaxFlightLeg==90&&
+   AutoQuestFlightGuard.MaxFlightLeg<AutoQuestBetaSession.MaxStepFlight,
+   "Auto Quest 0.6.10: altura fixa 24 (Y inicial/10), pernas de voo 90 em vez de 280");
+  check(flight.Validate(1718.9,239.7,982.0)==null&&
+   flight.Validate(1697.6,265.1,968.7)!=null&&
+   flight.Validate(1565.2,426.7,876.0)!=null,
+   "Auto Quest 0.6.10: interrompe subida descontrolada do log antes de atingir Y=426");
+  check(flight.Validate(1697.6,220.0,968.7)==null&&
+   flight.Validate(1697.6,217.0,968.7)!=null,
+   "Auto Quest 0.6.10: monitora também quedas inesperadas em voo");
+  check(flight.Validate(2000,237.4,1050)!=null&&
+   flight.Validate(2000,237.4,1050,false)==null,
+   "Auto Quest 0.6.10: reconhece afastamento XZ do destino, exceto no retorno solicitado");
+  check(typeof(AutoQuestNativeCommands).GetMethod("FlightPath",
+   new Type[]{typeof(double),typeof(double),typeof(int)})!=null&&
+   typeof(RotaAvalon.NativeBridge).GetMethod("FlightHeightOff")!=null,
+   "Auto Quest 0.6.10: ponte usa altura fixa e suporta desligar controle vertical");
+  bool invalid=false;
+  try{new AutoQuestFlightGuard(Double.NaN,1720,980,765,327);}
+  catch(ArgumentException){invalid=true;}
+  check(invalid,"Auto Quest 0.6.10: bloqueia altitude inicial inválida");
  }
 }
 
