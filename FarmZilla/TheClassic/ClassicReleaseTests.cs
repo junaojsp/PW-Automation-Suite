@@ -443,12 +443,15 @@ static class AutoQuestEvidenceTests {
   check(random.Count==0&&!removedWithoutActivity.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
     "Quest evidência: alteração sem atividade associada não se confunde com progresso");
   var occurrences=new AutoQuestEvidenceTracker();
-  var second=Rec(1329,1,updated);
+  var secondInitial=Rec(1329,1,initial);
+  var secondUpdated=Rec(1329,1,updated);
   Replay(occurrences,new AutoQuestRawTaskRecord[0],new[]{initialRecord},true,false);
-  Replay(occurrences,new[]{initialRecord},new[]{updatedRecord},false,true);
-  var differentOccurrence=Replay(occurrences,new[]{updatedRecord},new[]{second},true,false);
+  Replay(occurrences,new[]{initialRecord},new[]{initialRecord,secondInitial},true,false);
+  Replay(occurrences,new[]{initialRecord,secondInitial},new[]{initialRecord,secondUpdated},false,true);
+  var differentOccurrence=Replay(occurrences,new[]{initialRecord,secondUpdated},
+    new[]{secondUpdated},true,false);
   check(!differentOccurrence.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
-    "Quest evidência: ocorrências internas distintas do mesmo ID não se misturam");
+    "Quest evidência: alteração da ocorrência 1 não completa ciclo da ocorrência 0");
   tracker.Reset();
   var afterReset=Replay(tracker,new[]{updatedRecord},new AutoQuestRawTaskRecord[0],true,false);
   check(!afterReset.Any(x=>x.Kind==AutoQuestEvidenceKind.CorrelatedRawCycle),
