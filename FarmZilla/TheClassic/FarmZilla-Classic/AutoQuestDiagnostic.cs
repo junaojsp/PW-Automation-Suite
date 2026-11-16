@@ -75,7 +75,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
  }
  static string Coords(Snapshot s){return s.X.ToString("0.0")+","+s.Y.ToString("0.0")+","+s.Z.ToString("0.0");}
  static string Hex(uint value){return "0x"+value.ToString("X8");}
- void Observe(Snapshot before,Snapshot now,int secondsSinceLastPos){
+ void Observe(Snapshot before,Snapshot now){
   if(before==null){
    Log("INICIAL; nivel="+now.Level+"; HP="+now.Hp+"/"+now.MaxHp+"; XYZ="+Coords(now)+"; voo="+now.Flight+
     "; ação="+now.Action+"; alvo="+Hex(now.Target)+"; contexto NPC="+Hex(now.NpcContext)+
@@ -96,8 +96,8 @@ sealed class AutoQuestDiagnostic : IDisposable {
    Log("HP; "+before.Hp+" -> "+now.Hp+"; XYZ="+Coords(now));
   if(!before.ConfirmRows.SequenceEqual(now.ConfirmRows))
    Log("LINHAS DA JANELA DE ENTREGA (IDs brutos); "+String.Join(",",now.ConfirmRows));
-  var oldIds=new HashSet<ushort>(before.RawQuestIds),newIds=new HashSet<ushort>(now.RawQuestIds);
-  var added=newIds.Except(oldIds).OrderBy(x=>x).ToArray(),removed=oldIds.Except(newIds).OrderBy(x=>x).ToArray();
+  HashSet<ushort> oldIds=new HashSet<ushort>(before.RawQuestIds),newIds=new HashSet<ushort>(now.RawQuestIds);
+  ushort[] added=newIds.Except(oldIds).OrderBy(x=>x).ToArray(),removed=oldIds.Except(newIds).OrderBy(x=>x).ToArray();
   if(added.Length>0||removed.Length>0)
    Log("REGISTROS DE MISSÃO ALTERADOS; adicionados="+String.Join(",",added)+"; removidos="+String.Join(",",removed)+
     "; total interno="+now.RawQuestIds.Length+"; XYZ="+Coords(now));
@@ -109,7 +109,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
    while(watch.Elapsed.TotalSeconds<240&&!token.IsCancellationRequested){
     try{
      Snapshot current=Read();errors=0;
-     Observe(previous,current,(int)(DateTime.UtcNow-lastPosition).TotalSeconds);
+     Observe(previous,current);
      double dx=previous==null?0:current.X-previous.X,dy=previous==null?0:current.Y-previous.Y,dz=previous==null?0:current.Z-previous.Z;
      if(previous!=null&&(dx*dx+dy*dy+dz*dz>=9)&&(DateTime.UtcNow-lastPosition).TotalSeconds>=3){
       Log("DESLOCAMENTO; XYZ="+Coords(current)+"; voo="+current.Flight+"; ação="+current.Action+
