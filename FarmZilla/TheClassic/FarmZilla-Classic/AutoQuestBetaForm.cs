@@ -30,7 +30,7 @@ sealed class AutoQuestBetaForm : Form {
   zBox=AddInput(295,79,97);
   AddLabel("ID interno*",400,59,130,20);
   taskBox=AddInput(400,79,122);
-  attemptFlight=new CheckBox{Text="Tentar voar; se não decolar, usar auto caminho",Left=18,Top=119,
+  attemptFlight=new CheckBox{Text="Modo voo: altitude fixa; se não decolar, PARAR sem caminhar",Left=18,Top=119,
    Width=512,Height=24,Checked=true,ForeColor=Rubi.Text};
   Controls.Add(attemptFlight);
   help=AddLabel("* Opcional. Sem ID, testa só o deslocamento (F12 fica bloqueado).",18,147,510,40);
