@@ -38,6 +38,7 @@ static class ClassicReleaseTests {
   AutoQuestAdaptiveDetourTests.Run(Check);
   AutoQuestFlightGuardTests.Run(Check);
   AutoQuestCatalogTests.Run(Check);
+  AutoQuestScanPlannerTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
@@ -732,5 +733,29 @@ static class AutoQuestRawTaskTests {
     new AutoQuestRawTaskRecord{Id=3,Occurrence=0,Data=new byte[6]}
    });}catch(ArgumentException){rejected=true;}
   check(rejected,"Auto Quest: registros truncados são rejeitados");
+ }
+}
+
+static class AutoQuestScanPlannerTests {
+ public static void Run(Action<bool,string> check){
+  var actor=new AutoQuestActor{X=1720,Y=237,Z=980,Hp=1081,
+   CharacterVerified=true,ExclusiveLock=true,FlightKnown=true,IsFlying=true};
+  var empty=AutoQuestScanPlanner.Select(actor,new AutoQuestObservedTask[0]);
+  check(empty.Move==AutoQuestMove.AwaitVerifiedData,
+   "Auto Quest scanner: sem missões decodificadas NÃO viaja para coordenada fixa");
+  var raw=new AutoQuestObservedTask{QuestId=1333,Title="título do catálogo",
+   Stage=AutoQuestStage.KillMonsters,StageVerified=false,
+   LocationVerified=false,X=765.6,Z=327.3,AcceptedVerified=true,
+   Required=10,Progress=0,RegionKey="setor"};
+  check(AutoQuestScanPlanner.Select(actor,new[]{raw}).Move==AutoQuestMove.AwaitVerifiedData,
+   "Auto Quest scanner: ID bruto e título não autorizam voo até o destino antigo");
+  raw.StageVerified=true;raw.LocationVerified=true;raw.StageRevision=1;
+  var verified=AutoQuestScanPlanner.Select(actor,new[]{raw});
+  check(verified.Move==AutoQuestMove.MoveToRegion&&verified.QuestIds.Contains((ushort)1333)&&
+   Math.Abs(verified.X-765.6)<0.01,
+   "Auto Quest scanner: usa rotina existente somente com estágio e destino verificados");
+  raw.LocationVerified=false;
+  check(AutoQuestScanPlanner.Select(actor,new[]{raw}).Move==AutoQuestMove.AwaitVerifiedData,
+   "Auto Quest scanner: recusa localização não validada mesmo com estágio conhecido");
  }
 }
