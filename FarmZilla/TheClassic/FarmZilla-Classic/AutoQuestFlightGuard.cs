@@ -25,7 +25,7 @@ sealed class AutoQuestFlightGuard {
  }
  public double DeltaY(double y){return y-ReferenceY;}
  public double Remaining(double x,double z){return Distance(x,z,GoalX,GoalZ);}
- public string Validate(double x,double y,double z){
+ public string Validate(double x,double y,double z,bool checkCourse=true){
   if(!RotaAvalon.GameClient.ValidCoordinate(x)||!RotaAvalon.GameClient.ValidCoordinate(y)||
    !RotaAvalon.GameClient.ValidCoordinate(z))
    return "Coordenadas de voo ilegíveis.";
@@ -40,7 +40,7 @@ sealed class AutoQuestFlightGuard {
     ". Navegação aérea parada automaticamente.";
   double initial=Distance(StartX,StartZ,GoalX,GoalZ);
   double actual=Remaining(x,z);
-  if(actual>initial+MaxCourseDetour)
+  if(checkCourse&&actual>initial+MaxCourseDetour)
    return "Deslocamento aéreo afastou-se do objetivo em "+
     (actual-initial).ToString("0.0")+" unidades; navegação interrompida.";
   return null;
