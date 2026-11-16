@@ -190,10 +190,8 @@ static class AutoQuestRecoveryTests {
    !AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1765,1788)&&
    AutoQuestGroundCorridor.For("ProFile",1710,978,1750,1773.4)==null,
    "Auto Quest: corredor aprendido só se aplica ao personagem/região do teste comprovado");
-  bool rejectsWrongStart=false;
-  try{AutoQuestGroundCorridor.For("CheirosoWB",1687.7,1301.5,1750,1773.4);}
-  catch(System.IO.IOException){rejectsWrongStart=true;}
-  check(rejectsWrongStart,"Auto Quest: início no ponto da parede não reutiliza trilha como atalho");
+  check(AutoQuestGroundCorridor.For("CheirosoWB",1687.7,1301.5,1750,1773.4)==null,
+   "Auto Quest: início fora do corredor não falha de cara nem reutiliza a trilha como atalho");
   var corridor=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
   check(corridor!=null&&corridor.Next(1725,979.9,false).Index<=4,
    "Auto Quest: do NPC começa pelos primeiros pontos, sem salto direto ao alvo");
