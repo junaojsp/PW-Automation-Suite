@@ -56,6 +56,7 @@ partial class AvalonInterno {
  async Task PrepareFrost(){await StopAttacks();await missions.CancelAndWait();}
  Panel frostInlineHost;bool frostInlineView;SideItem sideFrostInline;
  void OpenFrostAutomation(){
+  if(autoQuestView)ShowEspelhoInline();
   if(closeInProgress||authorizationDenied)return;if(rotaView)ShowRotaView(false);
   if(frostAutomation==null||frostAutomation.IsDisposed){
    frostAutomation=new FrostAutomationForm(FrostAccounts,()=>!authorizationDenied&&!closeInProgress&&shortcutActive&&!controlLocked,PrepareFrost);
@@ -69,6 +70,7 @@ partial class AvalonInterno {
   LayoutInlinePanels();frostInlineHost.Visible=true;frostInlineHost.BringToFront();frostAutomation.Show();if(sharedPotBar!=null)sharedPotBar.BringToFront();if(potDrawer!=null&&potDrawer.Visible)potDrawer.BringToFront();
  }
  void ShowEspelhoInline(){
+  if(autoQuestView)CloseAutoQuest();
   if(rotaView)ShowRotaView(false);
   if(frostInlineView){frostInlineView=false;if(frostInlineHost!=null)frostInlineHost.Visible=false;foreach(var kv in panelVisible)kv.Key.Visible=kv.Value;UpdateAttackRows();}
   sidePersonagens.Selected=true;if(sideFrostInline!=null)sideFrostInline.Selected=false;LayoutInlinePanels();Invalidate(true);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 // Offline checks of the FarmZilla The Classic release build (no game client needed).
 static class ClassicReleaseTests {
@@ -27,6 +28,8 @@ static class ClassicReleaseTests {
    using(var strip=ClassIcons.Tga(tga.ToArray()))Check(strip.Width==8&&strip.Height==h&&strip.GetPixel(0,5*8+3).B==50&&strip.GetPixel(0,11*8).B==110,"tira de ícones TGA: quadro N = classe N");}
   catch(Exception e){Check(false,"tira de ícones TGA: "+e.Message);}
   ClassicSimulator.Run(Check);
+  AutoQuestWorkflowTests.Run(Check);
+  AutoQuestRawTaskTests.Run(Check);
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
   return failures==0?0:1;
  }
@@ -75,5 +78,133 @@ static class ClassicSimulator {
   var plan=RotaAvalon.FarmPlanner.Build(new[]{marker,blocked},new[]{3098,1},player,400);
   check(plan.Points.Count==1&&plan.Points[0].ResourceId==3098,"nível 6 planeja o mat de tier 1 e deixa de fora o mínimo real");
   check(FollowFlight.ShouldTakeoff(true,true,false)&&!FollowFlight.ShouldTakeoff(true,false,false)&&!FollowFlight.ShouldTakeoff(true,true,true)&&!FollowFlight.ShouldTakeoff(false,true,false),"seguidor no chão decola só quando o líder está no ar");
+ }
+}
+
+
+// The planned workflow is tested offline. These tests DO NOT claim live NPC/quest decoding is complete.
+static class AutoQuestWorkflowTests {
+ static AutoQuestActor Actor(double x=10,double z=10,bool owned=false,bool flying=false){
+  return new AutoQuestActor{X=x,Y=100,Z=z,Hp=500,CharacterVerified=true,ExclusiveLock=true,
+    FlightKnown=true,IsFlying=flying,F12Owned=owned};
+ }
+ static AutoQuestObservedTask Task(ushort id,AutoQuestStage stage,uint npc=0,double x=10,double z=10,
+    string region=null,int progress=0,int required=0){
+  return new AutoQuestObservedTask{QuestId=id,Title="Missão "+id,Stage=stage,StageRevision=1,
+   StageVerified=true,LocationVerified=true,AcceptedVerified=stage!=AutoQuestStage.AcceptAtNpc,
+   AvailableVerified=stage==AutoQuestStage.AcceptAtNpc,ReadyForDeliveryVerified=stage==AutoQuestStage.DeliverToNpc,
+   NpcInstanceId=npc,X=x,Y=100,Z=z,RegionKey=region,Progress=progress,Required=required};
+ }
+ public static void Run(Action<bool,string> check){
+  // NPC A offers quest; the CURRENT stage then sends the player to a different NPC B.
+  var offer=Task(100,AutoQuestStage.AcceptAtNpc,110,10,10);
+  var accepted=AutoQuestWorkflow.Decide(Actor(),new[]{offer});
+  check(accepted.Move==AutoQuestMove.AcceptQuest&&accepted.NpcInstanceId==110,"Quest: aceitar no NPC inicial A");
+  var talk=Task(100,AutoQuestStage.TalkToNpc,220,70,10);
+  var toB=AutoQuestWorkflow.Decide(Actor(),new[]{talk});
+  check(toB.Move==AutoQuestMove.MoveToNpc&&toB.NpcInstanceId==220,"Quest: seguir para NPC B diferente do inicial");
+  var atB=AutoQuestWorkflow.Decide(Actor(70,10),new[]{talk});
+  check(atB.Move==AutoQuestMove.InteractNpc&&atB.NpcInstanceId==220,"Quest: conversar com o NPC B");
+  var antiRepeat=new AutoQuestActionGuard();
+  check(antiRepeat.TryIssue(atB,talk)&&!antiRepeat.TryIssue(atB,talk),
+   "Quest: não repetir interação sem confirmação de nova etapa");
+  talk.StageRevision=2;
+  check(antiRepeat.TryIssue(atB,talk),"Quest: nova revisão confirmada libera interação");
+  var wolfA=Task(100,AutoQuestStage.KillMonsters,0,100,100,"Bosque",0,10);
+  var wolfB=Task(101,AutoQuestStage.KillMonsters,0,101,98,"Bosque",0,8);
+  var distant=Task(102,AutoQuestStage.KillMonsters,0,400,400,"Montanha",0,12);
+  var trip=AutoQuestWorkflow.Decide(Actor(70,10),new[]{wolfA,wolfB,distant});
+  check(trip.Move==AutoQuestMove.MoveToRegion&&trip.QuestIds.SequenceEqual(new ushort[]{100,101}),
+   "Quest: mesmo bosque agrupa duas missões em uma viagem");
+  var farInSameLabel=Task(104,AutoQuestStage.KillMonsters,0,200,220,"Bosque",0,3);
+  var separated=AutoQuestWorkflow.Decide(Actor(70,10),new[]{wolfA,wolfB,farInSameLabel});
+  check(separated.Move==AutoQuestMove.MoveToRegion&&separated.QuestIds.SequenceEqual(new ushort[]{100,101}),
+   "Quest: regiões de mesmo nome distantes não viram uma área única");
+  var landing=AutoQuestWorkflow.Decide(Actor(100,100,false,true),new[]{wolfA,wolfB,distant});
+  check(landing.Move==AutoQuestMove.WaitForLanding,"Quest: não iniciar F12 no ar");
+  var farm=AutoQuestWorkflow.Decide(Actor(100,100),new[]{wolfA,wolfB,distant});
+  check(farm.Move==AutoQuestMove.StartF12&&farm.QuestIds.SequenceEqual(new ushort[]{100,101}),
+   "Quest: inicia F12 somente na área com várias missões");
+  wolfA.Progress=10;
+  var keep=AutoQuestWorkflow.Decide(Actor(100,100,true),new[]{wolfA,wolfB,distant});
+  check(keep.Move==AutoQuestMove.KeepF12&&keep.QuestIds.SequenceEqual(new ushort[]{101}),
+   "Quest: manter F12 até a segunda missão terminar");
+  wolfB.Progress=8;
+  var stop=AutoQuestWorkflow.Decide(Actor(100,100,true),new[]{wolfA,wolfB,distant});
+  check(stop.Move==AutoQuestMove.StopF12,"Quest: desligar F12 antes de viajar à próxima região");
+  var wait=AutoQuestWorkflow.Decide(Actor(100,100),new[]{wolfA,wolfB});
+  check(wait.Move==AutoQuestMove.WaitForStageUpdate,"Quest: aguardar confirmação do estágio após progresso completo");
+  var delivery=Task(100,AutoQuestStage.DeliverToNpc,330,500,10);
+  var goDeliver=AutoQuestWorkflow.Decide(Actor(100,100),new[]{delivery,distant});
+  check(goDeliver.Move==AutoQuestMove.MoveToNpc&&goDeliver.NpcInstanceId==330,
+   "Quest: entrega em NPC C mesmo quando outra área tem combate pendente");
+  var turnIn=AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery});
+  check(turnIn.Move==AutoQuestMove.DeliverQuest&&turnIn.NpcInstanceId==330,
+   "Quest: missão previamente aceita pronta para entrega no NPC C");
+  var sameNpc=Task(105,AutoQuestStage.DeliverToNpc,330,500,10);
+  var multi=AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery,sameNpc});
+  var turnInGate=new AutoQuestActionGuard();
+  check(multi.Move==AutoQuestMove.DeliverQuest&&multi.QuestIds.SequenceEqual(new ushort[]{100,105})&&
+   turnInGate.TryIssue(multi,delivery)&&turnInGate.TryIssue(multi,sameNpc)&&!turnInGate.TryIssue(multi,delivery),
+   "Quest: agrupar entrega no mesmo NPC mas enviar um comando por missão");
+  delivery.HasRewardChoice=true;
+  var otherDelivery=AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery,sameNpc});
+  check(otherDelivery.Move==AutoQuestMove.DeliverQuest&&otherDelivery.QuestIds.SequenceEqual(new ushort[]{105}),
+   "Quest: entrega simples não fica bloqueada por recompensa de outra missão");
+  check(AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery}).Move==AutoQuestMove.ManualReward,
+   "Quest: recompensa com escolha não dispara entrega automática");
+  delivery.HasRewardChoice=false;delivery.ReadyForDeliveryVerified=false;
+  check(AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery}).Move==AutoQuestMove.AwaitVerifiedData,
+   "Quest: não entregar sem status de conclusão confirmado");
+  var unknown=Task(33,AutoQuestStage.Unknown);
+  check(AutoQuestWorkflow.Decide(Actor(),new[]{unknown}).Move==AutoQuestMove.AwaitVerifiedData,
+   "Quest: ID bruto não significa missão pronta para entrega");
+  var dead=Actor(100,100,true);dead.Hp=0;
+  check(AutoQuestWorkflow.Decide(dead,new[]{wolfA}).Move==AutoQuestMove.StopF12,
+   "Quest: desligar autocultivo no personagem morto");
+  var conflict=Actor(100,100);conflict.ExclusiveLock=false;
+  check(AutoQuestWorkflow.Decide(conflict,new[]{wolfA}).Move==AutoQuestMove.Pause,
+   "Quest: bloquear sem exclusividade Mat Farm/Frost");
+  var collect=Task(103,AutoQuestStage.CollectItems,0,100,100,"Mina",0,4);
+  check(AutoQuestWorkflow.Decide(Actor(100,100),new[]{collect}).Move==AutoQuestMove.AwaitVerifiedData,
+   "Quest: F12 não substitui coleta manual de recursos");
+  var done=Task(100,AutoQuestStage.Finished);
+  check(AutoQuestWorkflow.Decide(Actor(),new[]{done}).Move==AutoQuestMove.Finished,
+   "Quest: concluir somente após confirmação do jogo");
+ }
+}
+
+
+// Pure fixture tests: validate byte-delta collection without reading a game client.
+static class AutoQuestRawTaskTests {
+ static AutoQuestRawTaskRecord Record(ushort id,int occurrence=0,byte flag=0){
+  var bytes=new byte[32];Buffer.BlockCopy(BitConverter.GetBytes(id),0,bytes,0,2);
+  bytes[4]=flag;
+  return new AutoQuestRawTaskRecord{Id=id,Occurrence=occurrence,Data=bytes};
+ }
+ public static void Run(Action<bool,string> check){
+  var first=new[]{Record(1333),Record(1334)};
+  var reordered=new[]{Record(1334),Record(1333)};
+  check(AutoQuestRawTaskDiff.Changes(first,reordered).Count==0,
+   "Auto Quest: reordenação da lista não gera falso progresso de missão");
+  var changed=new[]{Record(1333,0,1),Record(1334)};
+  var delta=AutoQuestRawTaskDiff.Changes(first,changed);
+  check(delta.Count==1&&delta[0].Id==1333&&delta[0].Kind=="ALTERADO"&&delta[0].Detail.Contains("04:00>01"),
+   "Auto Quest: alteração de bytes em missão com mesmo ID é detectada");
+  check(AutoQuestRawTaskDiff.Changes(first,new[]{Record(1333),Record(1334),Record(1335)}).Count==1&&
+    AutoQuestRawTaskDiff.Changes(first,new[]{Record(1333),Record(1334),Record(1335)})[0].Kind=="ADICIONADO",
+   "Auto Quest: nova entrada interna registrada sem afirmar conclusão do diário");
+  var removed=AutoQuestRawTaskDiff.Changes(first,new[]{Record(1334)});
+  check(removed.Count==1&&removed[0].Id==1333&&removed[0].Kind=="REMOVIDO",
+   "Auto Quest: entrada interna removida identificada");
+  var duplicates=new[]{Record(1333),Record(1333,1)};
+  var duplicatesUpdated=new[]{Record(1333),Record(1333,1,8)};
+  var duplicateDiff=AutoQuestRawTaskDiff.Changes(duplicates,duplicatesUpdated);
+  check(duplicateDiff.Count==1&&duplicateDiff[0].Occurrence==1,
+   "Auto Quest: entradas de ID repetido são diferenciadas pela ocorrência");
+  bool rejected=false;try{AutoQuestRawTaskDiff.Changes(first,new[]{
+    new AutoQuestRawTaskRecord{Id=3,Occurrence=0,Data=new byte[6]}
+   });}catch(ArgumentException){rejected=true;}
+  check(rejected,"Auto Quest: registros truncados são rejeitados");
  }
 }
