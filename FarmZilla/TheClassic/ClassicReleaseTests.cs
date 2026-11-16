@@ -129,6 +129,7 @@ static class AutoQuestRecoveryTests {
   check(AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1750,1773.4)&&
    !AutoQuestGroundCorridor.IsKnownDestination("ProFile",1750,1773.4)&&
    !AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1750,1500)&&
+   !AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1765,1788)&&
    AutoQuestGroundCorridor.For("ProFile",1710,978,1750,1773.4)==null,
    "Auto Quest: corredor aprendido só se aplica ao personagem/região do teste comprovado");
   bool rejectsWrongStart=false;
@@ -138,6 +139,10 @@ static class AutoQuestRecoveryTests {
   var corridor=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
   check(corridor!=null&&corridor.Next(1725,979.9,false).Index<=4,
    "Auto Quest: do NPC começa pelos primeiros pontos, sem salto direto ao alvo");
+  bool rejectsDrift=false;
+  try{corridor.Next(1687.7,1301.5,false);}
+  catch(System.IO.IOException){rejectsDrift=true;}
+  check(rejectsDrift,"Auto Quest: personagem fora do corredor não atravessa parede por atalho");
   var middle=AutoQuestGroundCorridor.Sample(20);
   check(middle.X>=1537&&middle.X<=1541&&middle.Z>1300&&middle.Z<1320,
    "Auto Quest: na altura da parede usa saída oeste do caminho real (X cerca de 1539)");
