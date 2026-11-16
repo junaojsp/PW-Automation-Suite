@@ -102,7 +102,11 @@ sealed class AutoQuestGroundCorridor {
  }
  public AutoQuestGroundPoint Next(double x,double z,bool reverse){
   if(reverse&&!returning){
-   returning=true;previous=Math.Max(0,Math.Min(Count-2,next-1));
+   returning=true;
+   // The first trip may have been flown, so near the recorded destination
+   // return from the FAR end instead of jumping straight over city walls.
+   previous=Distance(x,z,1750.0,1773.4)<=35.0?
+    Count-2:Math.Max(0,Math.Min(Count-2,next-1));
   }
   if(!returning){
    while(next<Count-1&&
