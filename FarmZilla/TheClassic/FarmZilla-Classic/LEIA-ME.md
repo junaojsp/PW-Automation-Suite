@@ -110,3 +110,20 @@ Suporte 0.19.23: na caixa Atk de um Sacerdote, um clique alterna Atk (vermelho) 
 Ataque 0.19.24: o sacerdote ganhou uma caixa própria "Sup" (verde) ao lado do Atk; marcar uma desmarca a outra. Quem estiver seguindo para de seguir antes de atacar ou dar suporte, para o ataque pegar depois de um ESC.
 
 Troca de alvo 0.19.25: ataque e suporte começam em todos ao mesmo tempo, e a troca de monstro não faz mais uma rodada separada para parar a macro antiga — resposta mais rápida.
+
+
+## Auto Quest 0.6.6 — primeiro teste assistido (com log)
+
+**Esta versão NÃO completa missões automaticamente.** É o primeiro teste do motor de deslocamento no cliente The Classic com registro para corrigir comportamentos sem refazer o processo completo.
+
+1. Abra **Auto Quest** no FarmZilla e selecione o personagem. Desligue Seguir, Mat Farm, Frost, Alto Cultivo e operações concorrentes.
+2. Clique em **Teste beta com log**. Confira o destino X/Z do monstro; os pontos predefinidos para **CheirosoWB** (1750 / 1773,4) e **ProFile** (765,6 / 327,3) são referências dos logs de 16/11, **não** objetivos descobertos automaticamente. Você pode alterá-los.
+3. Se houver uma missão atual, aceite-a **manualmente** no NPC. Se souber o ID **interno** ativo, preencha-o; do contrário deixe em branco para testar somente o caminho, sem F12.
+4. Marque a confirmação e clique em **Iniciar teste**. O FarmZilla tenta voar **uma vez** (se marcado) e, se não decolar, usa o auto caminho nativo. Caminha em trechos de até 110 unidades ou voa em trechos de até 280.
+5. Ao chegar, o personagem deve estar no chão e fora de uma transição de voo. **Ligar F12** é opcional e só fica disponível com ID interno monitorado ativo. O programa não considera mudança de byte como conclusão.
+6. Depois de conferir o objetivo **no jogo**, clique em **Voltar à origem** para interromper o F12 que o teste ligou e navegar de volta ao ponto inicial. A entrega/recompensa ao NPC continua **manual**.
+7. Clique em **Parar** para encerrar e use **Abrir TXT do teste** para enviar o arquivo em %LOCALAPPDATA%\FarmZillaClassic\diagnosticos\autoquest-beta-AAAAMMDD-HHMMSS-PID.txt.
+
+O TXT inclui decisões de voo/caminhada, posição/HP/atividade, comandos enviados, mudanças dos registros de missão e falhas; a sessão dura no máximo 15 minutos. Se o jogo não confirmar progresso de um trecho em 24 segundos ou houver mudança de identidade/vida/ID monitorado, o teste interrompe comandos e registra o erro.
+
+**Limitações intencionais:** não interpreta nome, mob, contador de objetivos ou NPC a partir dos 32 bytes internos; não emite pacotes de NPC/entrega; não executa coleta. O diagnóstico **Gravar diagnóstico** de 30 minutos continua separado e sem comandos de jogo.
