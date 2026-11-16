@@ -42,14 +42,33 @@ sealed class AutoQuestNativeCommands : IAutoQuestGameCommands, IDisposable {
   }
  }
  public void FlightPath(double x,double z){
+  // Keep compatibility with the verified driver, which is not yet active
+  // in the Auto Quest UI. The beta uses the fixed-height overload below.
   using(var client=Client()){
    var state=client.Read();
-   if(!state.FlightStateKnown||!state.IsFlying)throw new IOException("Deslocamento aéreo exige voo confirmado.");
-   RotaAvalon.NativeBridge.FlyTo(client,x,z,library);
-   // Keep a useful height, not a guessed terrain/quest altitude.
-   int height=(int)Math.Min(300,Math.Max(60,Math.Ceiling(state.Y/10.0)));
-   RotaAvalon.NativeBridge.FlightHeight(client,height,library);
+   if(!state.FlightStateKnown||!state.IsFlying)
+    throw new IOException("Deslocamento aéreo exige voo confirmado.");
+   int height=(int)Math.Round(state.Y/10.0,MidpointRounding.AwayFromZero);
+   SendFlightLeg(client,x,z,height);
   }
+ }
+ public void FlightPath(double x,double z,int fixedHeight){
+  using(var client=Client()){
+   var state=client.Read();
+   if(!state.FlightStateKnown||!state.IsFlying)
+    throw new IOException("Deslocamento aéreo exige voo confirmado.");
+   SendFlightLeg(client,x,z,fixedHeight);
+  }
+ }
+ void SendFlightLeg(RotaAvalon.GameClient client,double x,double z,int fixedHeight){
+  if(fixedHeight<1||fixedHeight>1000)
+   throw new ArgumentOutOfRangeException("fixedHeight","Altitude de cruzeiro inválida.");
+  // The host processes auto-move messages asynchronously. Mirror the
+  // 80-ms ordering already validated by RotaExecution.FlyHigh, rather
+  // than immediately racing the height message behind the direction.
+  RotaAvalon.NativeBridge.FlyTo(client,x,z,library);
+  Thread.Sleep(80);
+  RotaAvalon.NativeBridge.FlightHeight(client,fixedHeight,library);
  }
  public void Takeoff(double targetX,double targetZ){
   using(var client=Client()){
@@ -62,7 +81,7 @@ sealed class AutoQuestNativeCommands : IAutoQuestGameCommands, IDisposable {
    if(distance<1)throw new IOException("Decolagem sem destino válido.");
    double step=Math.Min(12,distance);
    RotaAvalon.NativeBridge.FlyTo(client,state.X+step*dx/distance,state.Z+step*dz/distance,library);
-   int height=(int)Math.Min(300,Math.Max(1,Math.Ceiling(state.Y/10.0)+5));
+   int height=(int)Math.Min(300,Math.Max(1,Math.Ceiling(state.Y/10.0)+2));
    RotaAvalon.NativeBridge.FlightHeight(client,height,library);
   }
  }
@@ -85,9 +104,10 @@ sealed class AutoQuestNativeCommands : IAutoQuestGameCommands, IDisposable {
  public void Halt(){
   using(var client=Client()){
    var state=client.Read();
-   if(state.FlightStateKnown&&state.IsFlying)
-    RotaAvalon.NativeBridge.FlyTo(client,state.X,state.Z,library);
-   else if(state.FlightStateKnown)
+   if(state.FlightStateKnown&&state.IsFlying){
+    try{RotaAvalon.NativeBridge.FlyTo(client,state.X,state.Z,library);}
+    finally{RotaAvalon.NativeBridge.FlightHeightOff(client,library);}
+   }else if(state.FlightStateKnown)
     RotaAvalon.NativeBridge.Navigate(client,state.X,state.Y,state.Z,library);
   }
  }
