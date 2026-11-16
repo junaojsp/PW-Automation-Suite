@@ -14,7 +14,7 @@ sealed class AutoQuestBetaForm : Form {
  readonly Button start,returnNpc,combat,stop,folder;
  readonly Label state,help;
  AutoQuestBetaSession session;
- bool closingForStop;
+ bool closingForStop,allowClose;
  public AutoQuestBetaForm(int processId,uint id,string name){
   pid=processId;characterId=id;characterName=name;
   Text="Auto Quest 0.6.6 · teste assistido com log";
@@ -140,10 +140,12 @@ sealed class AutoQuestBetaForm : Form {
   Sync();
  }
  async void OnClosing(object sender,FormClosingEventArgs e){
-  if(session==null||!session.Running||closingForStop)return;
-  e.Cancel=true;closingForStop=true;
+  if(allowClose||session==null||!session.Running)return;
+  e.Cancel=true;
+  if(closingForStop)return;
+  closingForStop=true;
   await StopBeta();
-  closingForStop=false;
+  allowClose=true;closingForStop=false;
   Close();
  }
  void OpenLog(){
