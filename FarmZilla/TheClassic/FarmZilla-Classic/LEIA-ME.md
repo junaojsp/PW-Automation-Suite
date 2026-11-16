@@ -127,3 +127,17 @@ Troca de alvo 0.19.25: ataque e suporte começam em todos ao mesmo tempo, e a tr
 O TXT inclui decisões de voo/caminhada, posição/HP/atividade, comandos enviados, mudanças dos registros de missão e falhas; a sessão dura no máximo 15 minutos. Se o jogo não confirmar progresso de um trecho em 24 segundos ou houver mudança de identidade/vida/ID monitorado, o teste interrompe comandos e registra o erro.
 
 **Limitações intencionais:** não interpreta nome, mob, contador de objetivos ou NPC a partir dos 32 bytes internos; não emite pacotes de NPC/entrega; não executa coleta. O diagnóstico **Gravar diagnóstico** de 30 minutos continua separado e sem comandos de jogo.
+
+
+## Auto Quest 0.6.7 — correção da parede e destravamento limitado
+
+**Motivo:** no teste beta de 16/11, CheirosoWB ficou parado em X=1687,7 / Z=1301,5 após enviar GroundAutoPath na direção de X=1702,1 / Z=1410,5; o personagem não encontrou caminho e a versão 0.6.6 parou após 24 segundos.
+
+- A missão de teste conhecida **CheirosoWB X=1750 / Z=1773,4**, iniciada perto do NPC original (aproximadamente X=1710 / Z=978), agora usa **40 pontos de passagem observados na caminhada bem-sucedida de 09:06–09:10**. A rota passa pela **saída oeste da cidade (X≈1539 quando Z≈1300)**, não pelo muro em X≈1750. Para outro personagem/área/destino, **não** se presume que esses pontos sejam válidos.
+- O caminho de volta segue os mesmos pontos em ordem inversa até a origem real da sessão; nenhuma entrega de missão é automática.
+- Em qualquer trajeto pelo chão, se a distância até o waypoint não diminuir por **8 segundos**, o módulo interrompe o comando e tenta **recuar**, **esquerda** e **direita** em manobras curtas, confirmando deslocamento real. Máximo de **3 tentativas por sessão**; caso contrário, para e grava o motivo em TXT. No voo, a falta de progresso interrompe sem manobra não verificada.
+- O TXT agora identifica ROTA APRENDIDA, OBSTACULO DETECTADO, DESTRAVAMENTO e ponto de passagem utilizado.
+- **Para testar esta correção:** primeiro reposicione o personagem perto do NPC inicial. Não inicie a beta a partir de onde ele ficou preso contra a parede; sem uma trilha de saída comprovada para aquele ponto, o aplicativo bloqueará essa tentativa.
+- Não há leitura automática de objetivos/contadores de missões ou pacote NPC/entrega nesta versão. O F12 ainda é explícito e opcional; Mat Farm/Espelho/Frost mantidos.
+
+Os pontos são amostras reais de posições, não um mapa de colisões. Se o personagem sair da região validada, o programa interrompe em vez de atravessar um atalho incerto.
