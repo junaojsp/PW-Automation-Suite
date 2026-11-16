@@ -84,9 +84,10 @@ sealed class AutoQuestGroundCorridor {
  }
  public static AutoQuestGroundCorridor For(string name,double originX,double originZ,double destinationX,double destinationZ){
   if(!IsKnownDestination(name,destinationX,destinationZ))return null;
-  if(Distance(originX,originZ,1710.2,977.9)>StartRadius)
-   throw new IOException("Rota caminhando já aprendida, mas o personagem não está perto do NPC inicial "+
-    "(X=1710/Z=978). Volte manualmente à cidade antes de testar; caminho direto bloqueado para não bater na parede.");
+  // A recorded corridor is an optional optimization, never a prerequisite
+  // for starting the scanner/beta in a different city or after moving away.
+  // The generic beta remains supervised and its anti-stuck timeout applies.
+  if(Distance(originX,originZ,1710.2,977.9)>StartRadius)return null;
   return new AutoQuestGroundCorridor(originX,originZ);
  }
  void CheckNear(double x,double z,int cursor){
