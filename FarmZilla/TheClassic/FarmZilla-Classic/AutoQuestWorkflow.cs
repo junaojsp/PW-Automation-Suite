@@ -70,8 +70,18 @@ static class AutoQuestWorkflow {
   var all=observed.Where(t=>t!=null&&t.QuestId!=0).ToList();
   var candidates=all.Where(Ready).ToList();
   var fights=candidates.Where(t=>t.Stage==AutoQuestStage.KillMonsters&&t.Progress<t.Required).ToList();
-  var groups=fights.GroupBy(t=>t.RegionKey,StringComparer.OrdinalIgnoreCase)
-    .Select(g=>g.ToList()).OrderByDescending(g=>g.Count).ThenBy(g=>Distance(actor,g[0])).ToList();
+  // A region label alone is not enough: separate far-apart objectives even if they share a region name.
+  var groups=new List<List<AutoQuestObservedTask>>();
+  foreach(var label in fights.GroupBy(t=>t.RegionKey,StringComparer.OrdinalIgnoreCase)){
+   var remaining=label.OrderBy(t=>t.QuestId).ToList();
+   while(remaining.Count>0){
+    var anchor=remaining[0];
+    var together=remaining.Where(t=>Math.Sqrt(Math.Pow(t.X-anchor.X,2)+Math.Pow(t.Z-anchor.Z,2))<=ArrivalRange).ToList();
+    groups.Add(together);
+    foreach(var task in together)remaining.Remove(task);
+   }
+  }
+  groups=groups.OrderByDescending(g=>g.Count).ThenBy(g=>Distance(actor,g[0])).ToList();
   // Keep F12 on until ALL verified kill objectives at the current region are complete.
   var current=groups.FirstOrDefault(g=>g.All(t=>Distance(actor,t)<=ArrivalRange));
   if(actor.F12Owned){
@@ -85,9 +95,12 @@ static class AutoQuestWorkflow {
   if(npc!=null){
    var same=candidates.Where(t=>NpcStage(t.Stage)&&t.NpcInstanceId==npc.NpcInstanceId&&Distance(actor,t)<=TalkRange)
     .Where(t=>t.Stage==npc.Stage).ToList();
+   if(npc.Stage==AutoQuestStage.DeliverToNpc){
+    var uncomplicated=same.Where(t=>!t.HasRewardChoice).ToList();
+    if(uncomplicated.Count>0)same=uncomplicated;
+    else return Destination(AutoQuestMove.ManualReward,"Entrega com escolha de recompensa ainda não validada.",same);
+   }
    if(!actor.FlightKnown||actor.IsFlying)return Destination(AutoQuestMove.WaitForLanding,"Esperar voo terminar antes do NPC.",same);
-   if(same.Any(t=>t.HasRewardChoice)&&npc.Stage==AutoQuestStage.DeliverToNpc)
-    return Destination(AutoQuestMove.ManualReward,"Entrega com escolha de recompensa ainda não validada.",same);
    var move=npc.Stage==AutoQuestStage.DeliverToNpc?AutoQuestMove.DeliverQuest:
     npc.Stage==AutoQuestStage.AcceptAtNpc?AutoQuestMove.AcceptQuest:AutoQuestMove.InteractNpc;
    return Destination(move,"Interagir com o NPC validado da etapa atual.",same);
@@ -126,16 +139,16 @@ static class AutoQuestWorkflow {
 // Prevent NPC interactions from being sent repeatedly while the game has not confirmed a new quest stage.
 sealed class AutoQuestActionGuard {
  readonly HashSet<string> sent=new HashSet<string>(StringComparer.Ordinal);
- public bool TryIssue(AutoQuestDecision action,IEnumerable<AutoQuestObservedTask> observations){
-  if(action==null||observations==null)return false;
-  if(action.Move!=AutoQuestMove.AcceptQuest&&action.Move!=AutoQuestMove.DeliverQuest&&action.Move!=AutoQuestMove.InteractNpc)return false;
-  var selected=new HashSet<ushort>(action.QuestIds);
-  var stages=observations.Where(t=>t!=null&&selected.Contains(t.QuestId)).ToArray();
-  if(stages.Length!=selected.Count)return false;
-  var keys=stages.Select(t=>t.QuestId+":"+t.Stage+":"+t.StageRevision+":"+t.NpcInstanceId).ToArray();
-  if(keys.Any(k=>sent.Contains(k)))return false;
-  foreach(string key in keys)sent.Add(key);
-  return true;
+ // One task at a time: NPC packets cannot deliver a group atomically.
+ public bool TryIssue(AutoQuestDecision action,AutoQuestObservedTask task){
+  if(action==null||task==null||!task.StageVerified||task.StageRevision<=0||task.NpcInstanceId==0)return false;
+  if(!action.QuestIds.Contains(task.QuestId)||action.NpcInstanceId!=task.NpcInstanceId)return false;
+  bool allowed=action.Move==AutoQuestMove.AcceptQuest&&task.Stage==AutoQuestStage.AcceptAtNpc||
+   action.Move==AutoQuestMove.DeliverQuest&&task.Stage==AutoQuestStage.DeliverToNpc&&!task.HasRewardChoice||
+   action.Move==AutoQuestMove.InteractNpc&&task.Stage==AutoQuestStage.TalkToNpc;
+  if(!allowed)return false;
+  string key=task.QuestId+":"+task.Stage+":"+task.StageRevision+":"+task.NpcInstanceId;
+  return sent.Add(key);
  }
  public void Clear(){sent.Clear();}
 }
