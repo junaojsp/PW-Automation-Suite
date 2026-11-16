@@ -16,6 +16,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
  readonly int pid;readonly uint characterId;readonly string characterName;
  readonly object fileLock=new object();readonly CancellationTokenSource stop=new CancellationTokenSource();
  Task worker;int lines;bool disposed;
+ readonly AutoQuestEvidenceTracker evidence=new AutoQuestEvidenceTracker();
  public string FilePath {get;private set;}
  public bool Running {get{return worker!=null&&!worker.IsCompleted;}}
  public AutoQuestDiagnostic(int processId,uint id,string name){
@@ -114,6 +115,13 @@ sealed class AutoQuestDiagnostic : IDisposable {
   var rawChanges=AutoQuestRawTaskDiff.Changes(before.RawTaskRecords,now.RawTaskRecords);
   foreach(var delta in rawChanges.Take(16))Log("ALTERAÇÃO_REGISTRO_BRUTO; "+delta.Describe()+"; XYZ="+Coords(now));
   if(rawChanges.Count>16)Log("REGISTROS BRUTOS; "+(rawChanges.Count-16)+" mudanças adicionais omitidas nesta amostra.");
+  // Only correlate the evidence. This does not decode or authorize quest stage, NPC or rewards.
+  bool nearNpc=before.NpcContext!=0||now.NpcContext!=0||before.NpcBusy!=0||now.NpcBusy!=0||
+   before.NpcWindow||now.NpcWindow;
+  bool activityOutsideNpc=!nearNpc&&(before.Action=="Other"||now.Action=="Other");
+  foreach(var signal in evidence.Observe(before.RawTaskRecords,now.RawTaskRecords,rawChanges,
+    nearNpc,activityOutsideNpc))
+   Log("EVIDENCIA_CORRELACIONADA; "+signal.Describe()+"; XYZ="+Coords(now));
  }
  void Run(CancellationToken token){
   Snapshot previous=null;DateTime lastPosition=DateTime.MinValue;int errors=0;
