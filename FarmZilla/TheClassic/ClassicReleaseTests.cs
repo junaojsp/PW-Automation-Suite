@@ -35,6 +35,7 @@ static class ClassicReleaseTests {
    AutoQuestBetaTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
   AutoQuestRecoveryTests.Run(Check);
+  AutoQuestCatalogTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
@@ -119,6 +120,63 @@ static class AutoQuestBetaTests {
 
 // Replays the exact known successful walking corridor and the failure in front of the wall.
 // Offline tests do not claim terrain geometry/collision or a verified quest objective.
+// Synthetic tasks.data headers; no external binaries or client process needed.
+// A title in the task catalog is informational only: it is not proof of a live
+// NPC offer, mission stage, objective or reward.
+static class AutoQuestCatalogTests {
+ static byte[] Fixture(int version) {
+  int count=2,one=20,two=96;
+  byte[] data=new byte[192];
+  Buffer.BlockCopy(BitConverter.GetBytes(AutoQuestTaskCatalog.ExpectedMagic),0,data,0,4);
+  Buffer.BlockCopy(BitConverter.GetBytes(version),0,data,4,4);
+  Buffer.BlockCopy(BitConverter.GetBytes(count),0,data,8,4);
+  Buffer.BlockCopy(BitConverter.GetBytes(one),0,data,12,4);
+  Buffer.BlockCopy(BitConverter.GetBytes(two),0,data,16,4);
+  Task(data,one,1329,"Quest da Cidade",version);
+  Task(data,two,1331,"Outro NPC",version);
+  return data;
+ }
+ static void Task(byte[] data,int at,int id,string name,int version){
+  int offset=version>=153?2:0;
+  Buffer.BlockCopy(BitConverter.GetBytes(id),0,data,at+offset,4);
+  for(int i=0;i<30;i++){
+   char ch=i<name.Length?name[i]:'\0';
+   var b=BitConverter.GetBytes((ushort)(ch^(ushort)id));
+   Buffer.BlockCopy(b,0,data,at+offset+4+i*2,2);
+  }
+ }
+ static AutoQuestTaskCatalog Parse(byte[] bytes){
+  string file=System.IO.Path.GetTempFileName();
+  try{System.IO.File.WriteAllBytes(file,bytes);return AutoQuestTaskCatalog.Load(file);}
+  finally{System.IO.File.Delete(file);}
+ }
+ public static void Run(Action<bool,string> check){
+  var old=Parse(Fixture(93));
+  var newer=Parse(Fixture(153));
+  check(old.Loaded&&old.Version==93&&old.HeaderCount==2&&old.Rejected==0&&
+   old.Title(1329)=="Quest da Cidade"&&old.Title(1331)=="Outro NPC"&&
+   old.Title(100)==null,"Scanner cidade: indexa títulos e IDs de missões de tasks.data v93 sem inferir estágios");
+  check(newer.Loaded&&newer.Title(1329)=="Quest da Cidade"&&
+   newer.Title(1331)=="Outro NPC","Scanner cidade: suporte ao deslocamento do ID de tarefas nas versões 153+");
+  var invalid=Fixture(93);invalid[0]=0;
+  bool blocked=false;
+  try{Parse(invalid);}catch(System.IO.InvalidDataException){blocked=true;}
+  check(blocked,"Scanner cidade: assinatura inválida do catálogo não é usada");
+  var off=Fixture(93);
+  Buffer.BlockCopy(BitConverter.GetBytes(18),0,off,16,4);
+  var catalog=Parse(off);
+  check(catalog.Titles.Count==1&&catalog.Rejected==1,
+   "Scanner cidade: offsets de missões em cima da tabela são rejeitados");
+  check(AutoQuestNpcProbe.IsNpcClass(".?AVCECNPC@@")&&
+   !AutoQuestNpcProbe.IsNpcClass(".?AVCECMonster@@")&&
+   !AutoQuestNpcProbe.IsNpcClass(".?AVCECNPCMan@@")&&
+   !AutoQuestNpcProbe.IsNpcClass(null),
+   "Scanner cidade: separa candidatos NPCs de monstros e do gerenciador");
+  check(AutoQuestCityScan.Sector(1,1700,970)=="instância=1/setor=4,2",
+   "Scanner cidade: setor e instância são coordenadas, não nome de cidade inventado");
+ }
+}
+
 static class AutoQuestRecoveryTests {
  static double Distance(double x,double z,double tx,double tz){
   return Math.Sqrt((tx-x)*(tx-x)+(tz-z)*(tz-z));
@@ -132,10 +190,8 @@ static class AutoQuestRecoveryTests {
    !AutoQuestGroundCorridor.IsKnownDestination("CheirosoWB",1765,1788)&&
    AutoQuestGroundCorridor.For("ProFile",1710,978,1750,1773.4)==null,
    "Auto Quest: corredor aprendido só se aplica ao personagem/região do teste comprovado");
-  bool rejectsWrongStart=false;
-  try{AutoQuestGroundCorridor.For("CheirosoWB",1687.7,1301.5,1750,1773.4);}
-  catch(System.IO.IOException){rejectsWrongStart=true;}
-  check(rejectsWrongStart,"Auto Quest: início no ponto da parede não reutiliza trilha como atalho");
+  check(AutoQuestGroundCorridor.For("CheirosoWB",1687.7,1301.5,1750,1773.4)==null,
+   "Auto Quest: início fora do corredor não falha de cara nem reutiliza a trilha como atalho");
   var corridor=AutoQuestGroundCorridor.For("CheirosoWB",1725,979.9,1750,1773.4);
   check(corridor!=null&&corridor.Next(1725,979.9,false).Index<=4,
    "Auto Quest: do NPC começa pelos primeiros pontos, sem salto direto ao alvo");

@@ -141,3 +141,26 @@ O TXT inclui decisões de voo/caminhada, posição/HP/atividade, comandos enviad
 - Não há leitura automática de objetivos/contadores de missões ou pacote NPC/entrega nesta versão. O F12 ainda é explícito e opcional; Mat Farm/Espelho/Frost mantidos.
 
 Os pontos são amostras reais de posições, não um mapa de colisões. Se o personagem sair da região validada, o programa interrompe em vez de atravessar um atalho incerto.
+
+
+## Auto Quest 0.6.8 — escaneamento por região (primeira fase)
+
+O objetivo agora é reconhecer missões e NPCs de **qualquer cidade**, não decorar o trajeto do CheirosoWB. Este é o **leitor inicial**, com ações de jogo desativadas durante o escaneamento.
+
+- Abra **Auto Quest** e escolha o personagem. Clique **Escanear missões / NPCs desta região**.
+- A ferramenta lê os IDs internos atualmente ativos, consulta o arquivo **tasks.data da instalação do cliente** (se disponível), indexa títulos das missões de nível superior e varre os NPCs atualmente carregados no mundo, com IDs, tipos e posições. Registra também as linhas internas da janela de entrega que o cliente expõe.
+- O escaneamento é somente leitura, não depende do NPC inicial nem do destino antigo. É possível repetir o escaneamento em cidades diferentes.
+- O resultado é salvo em %LOCALAPPDATA%\FarmZillaClassic\diagnosticos\autoquest-cityscan-*.txt; **Abrir pasta do log** abre o último arquivo gerado.
+- A chave instância/setor é uma grade aproximada por coordenadas. **Não** é identificação do nome da cidade nem do nome do NPC.
+- A leitura de tasks.data confirma apenas os cabeçalhos/nomes de missões principais; quests filhas, disponibilidade por NPC, requisitos de nível/classe, objetivo, progresso, mob e coordenadas de entrega ainda não estão validados. Sem tasks.data, o TXT explica a ausência e ainda informa NPCs e missões ativas.
+- NPCs detectados mostram classe nativa, ID e coordenadas, mas não são automaticamente classificados como oferecendo missões. O campo de nome é guardado em hexadecimal para investigar o formato correto do The Classic, sem nome inventado.
+- Nenhum NPC é clicado, nenhuma missão é aceita ou entregue, nenhum caminho é iniciado durante o scanner. O teste beta de navegação permanece separado.
+
+### Próximas etapas do Auto Quest geral
+
+1. Validar a presença e versão de tasks.data no The Classic e decodificar missões filhas, requisitos, fases e objetivos.
+2. Cruzar cada NPC carregado (e o catálogo de NPCs/mapas, quando decodificado) com missões que ele realmente oferece; confirmar a disponibilidade no cliente.
+3. Usar os NPCs, requisitos e destinos confirmados para escolher missões por cidade; ativar navegação dinâmica com detecção de colisão/obstáculos.
+4. Só liberar aceite/entrega/combate automáticos depois de validar cada comando e mudança de estado no jogo.
+
+**Não confundir o scanner regional (dados observados) com um Auto Quest universal pronto.**

@@ -11,7 +11,7 @@ using System.IO;
 // A beta envia somente movimento e F12 por consentimento, nunca NPC/entrega.
 partial class AvalonInterno {
  Panel autoQuestHost;bool autoQuestView;SideItem sideAutoQuest;
- ComboBox autoQuestCharacters;Label autoQuestStatus,autoQuestResult;Button autoQuestInspect,autoQuestRecord,autoQuestStop,autoQuestOpenFolder,autoQuestBeta;
+ ComboBox autoQuestCharacters;Label autoQuestStatus,autoQuestResult;Button autoQuestInspect,autoQuestRecord,autoQuestStop,autoQuestOpenFolder,autoQuestBeta,autoQuestCity;
  AutoQuestDiagnostic questDiagnostic;string questLastLog;
  bool autoQuestReading;
  void EnsureAutoQuest(){
@@ -31,7 +31,7 @@ partial class AvalonInterno {
  Panel BuildAutoQuestScreen(){
   var surface=new Panel{Dock=DockStyle.Fill,BackColor=Rubi.Background};
   surface.Controls.Add(QuestLabel("AUTO QUEST",15,16,300,28,true));
-  surface.Controls.Add(QuestLabel("Diagnóstico e teste beta assistido · controles separados",15,47,355,20));
+  surface.Controls.Add(QuestLabel("Missões por região · leitura do jogo e catálogo local",15,47,355,20));
   var status=QuestCard(82,60);surface.Controls.Add(status);
   status.Controls.Add(QuestLabel("STATUS DO MÓDULO",12,8,330,20,true));
   autoQuestStatus=QuestLabel("Aguardando leitura · nenhuma missão é executada",12,33,340,20);
@@ -57,7 +57,7 @@ partial class AvalonInterno {
   autoQuestBeta=new NeonButton{Text="Teste beta com log",Bounds=new Rectangle(15,157,333,29)};
   autoQuestBeta.Click+=(sender,args)=>OpenAutoQuestBeta();
   tasks.Controls.Add(autoQuestBeta);
-  var commands=QuestCard(484,116);surface.Controls.Add(commands);
+  var commands=QuestCard(484,151);surface.Controls.Add(commands);
   commands.Controls.Add(QuestLabel("CONTROLES",12,9,325,20,true));
   var start=new NeonButton{Text="Analisar",Bounds=new Rectangle(12,34,166,30),Enabled=true};
   autoQuestInspect=start;start.Click+=async(sender,args)=>await ReadAutoQuestSnapshot();
@@ -67,9 +67,12 @@ partial class AvalonInterno {
   autoQuestStop.Click+=async(sender,args)=>await StopAutoQuestDiagnostic();
   autoQuestOpenFolder=new NeonButton{Text="Abrir pasta do log",Bounds=new Rectangle(188,69,166,30)};
   autoQuestOpenFolder.Click+=(sender,args)=>OpenAutoQuestLog();
+  autoQuestCity=new NeonButton{Text="Escanear missões / NPCs desta região",Bounds=new Rectangle(12,105,342,30)};
+  autoQuestCity.Click+=async(sender,args)=>await ScanCurrentCityQuests();
   commands.Controls.Add(start);commands.Controls.Add(autoQuestRecord);
   commands.Controls.Add(autoQuestStop);commands.Controls.Add(autoQuestOpenFolder);
-  autoQuestResult=QuestLabel("Beta: navegação assistida · NPC e entrega manuais.",14,613,358,28);
+  commands.Controls.Add(autoQuestCity);
+  autoQuestResult=QuestLabel("Scanner: NPCs carregados e catálogo de missões local.",14,642,358,29);
   surface.Controls.Add(autoQuestResult);
   return surface;
  }
@@ -108,6 +111,7 @@ partial class AvalonInterno {
   if(autoQuestInspect!=null)autoQuestInspect.Enabled=options.Length>0;
   if(autoQuestRecord!=null)autoQuestRecord.Enabled=options.Length>0;
   if(autoQuestBeta!=null)autoQuestBeta.Enabled=options.Length>0;
+  if(autoQuestCity!=null)autoQuestCity.Enabled=options.Length>0;
  }
  sealed class AutoQuestSnapshot {
   public string Name;public int Level,MonsterCount;public float X,Y,Z;
@@ -161,6 +165,7 @@ partial class AvalonInterno {
    var session=new AutoQuestDiagnostic(entry.Pid,entry.Id,entry.Name);session.Start();
    questDiagnostic=session;questLastLog=session.FilePath;
    autoQuestCharacters.Enabled=false;autoQuestInspect.Enabled=false;autoQuestRecord.Enabled=false;
+   if(autoQuestCity!=null)autoQuestCity.Enabled=false;
    autoQuestStop.Enabled=true;
    autoQuestStatus.Text="Gravando diagnóstico · até 30 minutos";
    autoQuestResult.Text="Parar gravação salva o TXT a qualquer momento.";
@@ -185,6 +190,45 @@ partial class AvalonInterno {
     autoQuestCharacters.Enabled=autoQuestCharacters.SelectedItem is Entry;
     if(autoQuestInspect!=null)autoQuestInspect.Enabled=autoQuestCharacters.Enabled;
     if(autoQuestRecord!=null)autoQuestRecord.Enabled=autoQuestCharacters.Enabled;
+    if(autoQuestCity!=null)autoQuestCity.Enabled=autoQuestCharacters.Enabled;
+   }
+  }
+ }
+ async Task ScanCurrentCityQuests(){
+  if(autoQuestReading||!autoQuestView||closeInProgress||authorizationDenied||controlLocked)return;
+  if(questDiagnostic!=null&&questDiagnostic.Running){
+   autoQuestStatus.Text="Pare o diagnóstico antes de escanear a cidade.";return;
+  }
+  var entry=autoQuestCharacters==null?null:autoQuestCharacters.SelectedItem as Entry;
+  if(entry==null||blocked.Contains(entry.Pid)||RotaLock.Busy(entry.Pid)){
+   autoQuestStatus.Text="Selecione um personagem livre e sincronizado.";return;
+  }
+  autoQuestReading=true;autoQuestCity.Enabled=false;autoQuestInspect.Enabled=false;
+  autoQuestCharacters.Enabled=false;
+  autoQuestStatus.Text="Escaneando NPCs carregados e tasks.data...";
+  try{
+   var snapshot=await Task.Run(()=>AutoQuestCityScan.Capture(entry.Pid,entry.Id,entry.Name));
+   if(IsDisposed)return;
+   questLastLog=snapshot.FilePath;
+   autoQuestStatus.Text="Região escaneada · "+snapshot.Frame.Npcs.Count+
+    " NPCs candidatos · "+snapshot.ActiveCount+" registros ativos";
+   autoQuestResult.Text="Títulos encontrados: "+snapshot.MatchedTitles+
+    " · catálogo: "+snapshot.Catalog.Titles.Count+" · ver TXT";
+   hints.SetToolTip(autoQuestResult,"Setor: "+snapshot.ZoneKey+"; arquivo: "+snapshot.FilePath+
+    "; as missões disponíveis em cada NPC ainda exigem decodificação.");
+  }catch(Exception ex){
+   if(!IsDisposed){
+    autoQuestStatus.Text="Falha no escaneamento da região.";
+    autoQuestResult.Text="Detalhes: "+ex.Message;
+   }
+   DiagnosticLog.Write("AutoQuest city scan: "+ex.Message);
+  }finally{
+   autoQuestReading=false;
+   if(!IsDisposed){
+    bool ready=autoQuestCharacters.SelectedItem is Entry;
+    autoQuestCharacters.Enabled=ready;
+    autoQuestInspect.Enabled=ready;
+    if(autoQuestCity!=null)autoQuestCity.Enabled=ready;
    }
   }
  }
