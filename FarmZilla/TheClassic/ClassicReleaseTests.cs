@@ -346,6 +346,25 @@ static class AutoQuestVerifiedDriverTests {
    check(!d.Running&&r.Travel==AutoQuestTravelCommand.Pause,
     "Quest driver: pouso sem confirmação em 45 segundos pausa a sessão");
   }
+  var f8=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f8)){
+   var t=Fight(1000);
+   d.Tick(Actor(),new[]{t},TimeSpan.Zero,false);
+   var ready=d.Tick(Actor(1000),new[]{t},TimeSpan.FromSeconds(12),false);
+   check(ready.Stage==AutoQuestMove.StartF12&&
+     f8.Sent.SequenceEqual(new[]{"walk","halt","f12_on"}),
+    "Quest driver: cancela trecho de auto caminho antes de ligar F12");
+  }
+  var f9=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(f9)){
+   var t=Fight(1000);t.Stage=AutoQuestStage.DeliverToNpc;
+   t.NpcInstanceId=330;t.ReadyForDeliveryVerified=true;
+   d.Tick(Actor(),new[]{t},TimeSpan.Zero,false);
+   var ready=d.Tick(Actor(1000),new[]{t},TimeSpan.FromSeconds(12),false);
+   check(ready.Stage==AutoQuestMove.DeliverQuest&&
+     f9.Sent.SequenceEqual(new[]{"walk","halt"}),
+    "Quest driver: pára auto caminho diante do NPC e não inventa pacote de entrega");
+  }
   var f7=new Fake();
   using(var d=new AutoQuestVerifiedDriver(f7)){
    var noFlight=Actor(0,0,false,false);
