@@ -55,7 +55,7 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
   ClearLeg();
  }
  public void Stop(){if(stopped)return;stopped=true;SafeStop();}
- public void Dispose(){Stop();}
+ public void Dispose(){Stop();var disposable=commands as IDisposable;if(disposable!=null)disposable.Dispose();}
  AutoQuestDriverResult Fail(AutoQuestMove move,string message) {
   faulted=true;SafeStop();
   return Answer(move,AutoQuestTravelCommand.Pause,false,message);
@@ -86,6 +86,7 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
    }
    if(plan.Move==AutoQuestMove.StartF12) {
     if(!actor.FlightKnown||actor.IsFlying)return Answer(plan.Move,AutoQuestTravelCommand.Pause,false,"F12 exige pouso confirmado.");
+    if(ownsNavigation){commands.Halt();ownsNavigation=false;}
     commands.Cultivate(true);ownsF12=true;ClearLeg();
     return Answer(plan.Move,AutoQuestTravelCommand.None,true,"F12 ligado para os objetivos confirmados da região.");
    }
@@ -95,6 +96,7 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
       plan.Move==AutoQuestMove.InteractNpc||plan.Move==AutoQuestMove.ManualReward) {
     // No NPC packet is synthesized. The existing QuestService sends validated captured packets;
     // an NPC action will be plugged in only after a verified decoder exposes the correct packet.
+    if(ownsNavigation){commands.Halt();ownsNavigation=false;ClearLeg();}
     return Answer(plan.Move,AutoQuestTravelCommand.None,false,
      "Etapa NPC identificada no planejamento; pacote de interação ainda não validado.");
    }
@@ -105,6 +107,7 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
    var order=travel.Select(state,plan,sessionElapsed,flightItemEquipped);
    if(order.Command==AutoQuestTravelCommand.Pause)return Fail(plan.Move,order.Reason);
    if(order.Command==AutoQuestTravelCommand.Land){
+    if(legSentAt.HasValue&&ownsNavigation){commands.Halt();ownsNavigation=false;}
     ClearLeg();
     if(!landingStartedAt.HasValue)landingStartedAt=sessionElapsed;
     if(sessionElapsed<landingStartedAt.Value||sessionElapsed-landingStartedAt.Value>LandingTimeout)
