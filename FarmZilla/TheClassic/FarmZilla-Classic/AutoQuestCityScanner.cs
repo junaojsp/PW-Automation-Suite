@@ -16,7 +16,7 @@ sealed class AutoQuestNpcMarker {
 sealed class AutoQuestNpcFrame {
  public uint WorldInstance;
  public readonly List<AutoQuestNpcMarker> Npcs=new List<AutoQuestNpcMarker>();
- public int ObjectsSeen,MonstersSkipped;
+ public int ObjectsSeen,MonstersSkipped;public string ScanError;
 }
 static class AutoQuestNpcProbe {
  const int MaxObjects=8000,MaxNearNpcs=384;
@@ -111,7 +111,8 @@ sealed class AutoQuestCityScan {
    actor=client.Read();
    if(actor.Name!=expectedName)throw new IOException("Cliente alterado.");
    directory=client.GameDirectory;
-   npcs=AutoQuestNpcProbe.Read(client,actor);
+   try{npcs=AutoQuestNpcProbe.Read(client,actor);}
+   catch(Exception ex){npcs=new AutoQuestNpcFrame{ScanError=ex.Message};}
    delivery=client.ReadConfirmRows().Distinct().Take(24).ToArray();
    zone=Sector(npcs.WorldInstance,actor.X,actor.Z);
   }
@@ -137,7 +138,8 @@ sealed class AutoQuestCityScan {
     "; estágio/objetivo/progresso/NPC=DESCONHECIDOS");
   }
   output.AppendLine("NPCs CARREGADOS; "+npcs.Npcs.Count+" NPCs candidatos; itens varridos="+
-   npcs.ObjectsSeen+"; monstros excluídos="+npcs.MonstersSkipped);
+   npcs.ObjectsSeen+"; monstros excluídos="+npcs.MonstersSkipped+
+   "; leitura="+(npcs.ScanError??"ok"));
   foreach(var item in npcs.Npcs)
    output.AppendLine("NPC CANDIDATO; id interno="+item.InstanceId+"; tipo="+item.Type+
     "; XYZ="+item.X.ToString("0.0")+","+item.Y.ToString("0.0")+","+item.Z.ToString("0.0")+
