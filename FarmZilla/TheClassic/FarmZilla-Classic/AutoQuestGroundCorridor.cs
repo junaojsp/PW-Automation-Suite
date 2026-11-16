@@ -14,7 +14,7 @@ sealed class AutoQuestGroundPoint {
 sealed class AutoQuestGroundCorridor {
  public const int Samples=40;
  public const double WaypointReach=10.0,MaxDeviation=62.0;
- public const double StartRadius=52.0,TargetRadius=23.0;
+ public const double StartRadius=52.0,TargetRadius=10.0;
  static readonly AutoQuestGroundPoint[] WestCityWalk=new AutoQuestGroundPoint[] {
    new AutoQuestGroundPoint{X=1710.2,Z=977.9,Index=0},
    new AutoQuestGroundPoint{X=1715.7,Z=973.3,Index=1},
