@@ -67,7 +67,7 @@ partial class AvalonInterno {
   autoQuestStop.Click+=async(sender,args)=>await StopAutoQuestDiagnostic();
   autoQuestOpenFolder=new NeonButton{Text="Abrir pasta do log",Bounds=new Rectangle(188,69,166,30)};
   autoQuestOpenFolder.Click+=(sender,args)=>OpenAutoQuestLog();
-  autoQuestCity=new NeonButton{Text="Escanear missões próximas (sem deslocar)",Bounds=new Rectangle(12,105,342,30)};
+  autoQuestCity=new NeonButton{Text="Escanear missões atuais e NPCs",Bounds=new Rectangle(12,105,342,30)};
   autoQuestCity.Click+=async(sender,args)=>await ScanCurrentCityQuests();
   commands.Controls.Add(start);commands.Controls.Add(autoQuestRecord);
   commands.Controls.Add(autoQuestStop);commands.Controls.Add(autoQuestOpenFolder);

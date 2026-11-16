@@ -17,7 +17,7 @@ sealed class AutoQuestBetaForm : Form {
  bool closingForStop,allowClose;
  public AutoQuestBetaForm(int processId,uint id,string name){
   pid=processId;characterId=id;characterName=name;
-  Text="Auto Quest 0.6.11 · teste assistido com log";
+  Text="Auto Quest 0.6.12 · teste assistido com log";
   ClientSize=new Size(545,530);
   StartPosition=FormStartPosition.CenterParent;
   FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;

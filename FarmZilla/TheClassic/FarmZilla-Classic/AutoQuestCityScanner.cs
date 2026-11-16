@@ -139,6 +139,9 @@ sealed class AutoQuestCityScan {
    output.AppendLine("MISSAO ATIVA INTERNA; id="+id+"; título="+(name??"NÃO DECODIFICADO")+
     "; estágio/objetivo/progresso/NPC=DESCONHECIDOS");
   }
+  output.AppendLine("MISSOES JA ACEITAS; IDs internos não comprovam aceite; "+
+   "aguardando decodificação do diário para selecionar tarefas existentes.");
+  output.AppendLine("PRIORIDADE; "+AutoQuestExistingQuestPlanner.Summary(new AutoQuestObservedTask[0]));
   output.AppendLine("PLANEJADOR; "+AutoQuestScanPlanner.Describe(
    AutoQuestScanPlanner.Select(new AutoQuestActor{X=actor.X,Y=actor.Y,Z=actor.Z,
     Hp=actor.Hp,CharacterVerified=true,ExclusiveLock=true,FlightKnown=false},
