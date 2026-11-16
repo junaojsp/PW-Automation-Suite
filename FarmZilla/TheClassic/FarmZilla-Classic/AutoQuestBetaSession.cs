@@ -127,7 +127,7 @@ sealed class AutoQuestBetaSession : IDisposable {
  // This helper is offline-testable; it does not fabricate stages or objectives.
  public static bool CanCombat(bool atDestination,bool flightKnown,bool flying,
   string activity,ushort monitoredId,bool recordPresent){
-  return atDestination&&flightKnown&&!flying&&activity!="FlightTransition"&&
+  return atDestination&&flightKnown&&!flying&&activity=="Idle"&&
    monitoredId!=0&&recordPresent;
  }
  void Run(CancellationToken token){
