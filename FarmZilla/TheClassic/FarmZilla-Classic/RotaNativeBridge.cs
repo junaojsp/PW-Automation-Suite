@@ -42,6 +42,13 @@ namespace RotaAvalon {
             if(height<1||height>1000)throw new ArgumentException("Altura inválida.");client.Read();
             using(var process=Process.GetProcessById(client.Pid))return Send(client.Pid,process.MainWindowHandle,library,6,0,height,0,1);
         }
+        // Flight height control OFF is already supported by native auto-move (operation 6, type 2).
+        // Use it when aborting an Auto Quest flight, so the failed height target is not left running.
+        public static Result FlightHeightOff(GameClient client,string library){
+            client.Read();
+            using(var process=Process.GetProcessById(client.Pid))
+                return Send(client.Pid,process.MainWindowHandle,library,6,0,0,0,2);
+        }
         // FarmZilla 0.45.6 (operation 7): the game's own Space (up) / Z (down) — starts the keyboard flight move with no destination.
         public static Result KeyMove(GameClient client,bool up,string library){client.Read();using(var process=Process.GetProcessById(client.Pid))return Send(client.Pid,process.MainWindowHandle,library,7,0,0,0,up?8u:9u);}
         // FarmZilla 0.46.0 (operation 8): the game's own auto-cultivation (F12) on or off for one client, like the game's button.
