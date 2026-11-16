@@ -17,7 +17,7 @@ sealed class AutoQuestBetaForm : Form {
  bool closingForStop,allowClose;
  public AutoQuestBetaForm(int processId,uint id,string name){
   pid=processId;characterId=id;characterName=name;
-  Text="Auto Quest 0.6.10 · teste assistido com log";
+  Text="Auto Quest 0.6.12 · teste assistido com log";
   ClientSize=new Size(545,530);
   StartPosition=FormStartPosition.CenterParent;
   FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;
@@ -53,13 +53,9 @@ sealed class AutoQuestBetaForm : Form {
   Controls.Add(console);
   folder=AddButton("Abrir TXT do teste",18,476,190,32,(s,e)=>OpenLog());
   AddLabel("Limite: 15 minutos · trava exclusiva · parada de F12 ao finalizar.",218,479,311,29);
-  if(String.Equals(name,"CheirosoWB",StringComparison.OrdinalIgnoreCase)){
-   xBox.Text="1750,0";zBox.Text="1773,4";
-   help.Text="Ponto do log caminhando (1329). É apenas referência, NÃO uma missão atual.";
-  }else if(String.Equals(name,"ProFile",StringComparison.OrdinalIgnoreCase)){
-   xBox.Text="765,6";zBox.Text="327,3";
-   help.Text="Ponto do log voando (1333/1334). É apenas referência, NÃO uma missão atual.";
-  }
+  // Do not prefill legacy cross-map coordinates: they were only route-test
+  // points and are NOT verified objectives of the character's current quest.
+  help.Text="Destino manual somente para testar navegação. Scanner não identificou missão/objetivo.";
   FormClosing+=OnClosing;
   FormClosed+=(s,e)=>{if(session!=null){session.Dispose();session=null;}};
   Sync();

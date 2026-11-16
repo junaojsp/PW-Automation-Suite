@@ -67,7 +67,7 @@ partial class AvalonInterno {
   autoQuestStop.Click+=async(sender,args)=>await StopAutoQuestDiagnostic();
   autoQuestOpenFolder=new NeonButton{Text="Abrir pasta do log",Bounds=new Rectangle(188,69,166,30)};
   autoQuestOpenFolder.Click+=(sender,args)=>OpenAutoQuestLog();
-  autoQuestCity=new NeonButton{Text="Escanear missões / NPCs desta região",Bounds=new Rectangle(12,105,342,30)};
+  autoQuestCity=new NeonButton{Text="Escanear missões atuais e NPCs",Bounds=new Rectangle(12,105,342,30)};
   autoQuestCity.Click+=async(sender,args)=>await ScanCurrentCityQuests();
   commands.Controls.Add(start);commands.Controls.Add(autoQuestRecord);
   commands.Controls.Add(autoQuestStop);commands.Controls.Add(autoQuestOpenFolder);
@@ -210,12 +210,12 @@ partial class AvalonInterno {
    var snapshot=await Task.Run(()=>AutoQuestCityScan.Capture(entry.Pid,entry.Id,entry.Name));
    if(IsDisposed)return;
    questLastLog=snapshot.FilePath;
-   autoQuestStatus.Text="Região escaneada · "+snapshot.Frame.Npcs.Count+
-    " NPCs candidatos · "+snapshot.ActiveCount+" registros ativos";
-   autoQuestResult.Text="Títulos encontrados: "+snapshot.MatchedTitles+
-    " · catálogo: "+snapshot.Catalog.Titles.Count+" · ver TXT";
+   autoQuestStatus.Text="Scanner local · "+snapshot.Frame.Npcs.Count+
+    " NPCs candidatos · "+snapshot.ActiveCount+" IDs internos";
+   autoQuestResult.Text="Títulos: "+snapshot.MatchedTitles+" · NPCs próximos: "+snapshot.Frame.Npcs.Count+
+    " · destino de missão: NÃO VALIDADO · TXT";
    hints.SetToolTip(autoQuestResult,"Setor: "+snapshot.ZoneKey+"; arquivo: "+snapshot.FilePath+
-    "; as missões disponíveis em cada NPC ainda exigem decodificação.");
+    "; NPC próximo não significa missão disponível. Sem objetivo validado, não voa nem caminha.");
   }catch(Exception ex){
    if(!IsDisposed){
     autoQuestStatus.Text="Falha no escaneamento da região.";
