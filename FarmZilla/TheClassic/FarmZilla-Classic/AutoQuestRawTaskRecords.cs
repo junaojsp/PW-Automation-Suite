@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -59,14 +60,14 @@ sealed partial class CharacterMemory {
  // Validates both the current task interface and stable list pointer/count across the sample.
  public List<AutoQuestRawTaskRecord> ReadAutoQuestRawTaskRecords(){
   uint task=U(Host+ClassicLayout.HostTasks);
-  if(U(task)!=Module+G.TaskInterface||U(task+4)!=Host)throw new InvalidOperationException("Interface interna de missões inválida.");
+  if(U(task)!=Module+G.TaskInterface||U(task+4)!=Host)throw new IOException("Interface interna de missões temporariamente indisponível.");
   uint list=U(task+8);
   byte[] header=Read(list,8);
   int count=header[0];
-  if(count>175)throw new InvalidOperationException("Quantidade de registros internos inválida.");
+  if(count>175)throw new IOException("Quantidade de registros internos temporariamente inválida.");
   byte[] records=Read(list,8+32*count);
   if(Read(list,1)[0]!=count||U(task+8)!=list||U(task)!=Module+G.TaskInterface)
-   throw new InvalidOperationException("Lista de missões mudou durante a leitura.");
+   throw new IOException("Lista de missões mudou durante a leitura.");
   var occurrences=new Dictionary<ushort,int>();
   var result=new List<AutoQuestRawTaskRecord>();
   for(int i=0;i<count;i++){
