@@ -157,8 +157,8 @@ partial class AvalonInterno {
    questDiagnostic=session;questLastLog=session.FilePath;
    autoQuestCharacters.Enabled=false;autoQuestInspect.Enabled=false;autoQuestRecord.Enabled=false;
    autoQuestStop.Enabled=true;
-   autoQuestStatus.Text="Gravando diagnóstico · faça a missão manualmente no jogo";
-   autoQuestResult.Text="Gravando em arquivo local · pare ao terminar o teste.";
+   autoQuestStatus.Text="Gravando diagnóstico · até 30 minutos";
+   autoQuestResult.Text="Parar gravação salva o TXT a qualquer momento.";
    hints.SetToolTip(autoQuestResult,questLastLog);
   }catch(Exception ex){autoQuestStatus.Text="Falha ao iniciar diagnóstico.";autoQuestResult.Text=ex.Message;}
  }

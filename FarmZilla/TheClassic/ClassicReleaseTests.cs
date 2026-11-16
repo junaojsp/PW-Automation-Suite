@@ -30,6 +30,8 @@ static class ClassicReleaseTests {
   ClassicSimulator.Run(Check);
   AutoQuestWorkflowTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
+  Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
+  Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
   return failures==0?0:1;
  }
