@@ -95,7 +95,7 @@ sealed class AutoQuestAdaptiveDetour {
       Dist(x,z,fromX,fromZ).ToString("0.0")+
      "; distância real do bloqueio="+Dist(x,z,blockedX,blockedZ).ToString("0.0"));
    }
-   if(distance<bestRemaining-1.2){bestRemaining=distance;lastGainAt=now;}
+   if(distance<bestRemaining-6.0){bestRemaining=distance;lastGainAt=now;}
    if(now-lastGainAt>=TimeSpan.FromSeconds(NoGainSeconds)||
       now-sentAt>=TimeSpan.FromSeconds(LegTimeoutSeconds)){
     issued=false;failures++;
