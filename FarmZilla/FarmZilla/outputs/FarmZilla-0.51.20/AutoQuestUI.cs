@@ -48,7 +48,7 @@ partial class AvalonInterno {
   var start=new NeonButton{Text="Iniciar Auto Quest",Bounds=new Rectangle(12,37,166,35),Enabled=false};
   var stop=new NeonButton{Text="Parar",Bounds=new Rectangle(188,37,166,35),Enabled=false};
   commands.Controls.Add(start);commands.Controls.Add(stop);
-  surface.Controls.Add(QuestLabel("A tela está pronta para integração. Sem rotinas de missão nesta PR.",14,579,358,40));
+  surface.Controls.Add(QuestLabel("Integração pendente · sem comandos de missão nesta PR.",14,579,358,22));
   return surface;
  }
  void OpenAutoQuest(){
