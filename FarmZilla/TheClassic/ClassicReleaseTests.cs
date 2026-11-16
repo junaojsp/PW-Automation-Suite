@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 // Offline checks of the FarmZilla The Classic release build (no game client needed).
 static class ClassicReleaseTests {
