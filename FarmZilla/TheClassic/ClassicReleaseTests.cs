@@ -35,6 +35,7 @@ static class ClassicReleaseTests {
    AutoQuestBetaTests.Run(Check);
   AutoQuestRawTaskTests.Run(Check);
   AutoQuestRecoveryTests.Run(Check);
+  AutoQuestAdaptiveDetourTests.Run(Check);
   AutoQuestCatalogTests.Run(Check);
   Check(AutoQuestDiagnostic.MaxDurationSeconds==1800&&AutoQuestDiagnostic.MaxLogLines>=25000,"Auto Quest: diagnóstico até 30 minutos com capacidade ampliada de linhas");
   Check(AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(900),false)&&AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1799),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(1800),false)&&!AutoQuestDiagnostic.CanRecord(TimeSpan.FromSeconds(15),true),"Auto Quest: gravação 15-30 min e parada manual respeitadas");
@@ -174,6 +175,65 @@ static class AutoQuestCatalogTests {
    "Scanner cidade: separa candidatos NPCs de monstros e do gerenciador");
   check(AutoQuestCityScan.Sector(1,1700,970)=="instância=1/setor=4,2",
    "Scanner cidade: setor e instância são coordenadas, não nome de cidade inventado");
+ }
+}
+
+// Regression from CheirosoWB 0.6.8 11:33:24..11:33:53:
+// backward moved about 6 units, left moved only ~3.8, right moved ~7;
+// after these short moves the old beta immediately retried the same wall.
+static class AutoQuestAdaptiveDetourTests {
+ static TimeSpan At(int seconds){return TimeSpan.FromSeconds(seconds);}
+ static AutoQuestAdaptiveDetour Wall(){
+  return new AutoQuestAdaptiveDetour(1687.7,1301.5,
+   1714.3,1426.4,1750,1773.4,TimeSpan.Zero);
+ }
+ public static void Run(Action<bool,string> check){
+  var detour=Wall();
+  var first=detour.Poll(1687.7,1301.5,At(0));
+  check(first.Kind==AutoQuestDetourKind.Issue&&
+   first.Direction=="ESQUERDA"&&first.X<1687.7,
+   "Auto Quest 0.6.9: primeiro testa lado ESQUERDO real (não recuo/direita)");
+  var leftBlocked=detour.Poll(1683.9,1301.9,At(9));
+  check(leftBlocked.Kind==AutoQuestDetourKind.SegmentBlocked&&
+   detour.Active&&detour.Failures==1,
+   "Auto Quest 0.6.9: 3.8 unidades à esquerda NÃO confirmam contorno");
+  var right=detour.Poll(1683.9,1301.9,At(10));
+  check(right.Kind==AutoQuestDetourKind.Issue&&right.Direction=="DIREITA"&&
+   right.X>1683.9,
+   "Auto Quest 0.6.9: tenta DIREITA depois que esquerda não atravessa");
+  var shortMove=detour.Poll(1689.0,1304.0,At(11));
+  check(shortMove.Kind==AutoQuestDetourKind.Wait&&detour.Active,
+   "Auto Quest 0.6.9: mover 7 unidades à direita NÃO libera o destino antigo");
+  var blocked=detour.Poll(1689.0,1304.0,At(19));
+  check(blocked.Kind==AutoQuestDetourKind.SegmentBlocked,
+   "Auto Quest 0.6.9: lado direito preso também é identificado como bloqueado");
+  var back=detour.Poll(1689.0,1304.0,At(20));
+  check(back.Kind==AutoQuestDetourKind.Issue&&
+   back.Direction=="RECUAR PARA REAVALIAR",
+   "Auto Quest 0.6.9: depois dos dois lados bloqueados recua para reavaliar");
+  var full=Wall();
+  var p=full.Poll(1687.7,1301.5,At(0));
+  bool twoSides=false,forward=false;
+  AutoQuestDetourUpdate last=null;
+  for(int i=0;i<4;i++){
+   double endX=p.X,endZ=p.Z;
+   last=full.Poll(endX,endZ,At(1+2*i));
+   if(i==1)twoSides=last.Kind==AutoQuestDetourKind.SegmentReached;
+   if(i==3)break;
+   p=full.Poll(endX,endZ,At(2+2*i));
+   if(i==2)forward=p.Kind==AutoQuestDetourKind.Issue&&
+    p.Direction=="AVANÇAR PELO DESVIO";
+  }
+  check(twoSides&&forward&&last!=null&&
+   last.Kind==AutoQuestDetourKind.Cleared&&!full.Active,
+   "Auto Quest 0.6.9: só confirma saída após laterais completos e dois avanços reais");
+  var timeout=Wall().Poll(1687.7,1301.5,At(111));
+  check(timeout.Kind==AutoQuestDetourKind.Abort,
+   "Auto Quest 0.6.9: abandono seguro após 110 segundos sem contorno validado");
+  check(AutoQuestAdaptiveDetour.MaxCommands==16&&
+   AutoQuestAdaptiveDetour.MaxFailures==6&&
+   AutoQuestAdaptiveDetour.MinMovement>7,
+   "Auto Quest 0.6.9: limite de comandos, falhas e movimento mínimo superior ao do log");
  }
 }
 
