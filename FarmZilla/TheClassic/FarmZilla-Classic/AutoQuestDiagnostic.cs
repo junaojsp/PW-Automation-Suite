@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 // The Classic: read-only, explicitly started quest tracing. No injected hooks or game commands.
 // Diagnostic files stay local and are never added to the general telemetry upload queue.
 sealed class AutoQuestDiagnostic : IDisposable {
+ internal const int MaxDurationSeconds=1800;
+ internal const int MaxLogLines=25000;
+ internal static bool CanRecord(TimeSpan elapsed,bool stopRequested){return elapsed.TotalSeconds<MaxDurationSeconds&&!stopRequested;}
  readonly int pid;readonly uint characterId;readonly string characterName;
  readonly object fileLock=new object();readonly CancellationTokenSource stop=new CancellationTokenSource();
  Task worker;int lines;bool disposed;
@@ -21,8 +24,8 @@ sealed class AutoQuestDiagnostic : IDisposable {
   Directory.CreateDirectory(folder);
   FilePath=Path.Combine(folder,"autoquest-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+pid+".txt");
  }
- void Log(string message){
-  lock(fileLock){if(lines>=1800)return;
+ void Log(string message,bool isFinal=false){
+  lock(fileLock){if(lines>=MaxLogLines&&!isFinal)return;
    File.AppendAllText(FilePath,DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+" | "+message+Environment.NewLine,Encoding.UTF8);
    lines++;
   }
@@ -30,7 +33,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
  public void Start(){
   if(worker!=null)throw new InvalidOperationException("Diagnóstico já iniciado.");
   Log("AUTO QUEST THE CLASSIC - diagnóstico SOMENTE LEITURA - FarmZilla "+ReleaseInfo.Version);
-  Log("INICIO; personagem="+characterName+"; PID="+pid+"; id="+characterId+"; duração máxima 900 s; amostragem 1 s");
+  Log("INICIO; personagem="+characterName+"; PID="+pid+"; id="+characterId+"; duração máxima "+MaxDurationSeconds+" s; amostragem 1 s");
   Log("Contagem dos IDs internos NÃO representa o contador de missões iniciadas da interface.");
   Log("Eventos observados: posição, voo, NPC, alvo, 32 bytes de cada registro de tarefa e suas alterações por offset.");
   Log("ATENÇÃO: não há decodificação confirmada de nome da missão, progresso ou NPC de entrega.");
@@ -116,7 +119,7 @@ sealed class AutoQuestDiagnostic : IDisposable {
   Snapshot previous=null;DateTime lastPosition=DateTime.MinValue;int errors=0;
   var watch=Stopwatch.StartNew();
   try{
-   while(watch.Elapsed.TotalSeconds<900&&!token.IsCancellationRequested){
+   while(CanRecord(watch.Elapsed,token.IsCancellationRequested)){
     try{
      Snapshot current=Read();errors=0;
      Observe(previous,current);
@@ -137,8 +140,8 @@ sealed class AutoQuestDiagnostic : IDisposable {
     if(token.WaitHandle.WaitOne(1000))break;
    }
   }catch(Exception ex){try{Log("FALHA DE GRAVAÇÃO; "+ex.Message);}catch{}}
-  finally{try{Log("FIM; "+(token.IsCancellationRequested?"parado pelo usuário":watch.Elapsed.TotalSeconds>=900?"limite de 900 s":"leitura interrompida")+
-   "; duração="+watch.Elapsed.TotalSeconds.ToString("0")+" s; linhas="+lines);}catch{}}
+  finally{try{Log("FIM; "+(token.IsCancellationRequested?"parado pelo usuário":watch.Elapsed.TotalSeconds>=MaxDurationSeconds?"limite de "+MaxDurationSeconds+" s":"leitura interrompida")+
+   "; duração="+watch.Elapsed.TotalSeconds.ToString("0")+" s; linhas="+lines,true);}catch{}}
  }
  public async Task StopAsync(){stop.Cancel();if(worker!=null)await worker;}
  public void Dispose(){if(disposed)return;disposed=true;stop.Cancel();stop.Dispose();}
