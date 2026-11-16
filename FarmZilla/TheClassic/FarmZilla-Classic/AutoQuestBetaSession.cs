@@ -132,7 +132,7 @@ sealed class AutoQuestBetaSession : IDisposable {
  }
  void Run(CancellationToken token){
   var clock=Stopwatch.StartNew();AutoQuestNativeCommands commands=null;
-  bool ownsF12=false,ownsMovement=false,hasStopped=false;string conclusion="encerrado";
+  bool ownsF12=false,ownsMovement=false;string conclusion="encerrado";
   double originX=0,originZ=0,legX=0,legZ=0,fromX=0,fromZ=0;
   TimeSpan? legSince=null,landingSince=null,lastDescent=null;
   Sample previous=null;
@@ -188,7 +188,12 @@ sealed class AutoQuestBetaSession : IDisposable {
        if(token.WaitHandle.WaitOne(1100))break;continue;
       }
       // "not flying" may still be falling; don't start F12 during FlightTransition.
-      if(s.Activity=="FlightTransition"){if(token.WaitHandle.WaitOne(1100))break;continue;}
+      if(s.Activity=="FlightTransition"){
+       if(!landingSince.HasValue)landingSince=clock.Elapsed;
+       if(clock.Elapsed-landingSince.Value>TimeSpan.FromSeconds(50))
+        throw new IOException("Transição de pouso não terminou em 50 segundos.");
+       if(token.WaitHandle.WaitOne(1100))break;continue;
+      }
       if(ownsMovement){commands.Halt();ownsMovement=false;Log("COMANDO","PARAR AO CHEGAR; "+Position(s));}
       phase=phase==0?1:3;legSince=null;
       Log("FASE",phase==1?"Região alcançada. F12 só será acionado pelo operador.":
@@ -231,7 +236,8 @@ sealed class AutoQuestBetaSession : IDisposable {
     }
     if(phase==1&&Interlocked.Exchange(ref combatRequested,0)!=0){
      bool present=internalTaskId!=0&&s.Records.Any(x=>x.Id==internalTaskId);
-     if(CanCombat(true,s.FlightKnown,s.IsFlying,s.Activity,internalTaskId,present)){
+     if(ownsF12){Log("F12","Já ligado neste teste; comando não repetido.");}
+     else if(CanCombat(true,s.FlightKnown,s.IsFlying,s.Activity,internalTaskId,present)){
       commands.Cultivate(true);ownsF12=true;Log("COMANDO","F12 LIGADO por solicitação explícita; monitor ID "+internalTaskId);
      }else Log("F12 BLOQUEADO","É necessário estar no solo, sem transição de voo e com o ID monitorado ativo.");
     }
@@ -251,7 +257,7 @@ sealed class AutoQuestBetaSession : IDisposable {
     if(ownsMovement)try{commands.Halt();Log("LIMPEZA","Navegação interrompida.");}catch(Exception ex){Log("ERRO LIMPEZA","Parar navegação: "+ex.Message);}
     commands.Dispose();
    }
-   phase=4;hasStopped=true;
+   phase=4;
    Log("BETA FIM","resultado="+conclusion+"; duração="+clock.Elapsed.TotalSeconds.ToString("0")+" s; linhas="+lines);
    var done=Finished;if(done!=null)try{done();}catch{}
   }
