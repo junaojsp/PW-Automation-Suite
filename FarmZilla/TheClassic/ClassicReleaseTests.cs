@@ -29,6 +29,7 @@ static class ClassicReleaseTests {
   catch(Exception e){Check(false,"tira de ícones TGA: "+e.Message);}
   ClassicSimulator.Run(Check);
   AutoQuestWorkflowTests.Run(Check);
+  AutoQuestRawTaskTests.Run(Check);
   Console.WriteLine(failures==0?"Todos os testes passaram.":failures+" falha(s).");
   return failures==0?0:1;
  }
@@ -170,5 +171,40 @@ static class AutoQuestWorkflowTests {
   var done=Task(100,AutoQuestStage.Finished);
   check(AutoQuestWorkflow.Decide(Actor(),new[]{done}).Move==AutoQuestMove.Finished,
    "Quest: concluir somente após confirmação do jogo");
+ }
+}
+
+
+// Pure fixture tests: validate byte-delta collection without reading a game client.
+static class AutoQuestRawTaskTests {
+ static AutoQuestRawTaskRecord Record(ushort id,int occurrence=0,byte flag=0){
+  var bytes=new byte[32];Buffer.BlockCopy(BitConverter.GetBytes(id),0,bytes,0,2);
+  bytes[4]=flag;
+  return new AutoQuestRawTaskRecord{Id=id,Occurrence=occurrence,Data=bytes};
+ }
+ public static void Run(Action<bool,string> check){
+  var first=new[]{Record(1333),Record(1334)};
+  var reordered=new[]{Record(1334),Record(1333)};
+  check(AutoQuestRawTaskDiff.Changes(first,reordered).Count==0,
+   "Auto Quest: reordenação da lista não gera falso progresso de missão");
+  var changed=new[]{Record(1333,0,1),Record(1334)};
+  var delta=AutoQuestRawTaskDiff.Changes(first,changed);
+  check(delta.Count==1&&delta[0].Id==1333&&delta[0].Kind=="ALTERADO"&&delta[0].Detail.Contains("04:00>01"),
+   "Auto Quest: alteração de bytes em missão com mesmo ID é detectada");
+  check(AutoQuestRawTaskDiff.Changes(first,new[]{Record(1333),Record(1334),Record(1335)}).Count==1&&
+    AutoQuestRawTaskDiff.Changes(first,new[]{Record(1333),Record(1334),Record(1335)})[0].Kind=="ADICIONADO",
+   "Auto Quest: nova entrada interna registrada sem afirmar conclusão do diário");
+  var removed=AutoQuestRawTaskDiff.Changes(first,new[]{Record(1334)});
+  check(removed.Count==1&&removed[0].Id==1333&&removed[0].Kind=="REMOVIDO",
+   "Auto Quest: entrada interna removida identificada");
+  var duplicates=new[]{Record(1333),Record(1333,1)};
+  var duplicatesUpdated=new[]{Record(1333),Record(1333,1,8)};
+  var duplicateDiff=AutoQuestRawTaskDiff.Changes(duplicates,duplicatesUpdated);
+  check(duplicateDiff.Count==1&&duplicateDiff[0].Occurrence==1,
+   "Auto Quest: entradas de ID repetido são diferenciadas pela ocorrência");
+  bool rejected=false;try{AutoQuestRawTaskDiff.Changes(first,new[]{
+    new AutoQuestRawTaskRecord{Id=3,Occurrence=0,Data=new byte[6]}
+   });}catch(ArgumentException){rejected=true;}
+  check(rejected,"Auto Quest: registros truncados são rejeitados");
  }
 }
