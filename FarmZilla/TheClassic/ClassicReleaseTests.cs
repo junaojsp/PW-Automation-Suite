@@ -104,16 +104,20 @@ static class AutoQuestWorkflowTests {
   var atB=AutoQuestWorkflow.Decide(Actor(70,10),new[]{talk});
   check(atB.Move==AutoQuestMove.InteractNpc&&atB.NpcInstanceId==220,"Quest: conversar com o NPC B");
   var antiRepeat=new AutoQuestActionGuard();
-  check(antiRepeat.TryIssue(atB,new[]{talk})&&!antiRepeat.TryIssue(atB,new[]{talk}),
+  check(antiRepeat.TryIssue(atB,talk)&&!antiRepeat.TryIssue(atB,talk),
    "Quest: não repetir interação sem confirmação de nova etapa");
   talk.StageRevision=2;
-  check(antiRepeat.TryIssue(atB,new[]{talk}),"Quest: nova revisão confirmada libera interação");
+  check(antiRepeat.TryIssue(atB,talk),"Quest: nova revisão confirmada libera interação");
   var wolfA=Task(100,AutoQuestStage.KillMonsters,0,100,100,"Bosque",0,10);
   var wolfB=Task(101,AutoQuestStage.KillMonsters,0,101,98,"Bosque",0,8);
   var distant=Task(102,AutoQuestStage.KillMonsters,0,400,400,"Montanha",0,12);
   var trip=AutoQuestWorkflow.Decide(Actor(70,10),new[]{wolfA,wolfB,distant});
   check(trip.Move==AutoQuestMove.MoveToRegion&&trip.QuestIds.SequenceEqual(new ushort[]{100,101}),
    "Quest: mesmo bosque agrupa duas missões em uma viagem");
+  var farInSameLabel=Task(104,AutoQuestStage.KillMonsters,0,200,220,"Bosque",0,3);
+  var separated=AutoQuestWorkflow.Decide(Actor(70,10),new[]{wolfA,wolfB,farInSameLabel});
+  check(separated.Move==AutoQuestMove.MoveToRegion&&separated.QuestIds.SequenceEqual(new ushort[]{100,101}),
+   "Quest: regiões de mesmo nome distantes não viram uma área única");
   var landing=AutoQuestWorkflow.Decide(Actor(100,100,false,true),new[]{wolfA,wolfB,distant});
   check(landing.Move==AutoQuestMove.WaitForLanding,"Quest: não iniciar F12 no ar");
   var farm=AutoQuestWorkflow.Decide(Actor(100,100),new[]{wolfA,wolfB,distant});
@@ -135,7 +139,16 @@ static class AutoQuestWorkflowTests {
   var turnIn=AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery});
   check(turnIn.Move==AutoQuestMove.DeliverQuest&&turnIn.NpcInstanceId==330,
    "Quest: missão previamente aceita pronta para entrega no NPC C");
+  var sameNpc=Task(105,AutoQuestStage.DeliverToNpc,330,500,10);
+  var multi=AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery,sameNpc});
+  var turnInGate=new AutoQuestActionGuard();
+  check(multi.Move==AutoQuestMove.DeliverQuest&&multi.QuestIds.SequenceEqual(new ushort[]{100,105})&&
+   turnInGate.TryIssue(multi,delivery)&&turnInGate.TryIssue(multi,sameNpc)&&!turnInGate.TryIssue(multi,delivery),
+   "Quest: agrupar entrega no mesmo NPC mas enviar um comando por missão");
   delivery.HasRewardChoice=true;
+  var otherDelivery=AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery,sameNpc});
+  check(otherDelivery.Move==AutoQuestMove.DeliverQuest&&otherDelivery.QuestIds.SequenceEqual(new ushort[]{105}),
+   "Quest: entrega simples não fica bloqueada por recompensa de outra missão");
   check(AutoQuestWorkflow.Decide(Actor(500,10),new[]{delivery}).Move==AutoQuestMove.ManualReward,
    "Quest: recompensa com escolha não dispara entrega automática");
   delivery.HasRewardChoice=false;delivery.ReadyForDeliveryVerified=false;
