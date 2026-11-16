@@ -8,7 +8,7 @@ using System.Linq;
 // only AFTER this gate, never with the old ProFile/CheirosoWB test coordinates.
 static class AutoQuestScanPlanner {
  public static AutoQuestDecision Select(AutoQuestActor actor,IEnumerable<AutoQuestObservedTask> tasks){
-  var result=AutoQuestWorkflow.Decide(actor,tasks);
+  var result=AutoQuestExistingQuestPlanner.Select(actor,tasks);
   if(result.Move!=AutoQuestMove.MoveToNpc&&
      result.Move!=AutoQuestMove.MoveToRegion)
    return AutoQuestDecision.Of(AutoQuestMove.AwaitVerifiedData,
