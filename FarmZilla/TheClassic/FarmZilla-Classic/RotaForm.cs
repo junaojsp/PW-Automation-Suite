@@ -138,7 +138,7 @@ namespace RotaAvalon {
         void SaveChoices(){try{File.WriteAllText(ChoicesFile,String.Join(",",route.ResourceIds));}catch(Exception error){Log("Escolhas: "+error.Message,false);}}
         void LoadChoices(){if(route.ResourceIds.Count>0)return;try{if(!File.Exists(ChoicesFile))return;foreach(var part in File.ReadAllText(ChoicesFile).Split(',')){int id;if(Int32.TryParse(part.Trim(),out id)&&catalog.Definitions.ContainsKey(id)&&!route.ResourceIds.Contains(id))route.ResourceIds.Add(id);}}catch{}}
         // Farm tab: choose materials (shared with the route's choices, saved), start/stop, scan around the character.
-        void WireFarm(){farm.Map.IconFor=worldPanel.MapIcon;farm.Height=LoadHeight();
+        void WireFarm(){farm.Map.IconFor=worldPanel.MapIcon;farm.Map.TypeOf=id=>{ResourceDefinition d;return catalog.Definitions.TryGetValue(id,out d)?d.idTipo:0;};farm.Height=LoadHeight();
             farm.MaterialToggled+=(id,chosen)=>{if(route.ResourceIds.Contains(id)==chosen)return;if(chosen)route.ResourceIds.Add(id);else route.ResourceIds.Remove(id);SetDirty();UpdateSummary();SaveChoices();worldPanel.SelectionChanged();UpdateFarm(lastObserved);};
             farm.StartRequested+=StartFarm;farm.OverlayRequested+=ToggleOverlay;farm.SaveRouteRequested+=SaveFarmRoute;farm.LoadRouteRequested+=LoadFarmRoute;LoadExcluded();farm.Radius=StartRadius;
             // A click on a point of the Farm map takes it out of the route (saved); "Restaurar pontos" brings them back.
