@@ -164,3 +164,21 @@ O objetivo agora é reconhecer missões e NPCs de **qualquer cidade**, não deco
 4. Só liberar aceite/entrega/combate automáticos depois de validar cada comando e mudança de estado no jogo.
 
 **Não confundir o scanner regional (dados observados) com um Auto Quest universal pronto.**
+
+
+## Auto Quest 0.6.9 — recuperação de paredes com observação real
+
+Falha reproduzida do TXT CheirosoWB 16/11/2026 11:33:24–11:33:53: a versão 0.6.8 declarou "destravado" depois de um recuo de aproximadamente 6 unidades e de um movimento para a direita de aproximadamente 7 unidades, mesmo sem contornar a parede. A tentativa enviada para a esquerda percorreu menos de 4 unidades e falhou. Em seguida o mesmo waypoint bloqueado voltou a ser enviado.
+
+A nova beta **não considera um pequeno movimento como saída da parede**:
+
+1. Ao ficar 8 segundos sem se aproximar do waypoint, interrompe o caminho original e inicia um **desvio exclusivo**.
+2. Tenta primeiro um trecho lateral à esquerda em relação ao rumo do objetivo, de até 28 unidades. Só considera concluído quando o personagem realmente alcança o waypoint lateral (margem de 8 unidades) com deslocamento de pelo menos 16 unidades.
+3. Se o lado for bloqueado, tenta o lado oposto. Se ambos falharem, testa um curto recuo para reavaliar. O lado que demonstrar movimento efetivo é mantido para novas etapas laterais.
+4. Após deslocar-se lateralmente, exige **dois avanços reais de 32 unidades** na direção geral do objetivo, afastamento mínimo de 48 unidades da posição do muro e progresso líquido de 25 unidades até o destino, antes de tentar retomar a rota principal.
+5. No máximo 16 comandos, 6 falhas e 110 segundos por desvio, com até 2 ciclos na sessão; se o personagem voltar para a mesma parede, encerra em vez de entrar em loop.
+6. Registra no TXT a direção **solicitada**, o waypoint e os deslocamentos **observados** em X/Z, a distância ao muro e o motivo de cada bloqueio.
+
+**Não é leitura geométrica do mapa nem garantia universal de encontrar passagem.** O cliente ainda não disponibiliza navmesh/colisões decodificadas, e nenhum passo é considerado bem-sucedido só porque o comando foi aceito. Se não conseguir contornar dentro dos limites, o teste para e salva o TXT.
+
+O módulo de scanner de missões por região adicionado na 0.6.8 continua separado; não altera Mat Farm, Espelho, Frost, NPC, aceite/entrega de quests ou F12.
