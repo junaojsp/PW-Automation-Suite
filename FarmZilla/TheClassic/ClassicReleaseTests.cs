@@ -105,6 +105,7 @@ static class AutoQuestBetaTests {
     !AutoQuestBetaSession.CanCombat(true,false,false,"Idle",1329,true)&&
     !AutoQuestBetaSession.CanCombat(true,true,true,"Idle",1329,true)&&
     !AutoQuestBetaSession.CanCombat(true,true,false,"FlightTransition",1329,true)&&
+    !AutoQuestBetaSession.CanCombat(true,true,false,"Moving",1329,true)&&
     !AutoQuestBetaSession.CanCombat(true,true,false,"Idle",0,true)&&
     !AutoQuestBetaSession.CanCombat(true,true,false,"Idle",1329,false)&&
     AutoQuestBetaSession.CanCombat(true,true,false,"Idle",1329,true),
