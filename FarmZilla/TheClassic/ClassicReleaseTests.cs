@@ -331,6 +331,21 @@ static class AutoQuestVerifiedDriverTests {
      f6.Sent.SequenceEqual(new[]{"f12_on","f12_off"}),
     "Quest driver: perda de exclusividade desliga só F12 que ele próprio iniciou");
   }
+  var unknownAfterMove=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(unknownAfterMove)){
+   d.Tick(Actor(),new[]{Fight()},TimeSpan.Zero,false);
+   var r=d.Tick(Actor(),new[]{unknown},TimeSpan.FromSeconds(2),false);
+   check(r.Stage==AutoQuestMove.AwaitVerifiedData&&
+     unknownAfterMove.Sent.SequenceEqual(new[]{"walk","halt"}),
+    "Quest driver: etapa deixou de ser validada, cancela auto caminho existente");
+  }
+  var landingNeverFinishes=new Fake();
+  using(var d=new AutoQuestVerifiedDriver(landingNeverFinishes)){
+   d.Tick(Actor(1000,0,true),new[]{Fight(1000)},TimeSpan.Zero);
+   var r=d.Tick(Actor(1000,0,true),new[]{Fight(1000)},TimeSpan.FromSeconds(46));
+   check(!d.Running&&r.Travel==AutoQuestTravelCommand.Pause,
+    "Quest driver: pouso sem confirmação em 45 segundos pausa a sessão");
+  }
   var f7=new Fake();
   using(var d=new AutoQuestVerifiedDriver(f7)){
    var noFlight=Actor(0,0,false,false);
