@@ -206,8 +206,15 @@ sealed class AutoQuestBetaSession : IDisposable {
       var order=policy.Select(actor,plan,clock.Elapsed,allowFlight?(bool?)null:false);
       if(order.Command==AutoQuestTravelCommand.Pause)throw new IOException(order.Reason);
       if(order.Command==AutoQuestTravelCommand.TryTakeoff){
-       commands.Takeoff(tx,tz);ownsMovement=true;legSince=null;
-       Log("COMANDO","TENTAR DECOLAR UMA VEZ; "+Position(s));
+       try{
+        commands.Takeoff(tx,tz);ownsMovement=true;legSince=null;
+        Log("COMANDO","TENTAR DECOLAR UMA VEZ; "+Position(s));
+       }catch(Exception ex){
+        // A missing flight item may cause the native client to reject takeoff.
+        // Do NOT retry: the travel policy will choose ground after its six-second timeout.
+        Log("FALLBACK VOO","Decolagem não aceita: "+ex.Message+
+         "; aguardando fallback automático para caminho pelo chão.");
+       }
       }else if(order.Command==AutoQuestTravelCommand.GroundAutoPath||
        order.Command==AutoQuestTravelCommand.FlyToTarget){
        if(legSince.HasValue){
