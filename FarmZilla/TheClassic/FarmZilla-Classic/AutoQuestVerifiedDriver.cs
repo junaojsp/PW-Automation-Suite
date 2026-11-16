@@ -25,10 +25,11 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
  const double GroundLeg=120.0,FlightLeg=300.0,ReachedLeg=8.0,MinimumProgress=3.0;
  static readonly TimeSpan LegTimeout=TimeSpan.FromSeconds(20);
  static readonly TimeSpan LandingPulse=TimeSpan.FromSeconds(2);
+ static readonly TimeSpan LandingTimeout=TimeSpan.FromSeconds(45);
  readonly IAutoQuestGameCommands commands;
  readonly AutoQuestTravelPolicy travel=new AutoQuestTravelPolicy();
  bool ownsF12,ownsNavigation,stopped,faulted;
- TimeSpan? legSentAt,landingSentAt;
+ TimeSpan? legSentAt,landingSentAt,landingStartedAt;
  double legX,legZ,legStartX,legStartZ,destinationX,destinationZ;
  AutoQuestTravelCommand legMode;
  public bool Running {get{return !stopped&&!faulted;}}
@@ -73,9 +74,10 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
    if(plan.Move==AutoQuestMove.Pause)return Fail(plan.Move,plan.Reason);
    if(plan.Move==AutoQuestMove.Finished){Stop();return Answer(plan.Move,AutoQuestTravelCommand.None,false,"Fim confirmado pelo planejador.");}
    if(plan.Move==AutoQuestMove.AwaitVerifiedData){
-    // Unknown quest state must not leave a previously enabled F12 running.
-    if(ownsF12){commands.Cultivate(false);ownsF12=false;}
-    return Answer(plan.Move,AutoQuestTravelCommand.None,false,plan.Reason);
+    // A lost/unknown stage invalidates all previously authorized commands, even a pending path.
+    bool hadActions=ownsF12||ownsNavigation;
+    if(hadActions)SafeStop();
+    return Answer(plan.Move,AutoQuestTravelCommand.None,hadActions,plan.Reason);
    }
    if(plan.Move==AutoQuestMove.StopF12) {
     if(ownsF12){commands.Cultivate(false);ownsF12=false;ClearLeg();
@@ -104,11 +106,15 @@ sealed class AutoQuestVerifiedDriver : IDisposable {
    if(order.Command==AutoQuestTravelCommand.Pause)return Fail(plan.Move,order.Reason);
    if(order.Command==AutoQuestTravelCommand.Land){
     ClearLeg();
+    if(!landingStartedAt.HasValue)landingStartedAt=sessionElapsed;
+    if(sessionElapsed<landingStartedAt.Value||sessionElapsed-landingStartedAt.Value>LandingTimeout)
+     return Fail(plan.Move,"Pouso não confirmado em 45 segundos; missão pausada.");
     if(landingSentAt.HasValue&&sessionElapsed-landingSentAt.Value<LandingPulse)
      return Answer(plan.Move,order.Command,false,"Aguardando confirmação do pouso.");
     commands.Descend();ownsNavigation=true;landingSentAt=sessionElapsed;
     return Answer(plan.Move,order.Command,true,"Solicitado pulso de descida; confirmar pouso no próximo ciclo.");
    }
+   if(order.Command!=AutoQuestTravelCommand.Land){landingSentAt=null;landingStartedAt=null;}
    if(order.Command==AutoQuestTravelCommand.TryTakeoff){
     ClearLeg();commands.Takeoff(order.X,order.Z);ownsNavigation=true;
     return Answer(plan.Move,order.Command,true,"Tentativa única de voo enviada; observar estado antes de continuar.");
