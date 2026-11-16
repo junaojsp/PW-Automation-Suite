@@ -90,6 +90,9 @@ sealed class AutoQuestAdaptiveDetour {
     }
     return AutoQuestDetourUpdate.Of(AutoQuestDetourKind.SegmentReached,
      "Etapa "+issuedCount+" "+issuedDirection+" alcançada; não retomar destino principal ainda"+
+     "; deslocamento observado dX="+(x-fromX).ToString("0.0")+
+     " dZ="+(z-fromZ).ToString("0.0")+" total="+
+      Dist(x,z,fromX,fromZ).ToString("0.0")+
      "; distância real do bloqueio="+Dist(x,z,blockedX,blockedZ).ToString("0.0"));
    }
    if(distance<bestRemaining-1.2){bestRemaining=distance;lastGainAt=now;}
@@ -113,6 +116,9 @@ sealed class AutoQuestAdaptiveDetour {
     }
     return AutoQuestDetourUpdate.Of(AutoQuestDetourKind.SegmentBlocked,
      "Etapa "+issuedCount+" "+kind+" bloqueada; aprox. restantes="+distance.ToString("0.0")+
+     "; deslocamento observado dX="+(x-fromX).ToString("0.0")+
+     " dZ="+(z-fromZ).ToString("0.0")+" total="+
+      Dist(x,z,fromX,fromZ).ToString("0.0")+
      "; próximo modo="+mode+"; falhas="+failures);
    }
    return AutoQuestDetourUpdate.Of(AutoQuestDetourKind.Wait,"Aguardando avanço real no desvio.");
