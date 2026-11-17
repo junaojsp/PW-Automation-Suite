@@ -83,3 +83,13 @@ O cliente x86 recebido (13.287.888 bytes, SHA-256 `2987ee326956e694391c35e11f94e
 Esta alteração identifica explicitamente a compilação no registro de detecção e explica por que foi recusada. **Ela não libera comandos, não altera offsets e não deve ser considerada uma correção funcional de ataque/seguir/farm.** É uma etapa segura para coletar diagnóstico antes do remapeamento. O perfil antigo permanece aceito sem alterações.
 
 Para testar: execute o workflow `farmzilla-tclassic-build`, abra o novo executável com o jogo atualizado e acesse **Registros**. Deve aparecer `ElementClient do The Classic atualizado em 17/11/2026 identificado` e `comandos bloqueados`. Em seguida, remapeie as funções, os ponteiros e as estruturas para este hash, valide com duas contas e só então habilite as operações.
+
+## Compatibilidade adicional — atualização de 17/11/2026 (teste)
+
+O FarmZilla-Classic agora possui dois perfis independentes: ElementClient antigo SHA-256 `39d81c21…` e atualizado SHA-256 `2987ee32…`. Os novos endereços de funções, referências globais e vtables foram obtidos comparando diretamente ambos os executáveis. O perfil original permanece inalterado.
+
+A versão atualizada só é autorizada quando, com o personagem dentro do mapa, o processo confirma **ambos os ponteiros do jogo, as vtables de CECGameRun e CECHostPlayer, ID, nível, HP e prólogos essenciais**. Se a validação falhar, o FarmZilla recusa comandos e registra o motivo.
+
+**Como testar:** compile pelo workflow `farmzilla-tclassic-build` (pacote de diagnóstico) ou `farmzilla-tclassic-release` (aplicativo principal). Feche o FarmZilla anterior antes de iniciar o novo. Abra o The Classic atualizado, entre no mapa e acione **Sincronizar personagens**. Confira se o personagem aparece com nome/classe/HP plausíveis. Em seguida valide manualmente, com um personagem secundário de teste, primeiro **Seguir/Parar** e depois o **Ataque**. Envie o registro em caso de recusa ou comportamento diferente. Não deixe automações rodando sem supervisão no primeiro teste.
+
+A aprovação final do perfil exige observação dentro do jogo; os testes de CI verificam os RVAs e compilação, mas não simulam o cliente em execução. Alguns fluxos específicos (convite, teleporte, missão automática e coleta) podem exigir uma segunda validação de estruturas após o reconhecimento inicial.
