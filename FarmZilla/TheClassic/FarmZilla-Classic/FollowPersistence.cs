@@ -71,7 +71,11 @@ partial class AvalonInterno {
     if(j.Error==null){intent.NextAttempt=DateTime.MinValue;
      if(j.Stop){Note(e.Name+": seguimento parado pela tecla. "+j.Message);if(!intent.Enabled)intent.StopPending=false;}
      else{followFails.Remove(e.Pid);Note(e.Name+": seguimento retomado. "+j.Message);}continue;}
-    int fails;followFails.TryGetValue(e.Pid,out fails);fails++;followFails[e.Pid]=fails;intent.NextAttempt=DateTime.UtcNow.AddSeconds(FollowRetrySeconds);
+    int fails;followFails.TryGetValue(e.Pid,out fails);fails++;followFails[e.Pid]=fails;
+    // A atualização do cliente pode aceitar a mensagem e não realizar o seguimento. Evita 30 comandos consecutivos potencialmente incompatíveis.
+    bool updated=false;try{using(var p=System.Diagnostics.Process.GetProcessById(e.Pid)){string reason;var profile=GameProfile.TryFor(p,out reason);updated=profile!=null&&profile.Sha256==GameProfile.UpdatedSha256;}}catch{}
+    if(updated&&fails>=3){intent.NextAttempt=DateTime.MaxValue;Note(e.Name+": seguimento pausado após 3 comandos sem confirmação no Element atualizado. Não repetiremos até alternar Seguir; verifique o registro de validação de memória.");}
+    else intent.NextAttempt=DateTime.UtcNow.AddSeconds(FollowRetrySeconds);
     if(fails==1||fails%30==0)Note(e.Name+": não foi possível confirmar seguimento"+(fails>1?" ("+fails+" tentativas; tentando a cada "+FollowRetrySeconds+" s — aproxime do principal)":"")+". "+j.Error.Message);}
   }finally{repairingFollow=false;busy=false;action.Enabled=true;}
  }
