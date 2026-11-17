@@ -27,18 +27,18 @@ static partial class PartyService {
     var accepted=new HashSet<int>();
     foreach(int i in pending){token.ThrowIfCancellationRequested();var secondary=secondaries[i];byte[] invite=new byte[6];invite[0]=0x1B;Buffer.BlockCopy(BitConverter.GetBytes(secondary.Id),0,invite,2,4);
      try{Send(main,invite,results[i]);}catch(Exception e){results[i].Message=secondary.Name+": "+e.Message;if(results[i].Blocked)return results;accepted.Add(i);}}
-    progress.Report("Convites enviados para "+pending.Count+" secundário(s) · tentativa "+attempt+"/2.");
+    progress.Report("PT: convites enviados para "+pending.Count+" secundário(s) · tentativa "+attempt+"/2; aguardando confirmação e leitura do convite nos secundários.");
     var clock=Stopwatch.StartNew();var waiting=new List<int>(pending.Where(i=>!accepted.Contains(i)||results[i].Message==null));
     while(waiting.Count>0&&clock.ElapsedMilliseconds<10000){token.ThrowIfCancellationRequested();
      foreach(int i in waiting.ToArray()){var secondary=secondaries[i];
       if(Together(main,secondary)){results[i].Message=secondary.Name+": entrada na PT confirmada.";waiting.Remove(i);continue;}
       if(accepted.Contains(i))continue;
-      using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation==null)continue;
+      using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation==null){if(clock.ElapsedMilliseconds>3000&&!accepted.Contains(i))progress.Report(secondary.Name+": convite ainda não identificado na fila/janela do cliente; verificar compatibilidade da leitura de convite.");continue;}
        byte[] answer=PartyInvite.Accept(invitation);
        try{Send(secondary,answer,results[i]);accepted.Add(i);progress.Report(secondary.Name+": convite do principal aceito pelo app.");}catch(Exception e){results[i].Message=secondary.Name+": "+e.Message;waiting.Remove(i);if(results[i].Blocked)return results;}}}
      if(waiting.Count>0&&token.WaitHandle.WaitOne(40))token.ThrowIfCancellationRequested();}
     pending=waiting;}
-   foreach(int i in pending)results[i].Message=secondaries[i].Name+": não entrou na PT. Confira distância, limite do grupo e restrições de convite.";
+   foreach(int i in pending)results[i].Message=secondaries[i].Name+": PT não confirmada em ambos os clientes. Verifique se o convite apareceu no jogo e se foi aceito; a fila/janela de convite pode ter mudado após atualização do Element.";
   }catch(OperationCanceledException){for(int i=0;i<results.Count;i++)if(results[i].Message==null)results[i].Message=secondaries[i].Name+": montagem da PT cancelada pela mudança de seleção.";}
   return results;}
 }
