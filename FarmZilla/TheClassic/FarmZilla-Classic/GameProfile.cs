@@ -32,6 +32,26 @@ public sealed class GameProfile {
  static readonly Dictionary<string,bool> confirmed=new Dictionary<string,bool>();
  internal static Action<string> Log=delegate(string s){DiagnosticLog.Write(s);};
 
+ // Apenas capturas instaladas por ESTA instância do FarmZilla podem substituir o prólogo de SendData.
+ // Guardamos o destino exato; outros JMPs, capturas órfãs e código desconhecido continuam bloqueados.
+ sealed class OwnedCapture {public uint Target,Trampoline;}
+ static readonly Dictionary<int,OwnedCapture> ownedCaptures=new Dictionary<int,OwnedCapture>();
+ internal static void CaptureInstalled(int pid,uint target,uint trampoline){
+  lock(gate)ownedCaptures[pid]=new OwnedCapture{Target=target,Trampoline=trampoline};
+ }
+ internal static void CaptureRestored(int pid,uint target,uint trampoline){
+  lock(gate){OwnedCapture own;if(ownedCaptures.TryGetValue(pid,out own)&&own.Target==target&&own.Trampoline==trampoline)ownedCaptures.Remove(pid);}
+ }
+ static bool OwnsSendDataPatch(IntPtr h,int pid,uint target,byte[] observed){
+  if(observed.Length!=5||observed[0]!=0xE9)return false;
+  OwnedCapture own;lock(gate){if(!ownedCaptures.TryGetValue(pid,out own)||own.Target!=target)return false;}
+  // Verifique o destino exato registrado, o JMP de cinco bytes e a assinatura do capturador.
+  if(unchecked(target+5+BitConverter.ToUInt32(observed,1))!=own.Trampoline)return false;
+  var head=new byte[9];UIntPtr got;
+  if(!ReadProcessMemory(h,new IntPtr(unchecked((int)own.Trampoline)),head,new UIntPtr(9),out got)||got.ToUInt32()!=9)return false;
+  return head[0]==0x9C&&head[1]==0x60&&head[2]==0xF0&&head[3]==0xFF&&head[4]==0x05&&
+   BitConverter.ToUInt32(head,5)==unchecked(own.Trampoline-4096u+4u);
+ }
  static GameProfile updated;
  // RVAs da atualização de 17/11/2026, comparados por blocos de código e referências globais.
  // O perfil original permanece intocado. O processo atualizado ainda deve passar pela guarda em memória.
@@ -138,7 +158,9 @@ public sealed class GameProfile {
     var data=new byte[entry.Value.Length];UIntPtr got;
     if(!ReadProcessMemory(h,new IntPtr(unchecked((int)(baseAddress+entry.Key))),data,new UIntPtr((uint)data.Length),out got)||got.ToUInt32()!=data.Length)
      throw new IOException("Falha na leitura da função 0x"+entry.Key.ToString("X"));
-    for(int i=0;i<data.Length;i++)if(data[i]!=entry.Value[i])throw new IOException("Código diferente em 0x"+entry.Key.ToString("X"));
+    bool same=true;for(int i=0;i<data.Length;i++)if(data[i]!=entry.Value[i]){same=false;break;}
+    if(!same&&!(entry.Key==0x4C0DC0u&&OwnsSendDataPatch(h,process.Id,baseAddress+entry.Key,data)))
+     throw new IOException("Código diferente em 0x"+entry.Key.ToString("X")+(entry.Key==0x4C0DC0u?" (SendData: gancho externo ou captura não reconhecida)":""));
    }
    return true;
   }catch(Exception e){failure="Element atualizado identificado, mas validação de memória bloqueou comandos: "+e.Message;return false;}
