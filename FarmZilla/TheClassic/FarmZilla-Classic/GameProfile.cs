@@ -10,7 +10,7 @@ using System.Security.Cryptography;
 // ClassicLayout.cs. As assinaturas do Avalon não servem para o Classic, então qualquer outro hash é recusado.
 public sealed class GameProfile {
  public const string KnownSha256="39d81c21ca72f373a787c936da1611281593d950668f2077016d77c1424338ce";
- // Atualização The Classic de 17/11/2026: identificação para diagnóstico, NÃO aprovada para comandos.
+ // Atualização The Classic de 17/11/2026: perfil separado obtido comparando os dois executáveis.
  public const string UpdatedSha256="2987ee326956e694391c35e11f94e674f38cf6395cd7188359ec57b32daa26f8";
  public const uint KnownSizeOfImage=0xD66000;
  public readonly uint HostOffset=ClassicLayout.RunHost,CharacterIdOffset=ClassicLayout.HostId,FollowManagerOffset=ClassicLayout.RunQueue;
@@ -32,6 +32,30 @@ public sealed class GameProfile {
  static readonly Dictionary<string,bool> confirmed=new Dictionary<string,bool>();
  internal static Action<string> Log=delegate(string s){DiagnosticLog.Write(s);};
 
+ static GameProfile updated;
+ // RVAs da atualização de 17/11/2026, comparados por blocos de código e referências globais.
+ // O perfil original permanece intocado. O processo atualizado ainda deve passar pela guarda em memória.
+ public static GameProfile Updated(){
+  if(updated!=null)return updated;
+  var values=new Dictionary<string,uint>();foreach(var t in GameSignatures.Targets)values[t.Name]=t.Rva;
+  var moved=new Dictionary<string,uint>{
+   {"FollowPost",0x425150u},{"SendData",0x4C0DC0u},{"NpcClose",0x75B2B0u},
+   {"NpcCancel",0x282020u},{"TaskLookup",0x52D120u},{"HintCommand",0x309A60u},
+   {"TaskConfirmRefresh",0x3095A0u},{"TaskConfirmCommand",0x309440u},
+   {"AwardSelect",0x1AAE80u},{"AwardConfirm",0x1AAC10u},
+   {"AutoPolicyGet",0x44A990u},{"AutoPolicyStop",0x44AC20u},
+   {"AutoPolicyChange",0x44ACD0u},{"Navigate",0x41A790u},
+   {"Root",0xCA3B4Cu},{"RotaRoot",0xCA57ACu},
+   {"TeleportTable",0xCB69B0u},{"TeleportCount",0xCB69BCu},
+   {"AutoKillName",0xA21A50u},{"FollowWork",0x9E8208u},{"ComboSkill",0x9E6ADCu},
+   {"DlgNpc",0x9FFBE0u},{"DlgTask",0xA06CB8u},{"DlgTaskConfirm",0xA06DA4u},
+   {"DlgTaskList",0xA06ED4u},{"Team",0x9EC2DCu},{"TeamMember",0x9EC2D4u},
+   {"DlgMessageBox",0x9FF0E4u},{"TaskInterface",0xA2AA9Cu},
+   {"ItemTransmitScroll",0x9EDCF0u},{"ItemTaskDice",0x9EF398u},{"Pet",0x9ECB04u}
+  };
+  foreach(var pair in moved)values[pair.Key]=pair.Value;
+  return updated=new GameProfile(UpdatedSha256,true,KnownSizeOfImage,values,null);
+ }
  static GameProfile current;
  public static GameProfile Current(){var c=current;if(c!=null)return c;var values=new Dictionary<string,uint>();foreach(var t in GameSignatures.Targets)values[t.Name]=t.Rva;return current=new GameProfile(KnownSha256,true,KnownSizeOfImage,values,null);}
  // Perfil para um arquivo; null com o motivo em failure. Guarda o resultado enquanto tamanho e data do arquivo não mudarem.
@@ -51,7 +75,8 @@ public sealed class GameProfile {
   if(sha==UpdatedSha256){
    PeImage pe;
    try{pe=PeImage.Load(file);}catch(Exception ex){return new Entry{Failure="ElementClient atualizado: PE inválido ("+ex.Message+")."};}
-   return new Entry{Failure="ElementClient do The Classic atualizado em 17/11/2026 identificado (SHA-256 "+sha+", SizeOfImage 0x"+pe.SizeOfImage.ToString("X")+"). Perfil de memória ainda não remapeado: comandos bloqueados para proteger o jogo. Envie o registro do FarmZilla para concluir a compatibilidade."};
+   if(pe.SizeOfImage!=KnownSizeOfImage||pe.ImageBase!=0x400000u)return new Entry{Failure="Imagem do ElementClient atualizado diferente da imagem mapeada."};
+   return new Entry{Profile=Updated()};
   }
   return new Entry{Failure="SHA-256 "+sha+": não é o elementclient.exe do PW The Classic analisado (39d81c21…)."};}
 
@@ -63,7 +88,11 @@ public sealed class GameProfile {
  public static GameProfile Require(int pid){using(var p=Process.GetProcessById(pid))return Require(p);}
  public static GameProfile TryFor(Process process,out string failure){
   var module=process.MainModule;var p=ForFile(module.FileName,out failure);if(p==null)return null;
-  if(p.Known){if((uint)module.ModuleMemorySize!=p.SizeOfImage){failure="tamanho do módulo carregado diferente do cliente analisado";return null;}return p;}
+  if(p.Known){
+   if((uint)module.ModuleMemorySize!=p.SizeOfImage){failure="tamanho do módulo carregado diferente do cliente analisado";return null;}
+   if(p.Sha256==UpdatedSha256&&!ValidateUpdatedLoaded(process,out failure))return null;
+   return p;
+  }
   if((uint)module.ModuleMemorySize!=p.SizeOfImage){failure="tamanho do módulo carregado diferente do arquivo";return null;}
   string key=process.Id+"|"+process.StartTime.Ticks+"|"+p.Sha256;bool ok;
   lock(gate){if(confirmed.TryGetValue(key,out ok)){if(!ok)failure="código carregado diferente do arquivo";return ok?p:null;}}
@@ -71,6 +100,50 @@ public sealed class GameProfile {
   lock(gate){confirmed[key]=ok;}
   if(!ok)Log("Perfil do jogo recusado no PID "+process.Id+": "+failure);
   return ok?p:null;}
+ // Leitura somente do estado: impede que o novo hash autorize pontes com objeto/versão incompatível.
+ // São exigidos ambos os caminhos do jogo, as vtables e os campos centrais do personagem.
+ static uint ReadDword(IntPtr h,uint address){
+  var buffer=new byte[4];UIntPtr got;
+  if(!ReadProcessMemory(h,new IntPtr(unchecked((int)address)),buffer,new UIntPtr(4),out got)||got.ToUInt32()!=4)
+   throw new IOException("Leitura de memória falhou em 0x"+address.ToString("X8"));
+  return BitConverter.ToUInt32(buffer,0);
+ }
+ static bool ValidateUpdatedLoaded(Process process,out string failure){
+  failure=null;
+  IntPtr h=OpenProcess(0x410,false,process.Id);
+  if(h==IntPtr.Zero){failure="Sem permissão de leitura para validar o ElementClient atualizado.";return false;}
+  try{
+   uint baseAddress=unchecked((uint)process.MainModule.BaseAddress.ToInt32());
+   uint run=ReadDword(h,baseAddress+0xCA57ACu);
+   uint game=ReadDword(h,baseAddress+0xCA3B4Cu);
+   if(run<0x10000u||game<0x10000u||ReadDword(h,game+0x1Cu)!=run)throw new IOException("Ponteiros de jogo inconsistentes.");
+   if(ReadDword(h,run)!=baseAddress+0x9E5148u)throw new IOException("Vtable de CECGameRun não corresponde ao Element atualizado.");
+   uint host=ReadDword(h,run+ClassicLayout.RunHost);
+   if(host<0x10000u||ReadDword(h,host)!=baseAddress+0x9E7E20u)
+    throw new IOException("Vtable de CECHostPlayer não corresponde ao Element atualizado.");
+   uint id=ReadDword(h,host+ClassicLayout.HostId);
+   uint level=ReadDword(h,host+ClassicLayout.HostLevel);
+   uint hp=ReadDword(h,host+ClassicLayout.HostHp);
+   uint maxHp=ReadDword(h,host+ClassicLayout.HostMaxHp);
+   if(id==0||id>Int32.MaxValue||level<1||level>200||maxHp==0||maxHp>100000000||hp>maxHp)
+    throw new IOException("Dados de personagem incompatíveis com o perfil atualizado.");
+   // Inícios de função: um cliente modificado em memória não pode executar as pontes.
+   var checks=new Dictionary<uint,byte[]>{
+    {0x425150u,new byte[]{0x55,0x8B,0xEC,0x6A,0xFF}},
+    {0x4C0DC0u,new byte[]{0x55,0x8B,0xEC,0x6A,0xFF}},
+    {0x75B2B0u,new byte[]{0x55,0x8B,0xEC,0x6A,0xFF}},
+    {0x282020u,new byte[]{0x51,0x56,0x57,0x8B,0xF9}}
+   };
+   foreach(var entry in checks){
+    var data=new byte[entry.Value.Length];UIntPtr got;
+    if(!ReadProcessMemory(h,new IntPtr(unchecked((int)(baseAddress+entry.Key))),data,new UIntPtr((uint)data.Length),out got)||got.ToUInt32()!=data.Length)
+     throw new IOException("Falha na leitura da função 0x"+entry.Key.ToString("X"));
+    for(int i=0;i<data.Length;i++)if(data[i]!=entry.Value[i])throw new IOException("Código diferente em 0x"+entry.Key.ToString("X"));
+   }
+   return true;
+  }catch(Exception e){failure="Element atualizado identificado, mas validação de memória bloqueou comandos: "+e.Message;return false;}
+  finally{CloseHandle(h);}
+ }
  internal bool ConfirmLoaded(int pid,uint moduleBase,out string failure){
   failure=null;IntPtr h=OpenProcess(0x410,false,pid);if(h==IntPtr.Zero){failure="leitura do cliente negada";return false;}
   try{for(int i=0;i<codeNames.Length;i++){uint at=moduleBase+Rva(codeNames[i])+5;var got=new byte[16];UIntPtr n;
