@@ -91,11 +91,11 @@ public class TeleportCapture : IDisposable {
    if(!Same(current,Original)){if(!OrphanCapture(current))throw new Exception("Prologo inesperado; nao instalado");Patch(current,Original);RecoveredOrphan=true;}
    data=A(VirtualAllocEx(process,IntPtr.Zero,new UIntPtr(8192),0x3000,4));if(data==0)throw new Exception("Falha de alocacao");code=data+4096;Write(code,Build());uint old;if(!VirtualProtectEx(process,P(code),new UIntPtr(4096),0x20,out old))throw new Exception("Falha protegendo capturador");FlushInstructionCache(process,P(code),new UIntPtr(4096));
    // Retain the allocation on any uncertain patch failure, including a partial write.
-   retained=true;Patch(Original,Jump());installed=true;retained=false;
+   retained=true;Patch(Original,Jump());installed=true;if(!self)GameProfile.CaptureInstalled(pid,target,code);retained=false;
   }}catch{Dispose();throw;}
  }
  public void Dispose(){if(process==IntPtr.Zero)return;
-  try{if(installed){Patch(Jump(),Original);installed=false;bool freed=false;for(int i=0;i<100&&!freed;i++){freed=Quiescent(delegate{if(!VirtualFreeEx(process,P(data),UIntPtr.Zero,0x8000))throw new Exception("Falha liberando captura");data=0;},true);if(!freed)Thread.Sleep(10);}retained=!freed;}
+  try{if(installed){Patch(Jump(),Original);installed=false;if(!self)GameProfile.CaptureRestored(pid,target,code);bool freed=false;for(int i=0;i<100&&!freed;i++){freed=Quiescent(delegate{if(!VirtualFreeEx(process,P(data),UIntPtr.Zero,0x8000))throw new Exception("Falha liberando captura");data=0;},true);if(!freed)Thread.Sleep(10);}retained=!freed;}
    if(data!=0&&!installed&&!retained){VirtualFreeEx(process,P(data),UIntPtr.Zero,0x8000);data=0;}
   }catch{retained=true;try{using(var p=Process.GetProcessById(pid)){if(p.HasExited)installed=false;}}catch(ArgumentException){installed=false;}if(installed)throw;}finally{if(!installed){CloseHandle(process);process=IntPtr.Zero;}}
  }
