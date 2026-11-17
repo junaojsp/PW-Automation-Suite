@@ -10,6 +10,8 @@ using System.Security.Cryptography;
 // ClassicLayout.cs. As assinaturas do Avalon não servem para o Classic, então qualquer outro hash é recusado.
 public sealed class GameProfile {
  public const string KnownSha256="39d81c21ca72f373a787c936da1611281593d950668f2077016d77c1424338ce";
+ // Atualização The Classic de 17/11/2026: identificação para diagnóstico, NÃO aprovada para comandos.
+ public const string UpdatedSha256="2987ee326956e694391c35e11f94e674f38cf6395cd7188359ec57b32daa26f8";
  public const uint KnownSizeOfImage=0xD66000;
  public readonly uint HostOffset=ClassicLayout.RunHost,CharacterIdOffset=ClassicLayout.HostId,FollowManagerOffset=ClassicLayout.RunQueue;
  public readonly string Sha256;public readonly bool Known;public readonly uint SizeOfImage;readonly Dictionary<string,uint> map;readonly byte[][] code;
@@ -44,6 +46,13 @@ public sealed class GameProfile {
  static Entry Build(byte[] file){
   string sha;using(var h=SHA256.Create())sha=BitConverter.ToString(h.ComputeHash(file)).Replace("-","").ToLowerInvariant();
   if(sha==KnownSha256)return new Entry{Profile=Current()};
+  // A atualização conserva SizeOfImage, mas RVAs antigos já não apontam todos para inícios de funções.
+  // Não converter hash novo em perfil Known: isso permitiria operações de memória com endereços inválidos.
+  if(sha==UpdatedSha256){
+   PeImage pe;
+   try{pe=PeImage.Load(file);}catch(Exception ex){return new Entry{Failure="ElementClient atualizado: PE inválido ("+ex.Message+")."};}
+   return new Entry{Failure="ElementClient do The Classic atualizado em 17/11/2026 identificado (SHA-256 "+sha+", SizeOfImage 0x"+pe.SizeOfImage.ToString("X")+"). Perfil de memória ainda não remapeado: comandos bloqueados para proteger o jogo. Envie o registro do FarmZilla para concluir a compatibilidade."};
+  }
   return new Entry{Failure="SHA-256 "+sha+": não é o elementclient.exe do PW The Classic analisado (39d81c21…)."};}
 
  [DllImport("kernel32.dll",SetLastError=true)]static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
