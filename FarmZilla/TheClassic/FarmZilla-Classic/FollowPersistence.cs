@@ -50,7 +50,7 @@ partial class AvalonInterno {
   // During teleport only update intent. The existing bridge runs after teleport releases the client.
   return RunFollowNow();
  }
- readonly System.Collections.Generic.Dictionary<int,int> followFails=new System.Collections.Generic.Dictionary<int,int>();readonly Dictionary<int,DateTime> liftNext=new Dictionary<int,DateTime>();readonly Dictionary<int,int> lastFlightHeight=new Dictionary<int,int>();bool followYield;
+ readonly System.Collections.Generic.Dictionary<int,int> followFails=new System.Collections.Generic.Dictionary<int,int>();readonly Dictionary<int,DateTime> liftNext=new Dictionary<int,DateTime>();bool followYield;
  // The user's commands come first: a running follow repair stops at the next account (up to 4 s) and lets them run.
  async Task YieldFollowRepair(){for(int i=0;i<40&&busy&&attackTicking;i++)await Task.Delay(50);if(!(busy&&repairingFollow))return;followYield=true;try{for(int i=0;i<40&&busy&&repairingFollow;i++)await Task.Delay(100);}finally{followYield=false;}}
  async Task RunFollowNow(){await YieldFollowRepair();await MaintainFollowing();}
@@ -78,11 +78,9 @@ partial class AvalonInterno {
      if(cooldown)continue;
      if(FollowFlight.ShouldTakeoff(true,leaderFlying,selfFlying))
       jobs.Add(new FollowJob{Entry=e,Intent=intent,Lift=true,LeaderY=leaderY});
-     else if(FollowFlight.ShouldMatchHeight(true,leaderFlying,selfFlying,leaderY,selfY)){
-      int target=FollowFlight.Height(leaderY),previous;
-      if(!lastFlightHeight.TryGetValue(e.Pid,out previous)||previous!=target)
-       jobs.Add(new FollowJob{Entry=e,Intent=intent,Height=true,LeaderY=leaderY});
-     }else if(FollowFlight.ShouldDescend(true,leaderFlying,selfFlying))
+     else if(FollowFlight.ShouldMatchHeight(true,leaderFlying,selfFlying,leaderY,selfY))
+      jobs.Add(new FollowJob{Entry=e,Intent=intent,Height=true,LeaderY=leaderY});
+     else if(FollowFlight.ShouldDescend(true,leaderFlying,selfFlying))
       jobs.Add(new FollowJob{Entry=e,Intent=intent,Descend=true,LeaderY=leaderY});
     }else if(intent.StopPending){if(!following){intent.StopPending=false;continue;}jobs.Add(new FollowJob{Entry=e,Intent=intent,Stop=true});}
    }catch{}}
@@ -95,8 +93,7 @@ partial class AvalonInterno {
     if(j.Lift||j.Height||j.Descend){
      liftNext[e.Pid]=DateTime.UtcNow.AddSeconds(j.Descend?6:4);
      intent.NextAttempt=DateTime.UtcNow.AddSeconds(j.Descend?6:4);
-     if(j.Error==null){if(!j.Descend)lastFlightHeight[e.Pid]=FollowFlight.Height(j.LeaderY);else lastFlightHeight.Remove(e.Pid);
-      Note(e.Name+": voo sincronizado: "+j.Message);
+     if(j.Error==null){Note(e.Name+": voo sincronizado: "+j.Message);
      }else Note(e.Name+": voo sincronizado indisponível: "+j.Error.Message);
      continue;
     }
