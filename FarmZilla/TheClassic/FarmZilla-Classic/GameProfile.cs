@@ -84,7 +84,7 @@ public sealed class GameProfile {
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool ReadProcessMemory(IntPtr p,IntPtr a,byte[] b,UIntPtr n,out UIntPtr got);
  [DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr h);
  // Perfil do processo; lança "Cliente diferente do perfil analisado." se não houver.
- public static GameProfile Require(Process process){string failure;var p=TryFor(process,out failure);if(p==null)throw new Exception("Cliente diferente do perfil analisado.");return p;}
+ public static GameProfile Require(Process process){string failure;var p=TryFor(process,out failure);if(p==null){string reason=String.IsNullOrWhiteSpace(failure)?"verificação de compatibilidade sem diagnóstico":failure;Log("PID "+process.Id+": perfil recusado em memória: "+reason);throw new InvalidDataException("Cliente não validado para comandos (PID "+process.Id+"): "+reason);}return p;}
  public static GameProfile Require(int pid){using(var p=Process.GetProcessById(pid))return Require(p);}
  public static GameProfile TryFor(Process process,out string failure){
   var module=process.MainModule;var p=ForFile(module.FileName,out failure);if(p==null)return null;
