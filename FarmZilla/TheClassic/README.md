@@ -75,3 +75,11 @@ seletores e menu são compilados da mesma fonte. A seleção mantém o backend d
 O log automático fica em segundo plano e o botão Registros abre sua pasta. Ferramentas, ataque,
 suporte e demais comandos ainda não validados para o perfil Classic aparecem desabilitados.
 Nenhum desses controles chama uma rotina de cliente com offsets Avalon.
+
+## ElementClient atualizado em 17/11/2026 — triagem de compatibilidade
+
+O cliente x86 recebido (13.287.888 bytes, SHA-256 `2987ee326956e694391c35e11f94e674f38cf6395cd7188359ec57b32daa26f8`) tem `SizeOfImage=0xD66000`, igual ao executável validado anteriormente. Isso **não** prova compatibilidade dos endereços de memória. Na inspeção estática da nova imagem, os RVAs antigos de `FollowPost` e `NpcClose`, entre outros, não correspondem a prólogos de funções confiáveis.
+
+Esta alteração identifica explicitamente a compilação no registro de detecção e explica por que foi recusada. **Ela não libera comandos, não altera offsets e não deve ser considerada uma correção funcional de ataque/seguir/farm.** É uma etapa segura para coletar diagnóstico antes do remapeamento. O perfil antigo permanece aceito sem alterações.
+
+Para testar: execute o workflow `farmzilla-tclassic-build`, abra o novo executável com o jogo atualizado e acesse **Registros**. Deve aparecer `ElementClient do The Classic atualizado em 17/11/2026 identificado` e `comandos bloqueados`. Em seguida, remapeie as funções, os ponteiros e as estruturas para este hash, valide com duas contas e só então habilite as operações.
