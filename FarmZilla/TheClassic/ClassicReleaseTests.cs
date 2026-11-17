@@ -10,7 +10,20 @@ static class ClassicReleaseTests {
   var p=GameProfile.Current();
   Check(p.Known&&p.Sha256==GameProfile.KnownSha256&&GameProfile.KnownSha256.StartsWith("39d81c21"),"perfil = elementclient.exe do The Classic");
   Check(p.SizeOfImage==0xD66000,"SizeOfImage 0xD66000");
-  Check(GameProfile.UpdatedSha256=="2987ee326956e694391c35e11f94e674f38cf6395cd7188359ec57b32daa26f8","atualização de 17/11 cadastrada para diagnóstico, não como perfil de comandos");
+  Check(GameProfile.UpdatedSha256=="2987ee326956e694391c35e11f94e674f38cf6395cd7188359ec57b32daa26f8","atualização de 17/11 com hash fixado");
+  var newer=GameProfile.Updated();
+  Check(newer.Known&&newer.Sha256==GameProfile.UpdatedSha256&&newer.SizeOfImage==0xD66000,"novo perfil independente do hash anterior");
+  var moved=new Dictionary<string,uint>{
+   {"Root",0xCA3B4C},{"RotaRoot",0xCA57AC},{"TeleportTable",0xCB69B0},
+   {"FollowPost",0x425150},{"SendData",0x4C0DC0},{"NpcClose",0x75B2B0},
+   {"NpcCancel",0x282020},{"TaskLookup",0x52D120},{"HintCommand",0x309A60},
+   {"AwardSelect",0x1AAE80},{"AutoPolicyGet",0x44A990},
+   {"FollowWork",0x9E8208},{"ComboSkill",0x9E6ADC},{"DlgNpc",0x9FFBE0},
+   {"Team",0x9EC2DC},{"Pet",0x9ECB04}};
+  foreach(var kv in moved)Check(newer.Rva(kv.Key)==kv.Value,"novo perfil "+kv.Key+" = 0x"+kv.Value.ToString("X"));
+  Check(newer.Rva("AttackNormal")==p.Rva("AttackNormal")&&newer.Rva("MacroStart")==p.Rva("MacroStart"),"rotinas de ataque preservadas");
+  Check(p.Rva("Root")==0xCA3B3C&&p.Rva("FollowPost")==0x425090,"perfil original permanece independente");
+
   Check(p.HostOffset==0x28&&p.CharacterIdOffset==0x4B8&&p.FollowManagerOffset==0x68,"run+0x28 personagem, id +0x4B8, fila run+0x68");
   var expected=new Dictionary<string,uint>{{"Root",0xCA3B3C},{"RotaRoot",0xCA579C},{"FollowPost",0x425090},{"AttackSelect",0x10AF70},{"NpcClose",0x75B0B0},{"KeyMove",0xE5690},{"TraceMatter",0x10AC20},{"EmptyString",0xB32034},{"Navigate",0x41A6D0},{"Pet",0x9ECB34}};
   foreach(var kv in expected)Check(p.Rva(kv.Key)==kv.Value,kv.Key+" = 0x"+kv.Value.ToString("X"));
