@@ -10,6 +10,7 @@ static class ClassicReleaseTests {
   var p=GameProfile.Current();
   Check(p.Known&&p.Sha256==GameProfile.KnownSha256&&GameProfile.KnownSha256.StartsWith("39d81c21"),"perfil = elementclient.exe do The Classic");
   Check(p.SizeOfImage==0xD66000,"SizeOfImage 0xD66000");
+  Check(GameProfile.UpdatedSha256=="2987ee326956e694391c35e11f94e674f38cf6395cd7188359ec57b32daa26f8","atualização de 17/11 cadastrada para diagnóstico, não como perfil de comandos");
   Check(p.HostOffset==0x28&&p.CharacterIdOffset==0x4B8&&p.FollowManagerOffset==0x68,"run+0x28 personagem, id +0x4B8, fila run+0x68");
   var expected=new Dictionary<string,uint>{{"Root",0xCA3B3C},{"RotaRoot",0xCA579C},{"FollowPost",0x425090},{"AttackSelect",0x10AF70},{"NpcClose",0x75B0B0},{"KeyMove",0xE5690},{"TraceMatter",0x10AC20},{"EmptyString",0xB32034},{"Navigate",0x41A6D0},{"Pet",0x9ECB34}};
   foreach(var kv in expected)Check(p.Rva(kv.Key)==kv.Value,kv.Key+" = 0x"+kv.Value.ToString("X"));
