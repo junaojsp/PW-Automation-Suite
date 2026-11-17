@@ -137,8 +137,9 @@ partial class AvalonInterno {
    var s=client.Read();if(!s.FlightStateKnown)throw new InvalidOperationException("Estado de voo desconhecido.");
    if(!s.IsFlying)return "secundário já está no chão.";
    string library=RotaAvalon.RotaPaths.Bridge();
-   int target=FollowFlight.Height(leaderY);
-   RotaAvalon.NativeBridge.FlightHeight(client,target,library);
+   // Mesma sequencia de pouso ja usada pelo AutoQuestNativeCommands.Descend:
+   // desabilitar o piloto de altitude ANTES de pressionar Z, para nao subir sozinho.
+   RotaAvalon.NativeBridge.FlightHeightOff(client,library);
    RotaAvalon.NativeBridge.KeyMove(client,false,library);
    var clock=System.Diagnostics.Stopwatch.StartNew();
    try{while(clock.ElapsedMilliseconds<3000){
