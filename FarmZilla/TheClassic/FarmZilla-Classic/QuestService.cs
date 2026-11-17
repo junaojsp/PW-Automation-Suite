@@ -2,7 +2,7 @@ using System;using System.Collections.Generic;using System.Collections.Concurren
 sealed class QuestService {
  readonly Action<string> note;readonly HashSet<int> blocked;readonly Queue<Request> queue=new Queue<Request>();readonly HashSet<string> queued=new HashSet<string>();
  readonly ConcurrentDictionary<int,byte> active=new ConcurrentDictionary<int,byte>(),unsafeClients=new ConcurrentDictionary<int,byte>();
- CharacterRef source;CharacterRef[] recipients=new CharacterRef[0];HashSet<ushort> known;string selection="";byte[] npc;float npcX,npcZ;DateTime npcTime;CancellationTokenSource cancel=new CancellationTokenSource();Task job=Task.FromResult(0);bool stopping;int generation;
+ CharacterRef source;CharacterRef[] recipients=new CharacterRef[0];HashSet<ushort> known;string knownFailure="";DateTime lastReadWarning=DateTime.MinValue;string selection="";byte[] npc;float npcX,npcZ;DateTime npcTime;CancellationTokenSource cancel=new CancellationTokenSource();Task job=Task.FromResult(0);bool stopping;int generation;
  sealed class Request {public CharacterRef Source;public CharacterRef[] Recipients;public byte[] Npc,Packet;public ushort Quest;public bool Finish;public string Key;public float X,Z;public DateTime Created;}
  sealed class Result {public int Pid;public bool Blocked,Confirmed;public string Message;}
  public QuestService(Action<string> log,HashSet<int> blockedClients){note=log;blocked=blockedClients;}
@@ -13,14 +13,14 @@ sealed class QuestService {
  public bool IsClientBusy(int pid){return active.ContainsKey(pid)||unsafeClients.ContainsKey(pid);}
  public void CancelAll(){generation++;cancel.Cancel();queue.Clear();queued.Clear();npc=null;}
  public void UpdateSelection(CharacterRef main,CharacterRef[] selected){string key=main==null?"":main.Key+"/"+string.Join(",",selected.Select(s=>s.Key).OrderBy(s=>s).ToArray());if(key==selection)return;CancelAll();selection=key;source=main;recipients=selected;known=null;RefreshPrimarySnapshot();}
- public void RefreshPrimarySnapshot(){if(source==null)return;try{using(var state=Open(source))known=new HashSet<ushort>(state.ActiveQuestIds());}catch{known=null;}}
+ public void RefreshPrimarySnapshot(){if(source==null)return;try{using(var state=Open(source))known=new HashSet<ushort>(state.ActiveQuestIds());knownFailure="";}catch(Exception e){known=null;string reason=e.GetType().Name+": "+e.Message;if(knownFailure!=reason||(DateTime.UtcNow-lastReadWarning).TotalSeconds>=30){note("Quest: leitura da lista do principal PID "+source.Pid+" falhou: "+reason);lastReadWarning=DateTime.UtcNow;}knownFailure=reason;}}
  static CharacterMemory Open(CharacterRef character){var memory=new CharacterMemory(character.Pid);if(memory.Id!=character.Id){memory.Dispose();throw new InvalidOperationException("O personagem mudou. Atualize a lista.");}return memory;}
  public void Observe(byte[] packet){if(stopping||source==null||recipients.Length==0)return;
-  if(packet.Length==6&&BitConverter.ToUInt16(packet,0)==0x23){try{using(var state=Open(source)){npc=(byte[])packet.Clone();npcX=state.X;npcZ=state.Z;npcTime=DateTime.UtcNow;}}catch{npc=null;}return;}
+  if(packet.Length==6&&BitConverter.ToUInt16(packet,0)==0x23){try{using(var state=Open(source)){npc=(byte[])packet.Clone();npcX=state.X;npcZ=state.Z;npcTime=DateTime.UtcNow;}}catch(Exception e){npc=null;note("Quest: comando de NPC capturado, mas não foi possível ler o principal PID "+source.Pid+": "+e.Message);}return;}
   bool finish=packet.Length==18&&BitConverter.ToUInt16(packet,0)==0x25&&BitConverter.ToUInt32(packet,2)==6&&BitConverter.ToUInt32(packet,6)==8;bool accept=packet.Length==22&&BitConverter.ToUInt16(packet,0)==0x25&&BitConverter.ToUInt32(packet,2)==7&&BitConverter.ToUInt32(packet,6)==12;if(!finish&&!accept)return;if(finish&&BitConverter.ToUInt32(packet,14)!=0){note("Entrega com escolha de recompensa ainda não validada; confira os secundários.");return;}
   uint id=BitConverter.ToUInt32(packet,10);if(id==0||id>65535){note("Missão: identificador fora do perfil validado.");return;}
-  if(known==null){note("Missão "+id+": leitura do principal indisponível; não espelhada.");return;}
-  if(finish?!known.Contains((ushort)id):known.Contains((ushort)id))return;
+  if(known==null){note("Missão "+id+": leitura do principal indisponível; não espelhada. "+(String.IsNullOrEmpty(knownFailure)?"Verifique se a lista de missões está carregada.":"Motivo: "+knownFailure));return;}
+  if(finish?!known.Contains((ushort)id):known.Contains((ushort)id)){note("Missão "+id+": comando capturado, mas estado prévio no principal já "+(finish?"não possui a missão ativa (entrega não confirmável).":"possui a missão ativa (aceitação já registrada).")+"");return;}
   if(npc==null||(DateTime.UtcNow-npcTime).TotalMinutes>5){note("Missão "+id+": reabra o NPC no principal com o app ativo antes de aceitar ou entregar.");return;}
   string key=selection+":"+generation+":"+BitConverter.ToUInt32(npc,2)+":"+id+":"+finish;if(queued.Contains(key))return;if(queue.Count>=16){note("Fila de missões cheia; missão "+id+" não adicionada.");return;}
   queued.Add(key);queue.Enqueue(new Request{Source=source,Recipients=recipients.ToArray(),Npc=(byte[])npc.Clone(),Packet=(byte[])packet.Clone(),Quest=(ushort)id,Finish=finish,Key=key,X=npcX,Z=npcZ,Created=DateTime.UtcNow});note("Missão "+id+(finish?": entrega capturada, aguardando confirmação do principal.":": aceitação capturada, aguardando confirmação do principal."));
