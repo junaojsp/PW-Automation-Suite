@@ -24,7 +24,7 @@ static partial class PartyService {
      using(var a=Open(main))using(var b=Open(secondary)){var first=a.ReadParty();var second=b.ReadParty();if(first!=null&&first.Leader!=main.Id)throw new Exception("O principal precisa ser líder para convidar.");if(second!=null)throw new Exception("O secundário já está em outra PT; não foi removido.");}
      pending.Add(i);}catch(Exception e){results[i].Message=secondary.Name+": "+e.Message;}}
    for(int attempt=1;attempt<=2&&pending.Count>0;attempt++){
-    var accepted=new HashSet<int>();
+    var accepted=new HashSet<int>();var reportedMissingInvite=new HashSet<int>();
     foreach(int i in pending){token.ThrowIfCancellationRequested();var secondary=secondaries[i];byte[] invite=new byte[6];invite[0]=0x1B;Buffer.BlockCopy(BitConverter.GetBytes(secondary.Id),0,invite,2,4);
      try{Send(main,invite,results[i]);}catch(Exception e){results[i].Message=secondary.Name+": "+e.Message;if(results[i].Blocked)return results;accepted.Add(i);}}
     progress.Report("PT: convites enviados para "+pending.Count+" secundário(s) · tentativa "+attempt+"/2; aguardando confirmação e leitura do convite nos secundários.");
@@ -33,7 +33,7 @@ static partial class PartyService {
      foreach(int i in waiting.ToArray()){var secondary=secondaries[i];
       if(Together(main,secondary)){results[i].Message=secondary.Name+": entrada na PT confirmada.";waiting.Remove(i);continue;}
       if(accepted.Contains(i))continue;
-      using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation==null){if(clock.ElapsedMilliseconds>3000&&!accepted.Contains(i))progress.Report(secondary.Name+": convite ainda não identificado na fila/janela do cliente; verificar compatibilidade da leitura de convite.");continue;}
+      using(var memory=Open(secondary)){var invitation=memory.FindPartyInvitation(secondary.Pid,main.Id);if(invitation==null){if(clock.ElapsedMilliseconds>3000&&!accepted.Contains(i)&&reportedMissingInvite.Add(i))progress.Report(secondary.Name+": convite ainda não identificado na fila/janela do cliente; verificar compatibilidade da leitura de convite.");continue;}
        byte[] answer=PartyInvite.Accept(invitation);
        try{Send(secondary,answer,results[i]);accepted.Add(i);progress.Report(secondary.Name+": convite do principal aceito pelo app.");}catch(Exception e){results[i].Message=secondary.Name+": "+e.Message;waiting.Remove(i);if(results[i].Blocked)return results;}}}
      if(waiting.Count>0&&token.WaitHandle.WaitOne(40))token.ThrowIfCancellationRequested();}
