@@ -27,7 +27,7 @@ namespace RotaAvalon {
             string path=process.MainModule.FileName;
             // 0.50.0: perfil validado (hash conhecido) ou perfil completo por assinaturas; GameProfile guarda o resultado por arquivo.
             string failure;var profile=global::GameProfile.TryFor(process,out failure);verifiedFiles[path]=profile!=null;
-            if(profile==null)throw new InvalidDataException("Versão do cliente diferente do perfil The Classic validado.");
+            if(profile==null)throw new InvalidDataException("ElementClient não validado (PID "+pid+"): "+(String.IsNullOrWhiteSpace(failure)?"sem perfil de memória compatível":failure));
             RootRva=profile.RotaRoot;Profile=profile;
             imageBase=unchecked((uint)process.MainModule.BaseAddress.ToInt32());
             memory=new ProcessMemory(pid);
