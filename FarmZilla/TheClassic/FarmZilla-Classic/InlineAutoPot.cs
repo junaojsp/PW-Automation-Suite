@@ -129,7 +129,15 @@ partial class AvalonInterno {
  }
  void LayoutInlinePanels(){
   if(sharedPotBar==null)return;
-  if(rotaView){sharedPotBar.Visible=false;potDrawer.Visible=false;return;}
+  if(rotaView){
+   // Overlay the existing Mat Farm canvas instead of resizing or tearing down
+   // the route tool. The sidebar switch and settings button remain reachable.
+   sharedPotBar.Visible=false;
+   potDrawer.Bounds=new Rectangle(Math.Max(SideWidth,ClientSize.Width-310),50,310,ClientSize.Height-50);
+   potDrawer.Visible=potDrawerOpen;
+   if(potDrawer.Visible)potDrawer.BringToFront();
+   return;
+  }
   ClientSize=new Size(SideWidth+PanelWidth+(potDrawerOpen?310:0),PanelHeight);
   sharedPotBar.Bounds=new Rectangle(SideWidth,654,PanelWidth,36);sharedPotBar.Visible=true;
   potDrawer.Bounds=new Rectangle(SideWidth+PanelWidth,50,310,PanelHeight-50);potDrawer.Visible=potDrawerOpen;

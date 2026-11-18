@@ -1,12 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 // Offline checks of the FarmZilla The Classic release build (no game client needed).
 static class ClassicReleaseTests {
  static int failures;
  static void Check(bool ok,string what){Console.WriteLine((ok?"OK    ":"FALHA ")+what);if(!ok)failures++;}
  static int Main(){
+  // Catch the regression that made SendInput fail with ERROR_INVALID_PARAMETER:
+  // INPUT must be 28 bytes in our x86 Windows build, not 20-byte KEYBDINPUT.
+  var inputType=typeof(AvalonInterno).GetNestedType("PotInput",BindingFlags.NonPublic);
+  Check(IntPtr.Size==4&&inputType!=null&&Marshal.SizeOf(inputType)==28,"Auto Pot Win32 INPUT x86 = 28 bytes");
   var p=GameProfile.Current();
   Check(p.Known&&p.Sha256==GameProfile.KnownSha256&&GameProfile.KnownSha256.StartsWith("39d81c21"),"perfil = elementclient.exe do The Classic");
   Check(p.SizeOfImage==0xD66000,"SizeOfImage 0xD66000");
