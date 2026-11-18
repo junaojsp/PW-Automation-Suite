@@ -10,10 +10,24 @@ namespace RotaAvalon {
         readonly Dictionary<string,Bitmap> images=new Dictionary<string,Bitmap>();readonly Queue<string> order=new Queue<string>();
         byte[] atlas;Dictionary<string,int> atlasPositions;int iconWidth,iconHeight,atlasColumns;
         public MapTiles(string gameDirectory){package=new PckArchive(Path.Combine(gameDirectory,"surfaces.pck"));foreach(var e in package.Entries)entries[e.Name]=e;}
-        public Bitmap Image(string path){if(String.IsNullOrWhiteSpace(path))return null;path=path.Replace('\\','/');PckEntry entry;if(entries.TryGetValue(path,out entry))return GameImage.Decode(package.Read(entry));
-            EnsureAtlas();if(atlasPositions==null)return null;int index;string name=path.Substring(path.LastIndexOf('/')+1);if(!atlasPositions.TryGetValue(name,out index))return null;return DdsImage.Region(atlas,new Rectangle((index%atlasColumns)*iconWidth,(index/atlasColumns)*iconHeight,iconWidth,iconHeight));}
+        static string IconKey(string value){
+            if(String.IsNullOrWhiteSpace(value))return "";
+            value=value.Trim().Replace('\\','/');value=value.Substring(value.LastIndexOf('/')+1);
+            return value.EndsWith(".dds",StringComparison.OrdinalIgnoreCase)?value.Substring(0,value.Length-4):value;
+        }
+        public Bitmap Image(string path){
+            if(String.IsNullOrWhiteSpace(path))return null;
+            path=path.Trim().Replace('\\','/');
+            PckEntry entry;
+            if(entries.TryGetValue(path,out entry))return GameImage.Decode(package.Read(entry));
+            // Os catalogos podem trazer a rota completa do DDS; iconlist_ivtrm pode
+            // listar apenas o nome, com ou sem extensao.
+            EnsureAtlas();if(atlas==null||atlasPositions==null)return null;
+            int index;if(!atlasPositions.TryGetValue(IconKey(path),out index))return null;
+            return DdsImage.Region(atlas,new Rectangle((index%atlasColumns)*iconWidth,(index/atlasColumns)*iconHeight,iconWidth,iconHeight));
+        }
         void EnsureAtlas(){if(atlasPositions!=null)return;atlasPositions=new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);PckEntry text,image;if(!entries.TryGetValue("surfaces/iconset/iconlist_ivtrm.txt",out text)||!entries.TryGetValue("surfaces/iconset/iconlist_ivtrm.dds",out image))return;
-            string[] lines=Encoding.GetEncoding(936).GetString(package.Read(text)).Split('\n');if(lines.Length<4)throw new InvalidDataException("Índice de ícones incompleto.");iconWidth=Int32.Parse(lines[0].Trim());iconHeight=Int32.Parse(lines[1].Trim());int rows=Int32.Parse(lines[2].Trim());atlasColumns=Int32.Parse(lines[3].Trim());if(iconWidth!=32||iconHeight!=32||rows<1||atlasColumns<1||rows*(long)atlasColumns>100000)throw new InvalidDataException("Atlas de ícones não suportado.");atlas=package.Read(image);for(int i=4;i<lines.Length&&i-4<rows*atlasColumns;i++){string name=lines[i].Trim();if(name.Length>0)atlasPositions[name]=i-4;}}
+            string[] lines=Encoding.GetEncoding(936).GetString(package.Read(text)).Split('\n');if(lines.Length<4)throw new InvalidDataException("Índice de ícones incompleto.");iconWidth=Int32.Parse(lines[0].Trim());iconHeight=Int32.Parse(lines[1].Trim());int rows=Int32.Parse(lines[2].Trim());atlasColumns=Int32.Parse(lines[3].Trim());if(iconWidth!=32||iconHeight!=32||rows<1||atlasColumns<1||rows*(long)atlasColumns>100000)throw new InvalidDataException("Atlas de ícones não suportado.");atlas=package.Read(image);for(int i=4;i<lines.Length&&i-4<rows*atlasColumns;i++){string name=lines[i].Trim();if(name.Length>0){string key=IconKey(name);if(key.Length>0&&!atlasPositions.ContainsKey(key))atlasPositions[key]=i-4;}}}
         public Bitmap Tile(int row,int column){if(row<0||row>=22||column<0||column>=16)return null;string name="surfaces/minimaps/world/"+row.ToString("D2")+column.ToString("D2")+".dds";Bitmap image;if(images.TryGetValue(name,out image))return image;image=Image(name);if(image==null)return null;var fast=new Bitmap(image.Width,image.Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(fast))g.DrawImage(image,0,0,image.Width,image.Height);image.Dispose();image=fast;images.Add(name,image);order.Enqueue(name);while(images.Count>64){string key=order.Dequeue();images[key].Dispose();images.Remove(key);}return image;}
         // The game's big map (the parchment of the M window): 11 rows x 8 columns, each 1024 world units; kept at 512 px.
         readonly Dictionary<string,Bitmap> big=new Dictionary<string,Bitmap>();readonly Queue<string> bigOrder=new Queue<string>();
