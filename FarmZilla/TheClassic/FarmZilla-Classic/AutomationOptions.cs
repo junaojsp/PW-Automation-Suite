@@ -47,7 +47,7 @@ partial class AvalonInterno {
    "Pendente: confirmar lista de efeitos dos membros e macro do EP antes de automatizar.",
    enabled=>epBuffWanted=enabled);
  }
- // Auto Pot only on the foreground ElementClient, with user-selected potion hotkeys.
+ // Global Auto Pot: works across the UI's tools, but sends keys ONLY to the foreground ElementClient.
  // No unverified game packet is sent; Windows keyboard input is limited to an identified client.
  // Win32 INPUT is a tagged union. On x86 its size is 28 bytes
  // (4-byte type + 24-byte MOUSEINPUT/KEYBDINPUT/HARDWAREINPUT union).
@@ -91,11 +91,14 @@ partial class AvalonInterno {
   return false;
  }
  async Task AutoPotTick(){
-  if(potPolling||!autoPotWanted||closeInProgress||authorizationDenied||controlLocked||!shortcutActive||busy||teleport.Working||missions.Working)return;
+  // Global Auto Pot is opt-in and may run while Espelho, Mat Farm, Frost
+  // or Auto Quest is the selected tool. Client state, focus, death and
+  // resurrection checks below still prevent unsafe key dispatch.
+  if(potPolling||!autoPotWanted||closeInProgress||authorizationDenied||controlLocked||!shortcutActive)return;
   if(potHpKey==Keys.None&&potMpKey==Keys.None)return;
   IntPtr current=Win.GetForegroundWindow();uint pid=0;
   if(current==IntPtr.Zero||Win.GetWindowThreadProcessId(current,out pid)==0||pid==0)return;
-  var entry=main.Items.Cast<object>().OfType<Entry>().FirstOrDefault(x=>x.Pid==(int)pid&&!blocked.Contains(x.Pid)&&!RotaLock.Busy(x.Pid));
+  var entry=main.Items.Cast<object>().OfType<Entry>().FirstOrDefault(x=>x.Pid==(int)pid&&!blocked.Contains(x.Pid));
   if(entry==null||IsDead(entry.Pid)||ResBusy(entry.Pid))return;
   potPolling=true;
   try{
