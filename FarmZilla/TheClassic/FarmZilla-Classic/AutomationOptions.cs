@@ -49,7 +49,17 @@ partial class AvalonInterno {
  }
  // Auto Pot only on the foreground ElementClient, with user-selected potion hotkeys.
  // No unverified game packet is sent; Windows keyboard input is limited to an identified client.
- [StructLayout(LayoutKind.Sequential)]struct PotInput {public uint type;public ushort vk,scan;public uint flags,time;public IntPtr extra;}
+ // Win32 INPUT is a tagged union. On x86 its size is 28 bytes
+ // (4-byte type + 24-byte MOUSEINPUT/KEYBDINPUT/HARDWAREINPUT union).
+ // Flattening KEYBDINPUT alone produces 20 bytes: SendInput rejects cbSize.
+ [StructLayout(LayoutKind.Explicit,Size=28)]struct PotInput {
+  [FieldOffset(0)]public uint type;
+  [FieldOffset(4)]public ushort vk;
+  [FieldOffset(6)]public ushort scan;
+  [FieldOffset(8)]public uint flags;
+  [FieldOffset(12)]public uint time;
+  [FieldOffset(16)]public IntPtr extra;
+ }
  [DllImport("user32.dll",SetLastError=true)]static extern uint SendInput(uint count,PotInput[] input,int size);
  System.Windows.Forms.Timer potTimer;bool potPolling;DateTime lastHp=DateTime.MinValue,lastMp=DateTime.MinValue;
  int potHp=50,potMp=35,potHpItemId,potMpItemId;Keys potHpKey=Keys.None,potMpKey=Keys.None;
@@ -68,10 +78,17 @@ partial class AvalonInterno {
   FormClosed+=(s,e)=>{potTimer.Stop();potTimer.Dispose();};
  }
  static bool PotKeyValid(Keys key){return key==Keys.None||(key>=Keys.D1&&key<=Keys.D8)||(key>=Keys.F1&&key<=Keys.F12);}
- static bool SendPotKey(Keys key){
+ static bool SendPotKey(Keys key,out int win32Error){
+  win32Error=0;
   if(!PotKeyValid(key)||key==Keys.None)return false;
   var input=new[]{new PotInput{type=1,vk=(ushort)key},new PotInput{type=1,vk=(ushort)key,flags=2}};
-  return SendInput(2,input,Marshal.SizeOf(typeof(PotInput)))==2;
+  // Enforce the documented x86 INPUT size instead of silently sending a
+  // truncated structure, even if this application is rebuilt differently.
+  if(IntPtr.Size!=4||Marshal.SizeOf(typeof(PotInput))!=28){win32Error=87;return false;}
+  uint sent=SendInput(2,input,28);
+  if(sent==2)return true;
+  win32Error=Marshal.GetLastWin32Error();
+  return false;
  }
  async Task AutoPotTick(){
   if(potPolling||!autoPotWanted||closeInProgress||authorizationDenied||controlLocked||!shortcutActive||busy||teleport.Working||missions.Working)return;
@@ -98,12 +115,13 @@ partial class AvalonInterno {
    var now=DateTime.UtcNow;
    bool hasHp=potHpItemId<=0||(bag!=null&&bag.QuantityOf(potHpItemId)>0);
    bool hasMp=potMpItemId<=0||(bag!=null&&bag.QuantityOf(potMpItemId)>0);
+   int inputError;
    if(potHpKey!=Keys.None&&hasHp&&state.Hp*100L<=potHp*(long)state.MaxHp&&(now-lastHp).TotalSeconds>=8){
-    if(SendPotKey(potHpKey))lastHp=now;
-    else Note("Auto Pot HP: comando de teclado recusado pelo Windows.");
+    if(SendPotKey(potHpKey,out inputError))lastHp=now;
+    else Note("Auto Pot HP: SendInput falhou (Win32 "+inputError+", tecla "+potHpKey+").");
    }else if(potMpKey!=Keys.None&&hasMp&&state.MaxMp>0&&state.Mp*100L<=potMp*(long)state.MaxMp&&(now-lastMp).TotalSeconds>=8){
-    if(SendPotKey(potMpKey))lastMp=now;
-    else Note("Auto Pot MP: comando de teclado recusado pelo Windows.");
+    if(SendPotKey(potMpKey,out inputError))lastMp=now;
+    else Note("Auto Pot MP: SendInput falhou (Win32 "+inputError+", tecla "+potMpKey+").");
    }
   }catch(Exception ex){Note("Auto Pot: "+ex.Message);}
   finally{potPolling=false;}
