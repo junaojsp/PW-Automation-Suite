@@ -195,7 +195,11 @@ namespace RotaAvalon {
         // false = the material was seen missing on the way down.
         bool verticalBroken,verticalConfirmed;int pureMisses;
         bool? Straight(GameClient client,double height,string character,string library,Func<ClientSnapshot,bool> absent){
-            if(verticalBroken)return null;var s=Read(client,character);double target=height*10;if(Math.Abs(s.Y-target)<=10)return true;int dir=s.Y<target?1:-1;
+            if(verticalBroken)return null;var s=Read(client,character);double target=height*10;
+            // Faixa neutra de 1,5 unidades de mapa: evita reverter Space/Z por oscilacao
+            // de amostras quando o personagem ja chegou a altura programada.
+            if(Math.Abs(s.Y-target)<=15)return true;
+            int dir=s.Y<target?1:-1;
             // 0.45.5 (log 18:40–18:44: 6 of 14 climbs/descents fell back to the side passes, mostly the climb right after
             // collecting, because the character was on the ground): on the ground it asks the game's take-off (height a bit
             // above) and then holds Space the same way; the side passes stay only for a client where nothing vertical works.
@@ -226,7 +230,7 @@ namespace RotaAvalon {
                     client.Vertical(dir);Wait(150);s=Raw(client,character);
                     if(s.Hp<lastHp){client.Vertical(0);s=Read(client,character);lastHp=s.Hp;continue;}lastHp=s.Hp;
                     if(absent!=null&&absent(s))return false;
-                    if(dir>0?s.Y>=target-8:s.Y<=target+8){if(!steps)pureMisses=0;return true;}
+                    if(dir>0?s.Y>=target-15:s.Y<=target+15){if(!steps)pureMisses=0;return true;}
                     if(!steps&&clock.Elapsed.TotalSeconds>=1.2&&Math.Abs(s.Y-pureFrom)<2){steps=true;pureMisses++;emit("vertical_passos",new{altura=Math.Round(s.Y/10,1),message=pureMisses>=3?"Espaço/Z sozinho não move parado no ar; usando passos curtos nesta sessão.":"Espaço/Z sozinho não moveu; usando passos curtos nesta subida/descida."});startY=s.Y;clock.Restart();}
                     else if(!steps&&!verticalConfirmed&&clock.Elapsed.TotalSeconds>=1.2){verticalConfirmed=true;emit("vertical_ok",new{altura=Math.Round(s.Y/10,1),modo="espaço/Z"});}
                     if(steps&&!verticalConfirmed&&clock.Elapsed.TotalSeconds>=2){if(Math.Abs(s.Y-startY)<2){if(!(s.FlightStateKnown&&s.IsFlying))return null;verticalBroken=true;emit("vertical_indisponivel",new{message="Subida/descida reta não aceita por este cliente; usando linha reta inclinada."});return null;}verticalConfirmed=true;emit("vertical_ok",new{altura=Math.Round(s.Y/10,1),modo="passos"});}
@@ -256,14 +260,26 @@ emit("subindo",new{alvo=CruiseHeight,atual=Math.Round(s.Y/10,1)});
                 if(off>ArriveXZ+2&&!verticalBroken&&first.FlightStateKnown&&first.IsFlying){FlyHigh(client,x,z,Math.Round(first.Y/10),character,library);var over=Read(client,character);off=Math.Sqrt(Math.Pow(over.X-x,2)+Math.Pow(over.Z-z,2));}
                 if(off<=ArriveXZ+2){bool? straight=Straight(client,height,character,library,absent);if(straight==false)return false;if(straight==true){var at=Read(client,character);emit("altura",new{alvo=height,atual=Math.Round(at.Y/10,1),modo="reto"});return true;}}}
 
-            while(clock.Elapsed.TotalSeconds<limit){var s=Read(client,character);if(absent!=null&&absent(s))return false;if(Math.Abs(s.Y/10-height)<=1.0)break;
+            while(clock.Elapsed.TotalSeconds<limit){var s=Read(client,character);if(absent!=null&&absent(s))return false;
+                // Histerese da altura: duas leituras em faixa evitam os pequenos zig-zags
+                // de aproximacao quando a altitude ja esta dentro da tolerancia de coleta.
+                if(Math.Abs(s.Y/10-height)<=1.5){
+                    Wait(250);var stable=Read(client,character);
+                    if(absent!=null&&absent(stable))return false;
+                    if(Math.Abs(stable.Y/10-height)<=2.0)break;
+                }
                 double tx=x+(axis==0?span*side:0),tz=z+(axis==0?0:span*side);
                 NativeBridge.FlyTo(client,tx,tz,library);Wait(60);NativeBridge.FlightHeight(client,h,library);
                 double sx=s.X,sz=s.Z,sy=s.Y;int fights=defenses;var leg=Stopwatch.StartNew();
-                while(leg.Elapsed.TotalSeconds<5){s=Read(client,character);if(absent!=null&&absent(s))return false;if(defenses!=fights)break;if(Math.Abs(s.Y/10-height)<=1.0)break;double ex=tx-s.X,ez=tz-s.Z;if(ex*ex+ez*ez<=9)break;Wait(140);}
+                while(leg.Elapsed.TotalSeconds<5){s=Read(client,character);if(absent!=null&&absent(s))return false;if(defenses!=fights)break;if(Math.Abs(s.Y/10-height)<=1.5)break;double ex=tx-s.X,ez=tz-s.Z;if(ex*ex+ez*ez<=9)break;Wait(140);}
                 if(Math.Abs(s.X-sx)+Math.Abs(s.Z-sz)<1&&Math.Abs(s.Y-sy)<1){axis^=1;span=Math.Min(span+10,70);}
                 side=-side;}
-            FlyHigh(client,x,z,h,character,library);
+            // Nao envia outro comando de voo se o personagem ja terminou praticamente
+            // sobre o material: outro FlyTo/FlightHeight pode reabrir correcoes e tremores.
+            var done=Read(client,character);
+            double remainingX=x-done.X,remainingZ=z-done.Z;
+            if(remainingX*remainingX+remainingZ*remainingZ>(ArriveXZ+2)*(ArriveXZ+2))
+                FlyHigh(client,x,z,h,character,library);
             var now=Read(client,character);emit("altura",new{alvo=height,atual=Math.Round(now.Y/10,1)});return true;
         }
         // Farm recovery: low life waits for it to come back, other blocks wait and retry; true = failure counter restarts.
