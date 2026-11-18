@@ -3,6 +3,7 @@ using System.IO;
 using System.Drawing;
 using System.Text;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace RotaAvalon {
     public sealed class MapTiles : IDisposable {
