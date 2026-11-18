@@ -7,7 +7,7 @@ partial class AvalonInterno {
  const int TacticalBag=52287;const byte BagEquipSlot=0x16;
  System.Windows.Forms.Timer bagTimer;bool bagRunning;
  readonly Dictionary<int,RotaAvalon.GameClient> bagClients=new Dictionary<int,RotaAvalon.GameClient>();readonly Dictionary<string,bool> bagVerified=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
- readonly Dictionary<int,int> bagHandled=new Dictionary<int,int>(),bagTries=new Dictionary<int,int>();readonly Dictionary<int,DateTime> bagPause=new Dictionary<int,DateTime>(),deadSince=new Dictionary<int,DateTime>();
+ readonly Dictionary<int,int> bagHandled=new Dictionary<int,int>(),bagTries=new Dictionary<int,int>();readonly Dictionary<int,DateTime> bagPause=new Dictionary<int,DateTime>(),deadSince=new Dictionary<int,DateTime>(),reviveErrorNotice=new Dictionary<int,DateTime>();
  void InitBagEquip(){bagTimer=new System.Windows.Forms.Timer{Interval=2000};bagTimer.Tick+=async(s,e)=>await BagTick();Shown+=(s,e)=>bagTimer.Start();
   FormClosed+=(s,e)=>{bagTimer.Dispose();lock(bagClients){foreach(var c in bagClients.Values)try{c.Dispose();}catch{}bagClients.Clear();}};}
  async Task BagTick(){
@@ -28,6 +28,7 @@ partial class AvalonInterno {
      if(life.Hp<=0&&!reviveOn){deadSince.Remove(c.Pid);}else if(life.Hp<=0){DateTime since;if(!deadSince.TryGetValue(c.Pid,out since)){deadSince[c.Pid]=DateTime.UtcNow;notes.Add(c.Name+": morto; aceitando ressurreição assim que alguém der a prece.");continue;}
       if((DateTime.UtcNow-since).TotalSeconds<1)continue;
       TeleportBridge rb=null;try{rb=new TeleportBridge(c.Pid);if(rb.CharacterId!=c.Id)throw new Exception("Personagem mudou.");rb.SendReviveAccept();}
+      catch(Exception e){DateTime last;if(!reviveErrorNotice.TryGetValue(c.Pid,out last)||(DateTime.UtcNow-last).TotalSeconds>=30){reviveErrorNotice[c.Pid]=DateTime.UtcNow;notes.Add(c.Name+": Reviver: falha ao enviar aceite de ressurreição: "+e.Message);}}
       finally{if(rb!=null){rb.Dispose();if(!rb.RestoreSucceeded){lock(blocked)blocked.Add(c.Pid);notes.Add(c.Name+": ponte sem restauração ao aceitar ressurreição; reinicie esse cliente.");}}}
       continue;}
      if(deadSince.Remove(c.Pid))notes.Add(c.Name+": voltou à vida.");
