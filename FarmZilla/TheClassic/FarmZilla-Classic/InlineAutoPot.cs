@@ -24,7 +24,7 @@ partial class AvalonInterno {
   PotLabel("AUTO POT",16,14,230,28,Rubi.Accent,12,FontStyle.Bold);
   var collapse=new NeonButton{Text="‹",AccessibleName="Recolher Auto Pot"};collapse.SetBounds(262,12,32,30);collapse.Click+=(s,e)=>{potDrawerOpen=false;LayoutInlinePanels();};potDrawer.Controls.Add(collapse);
   PotLabel("Selecione o item da mochila e a porcentagem de ativação para HP e MP.",16,52,278,50,Rubi.Text);
-  PotLabel("O uso continua pela tecla F1–F12 do jogo ativo. Coloque a poção escolhida nessa tecla.",16,102,278,54,Rubi.Muted);
+  PotLabel("Use a barra 1 a 8 ou F1–F12 no jogo ativo. Coloque a poção na tecla selecionada.",16,102,278,54,Rubi.Muted);
   var scan=new NeonButton{Text="Ler mochila do principal",AccessibleName="Buscar consumíveis na mochila"};
   scan.SetBounds(16,166,278,32);scan.Click+=async(s,e)=>await ScanPotInventory();potDrawer.Controls.Add(scan);
   PotLabel("A lista mostra IDs reais e quantidades; a classe do item ajuda a localizar poções.",16,202,278,45,Rubi.Muted);
@@ -51,7 +51,17 @@ partial class AvalonInterno {
  NumericUpDown PotNumber(int value,int x,int y){var control=new NumericUpDown{Minimum=1,Maximum=99,Value=value,Bounds=new Rectangle(x,y,70,27),BackColor=Rubi.Background,ForeColor=Rubi.Text};potDrawer.Controls.Add(control);return control;}
  ComboBox PotKey(Keys value,int x,int y){
   var control=new CyanCombo{DropDownStyle=ComboBoxStyle.DropDownList,Bounds=new Rectangle(x,y,112,27),BackColor=Rubi.Background,ForeColor=Rubi.Text};
-  control.Items.Add(Keys.None);for(Keys key=Keys.F1;key<=Keys.F12;key++)control.Items.Add(key);
+  control.FormattingEnabled=true;
+  control.Format+=(sender,args)=>{
+   if(args.ListItem is Keys){
+    Keys key=(Keys)args.ListItem;
+    if(key>=Keys.D1&&key<=Keys.D8)args.Value=((int)(key-Keys.D0)).ToString();
+    else if(key==Keys.None)args.Value="Desativado";
+   }
+  };
+  control.Items.Add(Keys.None);
+  for(Keys key=Keys.D1;key<=Keys.D8;key++)control.Items.Add(key);
+  for(Keys key=Keys.F1;key<=Keys.F12;key++)control.Items.Add(key);
   control.SelectedItem=value;potDrawer.Controls.Add(control);return control;
  }
  sealed class PotInventoryChoice {
@@ -114,7 +124,7 @@ partial class AvalonInterno {
    Directory.CreateDirectory(Path.GetDirectoryName(PotConfigPath));
    File.WriteAllLines(PotConfigPath,new[]{potHpInput.Value.ToString("0"),potMpInput.Value.ToString("0"),((int)hp).ToString(),((int)mp).ToString(),hpId.ToString(),mpId.ToString()});
    potHp=(int)potHpInput.Value;potMp=(int)potMpInput.Value;potHpKey=hp;potMpKey=mp;potHpItemId=hpId;potMpItemId=mpId;
-   potSaveStatus.Text="Salvo. Confirme que as poções escolhidas estão nas teclas F do jogo.";
+   potSaveStatus.Text="Salvo. Confirme que as poções estão nos atalhos 1 a 8 ou F escolhidos no jogo.";
   }catch(Exception ex){potSaveStatus.Text="Não foi possível salvar: "+ex.Message;}
  }
  void LayoutInlinePanels(){
