@@ -12,7 +12,9 @@ namespace RotaAvalon {
         readonly Dictionary<string,PckEntry> uniqueImageNames=new Dictionary<string,PckEntry>(StringComparer.OrdinalIgnoreCase);
         readonly HashSet<string> ambiguousImageNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string,Bitmap> images=new Dictionary<string,Bitmap>();readonly Queue<string> order=new Queue<string>();
-        byte[] atlas;Dictionary<string,int> atlasPositions;int iconWidth,iconHeight,atlasColumns;
+        sealed class AtlasEntry {public byte[] Data;public int Index,Width,Height,Columns;}
+        Dictionary<string,AtlasEntry> atlasEntries;
+        string atlasReport="not inspected";
         public MapTiles(string gameDirectory){
             package=new PckArchive(Path.Combine(gameDirectory,"surfaces.pck"));
             foreach(var e in package.Entries){
@@ -37,23 +39,64 @@ namespace RotaAvalon {
             path=path.Trim().Replace('\\','/');
             PckEntry entry;
             if(entries.TryGetValue(path,out entry))return GameImage.Decode(package.Read(entry));
-            // Fallback 1: o mesmo DDS do material, em outro diretorio do pacote.
+            // Real DDS with a different folder name, only when unambiguous.
             string name=IconKey(path);
             if(uniqueImageNames.TryGetValue(name,out entry))return GameImage.Decode(package.Read(entry));
-            // Fallback 2: a arte ORIGINAL do item dentro do atlas de icones.
-            EnsureAtlas();if(atlas==null||atlasPositions==null)return null;
-            int index;if(!atlasPositions.TryGetValue(name,out index))return null;
-            return DdsImage.Region(atlas,new Rectangle((index%atlasColumns)*iconWidth,(index/atlasColumns)*iconHeight,iconWidth,iconHeight));
+            EnsureAtlas();
+            AtlasEntry region;
+            if(atlasEntries==null||!atlasEntries.TryGetValue(name,out region))return null;
+            return DdsImage.Region(region.Data,new Rectangle((region.Index%region.Columns)*region.Width,
+                (region.Index/region.Columns)*region.Height,region.Width,region.Height));
         }
-        void EnsureAtlas(){if(atlasPositions!=null)return;atlasPositions=new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);PckEntry text,image;if(!entries.TryGetValue("surfaces/iconset/iconlist_ivtrm.txt",out text)||!entries.TryGetValue("surfaces/iconset/iconlist_ivtrm.dds",out image))return;
-            string[] lines=Encoding.GetEncoding(936).GetString(package.Read(text)).Split('\n');if(lines.Length<4)throw new InvalidDataException("Índice de ícones incompleto.");iconWidth=Int32.Parse(lines[0].Trim());iconHeight=Int32.Parse(lines[1].Trim());int rows=Int32.Parse(lines[2].Trim());atlasColumns=Int32.Parse(lines[3].Trim());if(iconWidth!=32||iconHeight!=32||rows<1||atlasColumns<1||rows*(long)atlasColumns>100000)throw new InvalidDataException("Atlas de ícones não suportado.");atlas=package.Read(image);for(int i=4;i<lines.Length&&i-4<rows*atlasColumns;i++){string name=lines[i].Trim();if(name.Length>0){string key=IconKey(name);if(key.Length>0&&!atlasPositions.ContainsKey(key))atlasPositions[key]=i-4;}}}
+        // The game's icon atlases may be stored in different PCK folders and
+        // may use different iconlist_* names. Do not assume one hard-coded path.
+        void EnsureAtlas(){
+            if(atlasEntries!=null)return;
+            atlasEntries=new Dictionary<string,AtlasEntry>(StringComparer.OrdinalIgnoreCase);
+            int found=0,loaded=0,failed=0;var examples=new List<string>();
+            var candidates=new List<PckEntry>();
+            foreach(var item in entries.Values){
+                string path=item.Name.Replace('\\','/');
+                string file=path.Substring(path.LastIndexOf('/')+1);
+                if(file.StartsWith("iconlist_",StringComparison.OrdinalIgnoreCase)&&file.EndsWith(".txt",StringComparison.OrdinalIgnoreCase))
+                    candidates.Add(item);
+            }
+            // Prefer the item atlas, but allow the client's other icon atlases.
+            foreach(var txt in candidates.OrderByDescending(e=>e.Name.IndexOf("ivtrm",StringComparison.OrdinalIgnoreCase)>=0)){
+                found++;
+                try{
+                    string full=txt.Name.Replace('\\','/');
+                    string ddsPath=full.Substring(0,full.Length-4)+".dds";
+                    PckEntry atlasDds;
+                    if(!entries.TryGetValue(ddsPath,out atlasDds))continue;
+                    string[] lines=Encoding.GetEncoding(936).GetString(package.Read(txt)).Split('\n');
+                    if(lines.Length<5)continue;
+                    int iw,ih,rows,columns;
+                    if(!Int32.TryParse(lines[0].Trim(),out iw)||!Int32.TryParse(lines[1].Trim(),out ih)||
+                       !Int32.TryParse(lines[2].Trim(),out rows)||!Int32.TryParse(lines[3].Trim(),out columns)||
+                       iw<=0||ih<=0||iw>256||ih>256||rows<1||columns<1||rows*(long)columns>250000)continue;
+                    byte[] bytes=package.Read(atlasDds);
+                    if(bytes.Length<128||BitConverter.ToUInt32(bytes,0)!=0x20534444)continue;
+                    int count=Math.Min(lines.Length-4,checked(rows*columns));
+                    for(int i=0;i<count;i++){
+                        string name=IconKey(lines[i+4].Trim());
+                        if(name.Length==0||atlasEntries.ContainsKey(name))continue;
+                        atlasEntries[name]=new AtlasEntry{Data=bytes,Index=i,Width=iw,Height=ih,Columns=columns};
+                    }
+                    loaded++;if(examples.Count<3)examples.Add(full);
+                }catch(Exception ex){failed++;if(examples.Count<3)examples.Add(txt.Name+": "+ex.Message);}
+            }
+            atlasReport="iconlist encontrados="+found+", lidos="+loaded+", entradas="+atlasEntries.Count+
+              ", erros="+failed+(examples.Count>0?"; "+String.Join("; ",examples):"");
+        }
+        public string IconDiagnostics(){EnsureAtlas();return "PCK="+entries.Count+", DDS unicos="+uniqueImageNames.Count+", "+atlasReport;}
         public Bitmap Tile(int row,int column){if(row<0||row>=22||column<0||column>=16)return null;string name="surfaces/minimaps/world/"+row.ToString("D2")+column.ToString("D2")+".dds";Bitmap image;if(images.TryGetValue(name,out image))return image;image=Image(name);if(image==null)return null;var fast=new Bitmap(image.Width,image.Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(fast))g.DrawImage(image,0,0,image.Width,image.Height);image.Dispose();image=fast;images.Add(name,image);order.Enqueue(name);while(images.Count>64){string key=order.Dequeue();images[key].Dispose();images.Remove(key);}return image;}
         // The game's big map (the parchment of the M window): 11 rows x 8 columns, each 1024 world units; kept at 512 px.
         readonly Dictionary<string,Bitmap> big=new Dictionary<string,Bitmap>();readonly Queue<string> bigOrder=new Queue<string>();
         public Bitmap BigTile(int row,int column){if(row<0||row>10||column<0||column>7)return null;string name="surfaces/maps/"+row.ToString("D2")+column+".dds";Bitmap image;if(big.TryGetValue(name,out image))return image;
             if(!entries.ContainsKey(name))return null;using(var source=GameImage.Decode(package.Read(entries[name]))){if(source==null)return null;image=new Bitmap(512,512,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(image)){g.InterpolationMode=System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;g.PixelOffsetMode=System.Drawing.Drawing2D.PixelOffsetMode.Half;g.DrawImage(source,0,0,512,512);}}
             big.Add(name,image);bigOrder.Enqueue(name);while(big.Count>40){string key=bigOrder.Dequeue();big[key].Dispose();big.Remove(key);}return image;}
-        public void Dispose(){foreach(var image in big.Values)image.Dispose();big.Clear();foreach(var image in images.Values)image.Dispose();images.Clear();atlas=null;package.Dispose();}
+        public void Dispose(){foreach(var image in big.Values)image.Dispose();big.Clear();foreach(var image in images.Values)image.Dispose();images.Clear();atlasEntries=null;package.Dispose();}
     }
     public sealed class MapTransform {
         public double CenterX,CenterZ,Scale;public int Width,Height;
