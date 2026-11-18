@@ -7,9 +7,26 @@ using System.Collections.Generic;
 namespace RotaAvalon {
     public sealed class MapTiles : IDisposable {
         readonly PckArchive package;readonly Dictionary<string,PckEntry> entries=new Dictionary<string,PckEntry>(StringComparer.OrdinalIgnoreCase);
+        // Preserve the original artwork from surfaces.pck even if the catalog's
+        // directory differs from the directory stored in the archive.
+        readonly Dictionary<string,PckEntry> uniqueImageNames=new Dictionary<string,PckEntry>(StringComparer.OrdinalIgnoreCase);
+        readonly HashSet<string> ambiguousImageNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string,Bitmap> images=new Dictionary<string,Bitmap>();readonly Queue<string> order=new Queue<string>();
         byte[] atlas;Dictionary<string,int> atlasPositions;int iconWidth,iconHeight,atlasColumns;
-        public MapTiles(string gameDirectory){package=new PckArchive(Path.Combine(gameDirectory,"surfaces.pck"));foreach(var e in package.Entries)entries[e.Name]=e;}
+        public MapTiles(string gameDirectory){
+            package=new PckArchive(Path.Combine(gameDirectory,"surfaces.pck"));
+            foreach(var e in package.Entries){
+                string key=e.Name.Replace('\\','/').Trim();
+                entries[key]=e;
+                // Basename fallback is only used when there is exactly one matching
+                // image. Never pick an arbitrary icon when two files share a name.
+                string name=IconKey(key);
+                if(name.Length==0||!key.EndsWith(".dds",StringComparison.OrdinalIgnoreCase))continue;
+                if(ambiguousImageNames.Contains(name))continue;
+                if(uniqueImageNames.ContainsKey(name)){uniqueImageNames.Remove(name);ambiguousImageNames.Add(name);}
+                else uniqueImageNames.Add(name,e);
+            }
+        }
         static string IconKey(string value){
             if(String.IsNullOrWhiteSpace(value))return "";
             value=value.Trim().Replace('\\','/');value=value.Substring(value.LastIndexOf('/')+1);
@@ -20,10 +37,12 @@ namespace RotaAvalon {
             path=path.Trim().Replace('\\','/');
             PckEntry entry;
             if(entries.TryGetValue(path,out entry))return GameImage.Decode(package.Read(entry));
-            // Os catalogos podem trazer a rota completa do DDS; iconlist_ivtrm pode
-            // listar apenas o nome, com ou sem extensao.
+            // Fallback 1: o mesmo DDS do material, em outro diretorio do pacote.
+            string name=IconKey(path);
+            if(uniqueImageNames.TryGetValue(name,out entry))return GameImage.Decode(package.Read(entry));
+            // Fallback 2: a arte ORIGINAL do item dentro do atlas de icones.
             EnsureAtlas();if(atlas==null||atlasPositions==null)return null;
-            int index;if(!atlasPositions.TryGetValue(IconKey(path),out index))return null;
+            int index;if(!atlasPositions.TryGetValue(name,out index))return null;
             return DdsImage.Region(atlas,new Rectangle((index%atlasColumns)*iconWidth,(index/atlasColumns)*iconHeight,iconWidth,iconHeight));
         }
         void EnsureAtlas(){if(atlasPositions!=null)return;atlasPositions=new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);PckEntry text,image;if(!entries.TryGetValue("surfaces/iconset/iconlist_ivtrm.txt",out text)||!entries.TryGetValue("surfaces/iconset/iconlist_ivtrm.dds",out image))return;

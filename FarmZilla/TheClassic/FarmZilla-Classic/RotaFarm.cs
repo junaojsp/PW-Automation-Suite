@@ -120,33 +120,16 @@ namespace RotaAvalon {
                 row.ImageIndex=Icon(ids[0]);loaded++;
             }
         }
-        // Identificador neutro somente quando a textura do jogo nao existe no PCK.
-        // Nunca apresenta o quadrado transparente como se fosse um icone carregado.
-        static Bitmap MissingMaterialIcon(){
-            var bmp=new Bitmap(24,24,System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            using(var g=Graphics.FromImage(bmp)){
-                g.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using(var fill=new SolidBrush(Color.FromArgb(40,93,132)))
-                    g.FillEllipse(fill,2,2,20,20);
-                using(var pen=new Pen(Color.FromArgb(104,187,227),1.5f))
-                    g.DrawEllipse(pen,2,2,19,19);
-                using(var pen=new Pen(Color.White,1.4f)){
-                    g.DrawLine(pen,12,6,17,12);g.DrawLine(pen,17,12,12,18);
-                    g.DrawLine(pen,12,18,7,12);g.DrawLine(pen,7,12,12,6);
-                }
-            }
-            return bmp;
-        }
+        // Do not invent artwork: a row shows only the exact item image resolved
+        // from the game's surfaces.pck or its original icon atlas.
         int Icon(int id){
             int index;if(iconIndex.TryGetValue(id,out index))return index;
             Image image=null;
             try{if(IconFor!=null)image=IconFor(id);}catch{}
             if(image!=null){
                 try{icons.Images.Add(image);index=icons.Images.Count-1;}
-                catch{using(var fallback=MissingMaterialIcon()){icons.Images.Add(fallback);index=icons.Images.Count-1;}}
-            }else{
-                using(var fallback=MissingMaterialIcon()){icons.Images.Add(fallback);index=icons.Images.Count-1;}
-            }
+                catch{index=0;}
+            }else index=0;
             iconIndex[id]=index;return index;
         }
         public void ResetIcons(){
