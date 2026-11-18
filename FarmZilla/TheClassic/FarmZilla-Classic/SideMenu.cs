@@ -3,7 +3,7 @@ using System;using System.Collections.Generic;using System.Drawing;using System.
 // "Rota" shows the Rota tool in the same window (it grows to fit and returns to the original size afterwards).
 partial class AvalonInterno {
  const int SideWidth=172,PanelWidth=390,PanelHeight=690;
- SideItem sidePersonagens,sideRota,sideAjustes;Panel rotaHost;bool rotaView;Point? panelLocation;readonly List<Control> panelBody=new List<Control>();readonly Dictionary<Control,bool> panelVisible=new Dictionary<Control,bool>();
+ SideItem sidePersonagens,sideRota,sideAjustes;CheckBox sideAutoPotToggle;Panel rotaHost;bool rotaView;Point? panelLocation;readonly List<Control> panelBody=new List<Control>();readonly Dictionary<Control,bool> panelVisible=new Dictionary<Control,bool>();
  Control minimizeButton,closeButton;
  void ApplySideMenu(){SuspendLayout();try{
   minimizeButton=Controls.OfType<Button>().Single(b=>b.Text=="—");closeButton=Controls.OfType<Button>().Single(b=>b.Text=="×");
@@ -16,6 +16,20 @@ partial class AvalonInterno {
   PendingTool("Vm Farm",178);PendingTool("Token Farm",220);
   var frostButton=SideAt("Frost Farm",262,OpenFrostAutomation);sideFrostInline=frostButton;frostButton.AccessibleName="Frost Farm";frostButton.AccessibleDescription="DG Frost na mesma janela; líder, secundários e registro";hints.SetToolTip(frostButton,"Abre a Frost nesta janela e mantém as configurações compartilhadas de Auto Pot.");PendingTool("Skill Sender",304);
   sideAutoQuest=SideAt("Auto Quest",346,OpenAutoQuest);sideAutoQuest.AccessibleName="Auto Quest";hints.SetToolTip(sideAutoQuest,"The Classic: diagnóstico somente leitura e teste beta assistido com log, rota e F12 opcional.");
+  // Permanent controls remain visible while switching between Espelho, Mat Farm,
+  // Frost and Auto Quest. The same saved Auto Pot settings serve every tool.
+  sideAutoPotToggle=new CheckBox{Text="Auto Pot ativo",Bounds=new Rectangle(20,408,143,24),
+   Font=new Font("Segoe UI",9*global::UiScale.F),ForeColor=Rubi.Text,BackColor=Rubi.Background,FlatStyle=FlatStyle.Flat,
+   AccessibleName="Auto Pot global em todas as ferramentas",Checked=autoPotOption.Checked};
+  sideAutoPotToggle.CheckedChanged+=(s,e)=>{if(autoPotOption.Checked!=sideAutoPotToggle.Checked)autoPotOption.Checked=sideAutoPotToggle.Checked;};
+  autoPotOption.CheckedChanged+=(s,e)=>{if(sideAutoPotToggle.Checked!=autoPotOption.Checked)sideAutoPotToggle.Checked=autoPotOption.Checked;};
+  Controls.Add(sideAutoPotToggle);
+  hints.SetToolTip(sideAutoPotToggle,"Habilita o Auto Pot compartilhado em Espelho, Mat Farm, Frost e Auto Quest. Atua somente no jogo em primeiro plano.");
+  var sidePotSettings=SideAt("Configurar Auto Pot",438,()=>{
+   potDrawerOpen=!potDrawerOpen;LayoutInlinePanels();
+  });
+  sidePotSettings.AccessibleName="Configurar Auto Pot em qualquer ferramenta";
+  hints.SetToolTip(sidePotSettings,"Abre as configurações compartilhadas de poção, mochila, HP e MP sem sair da ferramenta atual.");
   hints.SetToolTip(sideRota,"Rotas de coleta por coordenadas (mapa, materiais, inventário e log), na mesma janela. Quem está em rota fica fora do seguir, ataque, teleporte e missões.");
   var footer=RubiLabel("FarmZilla · The Classic",16,PanelHeight-46,150,16,7,FontStyle.Regular,Rubi.Muted);var footer2=RubiLabel("v"+ReleaseInfo.Version+" · motor original",16,PanelHeight-30,153,16,7,FontStyle.Regular,Rubi.Muted);footer.Anchor=footer2.Anchor=AnchorStyles.Left|AnchorStyles.Bottom;
   rotaHost=new Panel{Visible=false,BackColor=Rubi.Background};Controls.Add(rotaHost);
@@ -34,11 +48,11 @@ partial class AvalonInterno {
   if(show==rotaView){if(show&&rotaWindow!=null)rotaWindow.Focus();return;}
   if(show){if(closeInProgress)return;if(!AuthorizationSession.Has("rota")){Note("Mat Farm não liberado para este computador. Fale com o administrador.");return;}if(!EnsureRota())return;}
   SuspendLayout();try{
-   if(show){if(potDrawer!=null)potDrawer.Visible=false;if(sharedPotBar!=null)sharedPotBar.Visible=false;}
+   if(show){if(sharedPotBar!=null)sharedPotBar.Visible=false;}
    rotaView=show;sidePersonagens.Selected=!show;sideRota.Selected=show;
    var area=Screen.FromControl(this).WorkingArea;
    if(show){panelLocation=Location;int w=Math.Min(SideWidth+1120,area.Width),h=Math.Min(800,area.Height);ClientSize=new Size(w,h);Location=new Point(Math.Max(area.Left,Math.Min(Left,area.Right-Width)),Math.Max(area.Top,Math.Min(Top,area.Bottom-Height)));
-    rotaHost.Bounds=new Rectangle(SideWidth,50,ClientSize.Width-SideWidth-2,ClientSize.Height-52);panelVisible.Clear();foreach(var c in panelBody){panelVisible[c]=c.Visible;c.Visible=false;}rotaHost.Visible=true;rotaHost.BringToFront();rotaView=true;SelectRota(rotaWindow);}
+    rotaHost.Bounds=new Rectangle(SideWidth,50,ClientSize.Width-SideWidth-2,ClientSize.Height-52);panelVisible.Clear();foreach(var c in panelBody){panelVisible[c]=c.Visible;c.Visible=false;}rotaHost.Visible=true;rotaHost.BringToFront();rotaView=true;SelectRota(rotaWindow);LayoutInlinePanels();}
    else{rotaHost.Visible=false;foreach(var w in rotaWindows)if(!w.IsDisposed)w.Visible=false;ClientSize=new Size(SideWidth+PanelWidth,PanelHeight);if(panelLocation.HasValue)Location=panelLocation.Value;foreach(var kv in panelVisible)kv.Key.Visible=kv.Value;UpdateAttackRows();LayoutInlinePanels();}
    if(lockedNotice!=null){lockedNotice.Visible=controlLocked&&!show;if(lockedNotice.Visible)lockedNotice.BringToFront();}
    minimizeButton.Left=ClientSize.Width-69;closeButton.Left=ClientSize.Width-39;
