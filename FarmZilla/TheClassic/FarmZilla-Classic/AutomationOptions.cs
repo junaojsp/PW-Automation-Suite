@@ -52,19 +52,22 @@ partial class AvalonInterno {
  [StructLayout(LayoutKind.Sequential)]struct PotInput {public uint type;public ushort vk,scan;public uint flags,time;public IntPtr extra;}
  [DllImport("user32.dll",SetLastError=true)]static extern uint SendInput(uint count,PotInput[] input,int size);
  System.Windows.Forms.Timer potTimer;bool potPolling;DateTime lastHp=DateTime.MinValue,lastMp=DateTime.MinValue;
- int potHp=50,potMp=35;Keys potHpKey=Keys.None,potMpKey=Keys.None;
+ int potHp=50,potMp=35,potHpItemId,potMpItemId;Keys potHpKey=Keys.None,potMpKey=Keys.None;
  string PotConfigPath {get{return Path.Combine(Path.GetDirectoryName(settings),"farmzilla-auto-pot-config.txt");}}
  void InitAutoPot(){
-  try{if(File.Exists(PotConfigPath)){var a=File.ReadAllLines(PotConfigPath);if(a.Length==4){
+  try{if(File.Exists(PotConfigPath)){var a=File.ReadAllLines(PotConfigPath);if(a.Length>=4){
    int hp=int.Parse(a[0]),mp=int.Parse(a[1]);Keys h=(Keys)int.Parse(a[2]),m=(Keys)int.Parse(a[3]);
    if(hp>=1&&hp<=99&&mp>=1&&mp<=99&&PotKeyValid(h)&&PotKeyValid(m)){potHp=hp;potMp=mp;potHpKey=h;potMpKey=m;}
+   // Backwards compatible with the old four-line configuration file.
+   int id;if(a.Length>=5&&int.TryParse(a[4],out id)&&id>=0)potHpItemId=id;
+   if(a.Length>=6&&int.TryParse(a[5],out id)&&id>=0)potMpItemId=id;
   }}}catch{Note("Auto Pot: configuração não encontrada ou inválida.");}
   potTimer=new System.Windows.Forms.Timer{Interval=2000};
   potTimer.Tick+=async(s,e)=>await AutoPotTick();
   Shown+=(s,e)=>potTimer.Start();
   FormClosed+=(s,e)=>{potTimer.Stop();potTimer.Dispose();};
  }
- static bool PotKeyValid(Keys key){return key==Keys.None||(key>=Keys.F1&&key<=Keys.F12);}
+ static bool PotKeyValid(Keys key){return key==Keys.None||(key>=Keys.D1&&key<=Keys.D8)||(key>=Keys.F1&&key<=Keys.F12);}
  static bool SendPotKey(Keys key){
   if(!PotKeyValid(key)||key==Keys.None)return false;
   var input=new[]{new PotInput{type=1,vk=(ushort)key},new PotInput{type=1,vk=(ushort)key,flags=2}};
@@ -79,15 +82,28 @@ partial class AvalonInterno {
   if(entry==null||IsDead(entry.Pid)||ResBusy(entry.Pid))return;
   potPolling=true;
   try{
-   var state=await Task.Run(()=>{using(var game=new RotaAvalon.GameClient(entry.Pid,new System.Collections.Generic.Dictionary<string,bool>()))return game.Read();});
+   // Read the selected item IDs together with HP/MP. A chosen potion that
+   // disappeared from the bag must never trigger a different hotkey blindly.
+   var sample=await Task.Run(()=>{
+    using(var game=new RotaAvalon.GameClient(entry.Pid,new System.Collections.Generic.Dictionary<string,bool>())){
+     var state=game.Read();
+     var bag=(potHpItemId>0||potMpItemId>0)?game.ReadInventory():null;
+     return Tuple.Create(state,bag);
+    }
+   });
+   var state=sample.Item1;var bag=sample.Item2;
    if(IsDisposed||!autoPotWanted||state.Hp<=0||state.MaxHp<=0||Win.GetForegroundWindow()!=current)return;
    uint nowPid;Win.GetWindowThreadProcessId(Win.GetForegroundWindow(),out nowPid);
    if(nowPid!=(uint)entry.Pid)return;
    var now=DateTime.UtcNow;
-   if(potHpKey!=Keys.None&&state.Hp*100L<=potHp*(long)state.MaxHp&&(now-lastHp).TotalSeconds>=8){
-    lastHp=now;if(!SendPotKey(potHpKey))Note("Auto Pot HP: comando de teclado recusado pelo Windows.");
-   }else if(potMpKey!=Keys.None&&state.MaxMp>0&&state.Mp*100L<=potMp*(long)state.MaxMp&&(now-lastMp).TotalSeconds>=8){
-    lastMp=now;if(!SendPotKey(potMpKey))Note("Auto Pot MP: comando de teclado recusado pelo Windows.");
+   bool hasHp=potHpItemId<=0||(bag!=null&&bag.QuantityOf(potHpItemId)>0);
+   bool hasMp=potMpItemId<=0||(bag!=null&&bag.QuantityOf(potMpItemId)>0);
+   if(potHpKey!=Keys.None&&hasHp&&state.Hp*100L<=potHp*(long)state.MaxHp&&(now-lastHp).TotalSeconds>=8){
+    if(SendPotKey(potHpKey))lastHp=now;
+    else Note("Auto Pot HP: comando de teclado recusado pelo Windows.");
+   }else if(potMpKey!=Keys.None&&hasMp&&state.MaxMp>0&&state.Mp*100L<=potMp*(long)state.MaxMp&&(now-lastMp).TotalSeconds>=8){
+    if(SendPotKey(potMpKey))lastMp=now;
+    else Note("Auto Pot MP: comando de teclado recusado pelo Windows.");
    }
   }catch(Exception ex){Note("Auto Pot: "+ex.Message);}
   finally{potPolling=false;}
