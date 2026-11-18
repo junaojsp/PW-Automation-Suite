@@ -7,7 +7,7 @@ partial class AvalonInterno {
  const int TacticalBag=52287;const byte BagEquipSlot=0x16;
  System.Windows.Forms.Timer bagTimer;bool bagRunning;
  readonly Dictionary<int,RotaAvalon.GameClient> bagClients=new Dictionary<int,RotaAvalon.GameClient>();readonly Dictionary<string,bool> bagVerified=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
- readonly Dictionary<int,int> bagHandled=new Dictionary<int,int>(),bagTries=new Dictionary<int,int>();readonly Dictionary<int,DateTime> bagPause=new Dictionary<int,DateTime>(),deadSince=new Dictionary<int,DateTime>(),reviveErrorNotice=new Dictionary<int,DateTime>();
+ readonly Dictionary<int,int> bagHandled=new Dictionary<int,int>(),bagTries=new Dictionary<int,int>(),reviveSends=new Dictionary<int,int>();readonly Dictionary<int,DateTime> bagPause=new Dictionary<int,DateTime>(),deadSince=new Dictionary<int,DateTime>(),reviveErrorNotice=new Dictionary<int,DateTime>();
  void InitBagEquip(){bagTimer=new System.Windows.Forms.Timer{Interval=2000};bagTimer.Tick+=async(s,e)=>await BagTick();Shown+=(s,e)=>bagTimer.Start();
   FormClosed+=(s,e)=>{bagTimer.Dispose();lock(bagClients){foreach(var c in bagClients.Values)try{c.Dispose();}catch{}bagClients.Clear();}};}
  async Task BagTick(){
@@ -25,13 +25,19 @@ partial class AvalonInterno {
      RotaAvalon.GameClient g;if(!bagClients.TryGetValue(c.Pid,out g)){g=new RotaAvalon.GameClient(c.Pid,bagVerified);bagClients[c.Pid]=g;}
      // 0.50.2 (owner): a dead account accepts a resurrection by itself (sent every 2 s while dead; with no offer the game ignores it).
      var life=g.Read();if(life.Hp<=0)dead.Add(c);else if(clericPids.Contains(c.Pid))clerics.Add(c);
-     if(life.Hp<=0&&!reviveOn){deadSince.Remove(c.Pid);}else if(life.Hp<=0){DateTime since;if(!deadSince.TryGetValue(c.Pid,out since)){deadSince[c.Pid]=DateTime.UtcNow;notes.Add(c.Name+": morto; aceitando ressurreição assim que alguém der a prece.");continue;}
+     if(life.Hp<=0&&!reviveOn){deadSince.Remove(c.Pid);reviveSends.Remove(c.Pid);}else if(life.Hp<=0){DateTime since;if(!deadSince.TryGetValue(c.Pid,out since)){deadSince[c.Pid]=DateTime.UtcNow;notes.Add(c.Name+": morto; aceitando ressurreição assim que alguém der a prece.");continue;}
       if((DateTime.UtcNow-since).TotalSeconds<1)continue;
-      TeleportBridge rb=null;try{rb=new TeleportBridge(c.Pid);if(rb.CharacterId!=c.Id)throw new Exception("Personagem mudou.");rb.SendReviveAccept();}
+      TeleportBridge rb=null;try{rb=new TeleportBridge(c.Pid);if(rb.CharacterId!=c.Id)throw new Exception("Personagem mudou.");rb.SendReviveAccept();
+       if(rb.LastSendResult!=1)throw new Exception("O cliente não confirmou o envio do aceite (resultado "+rb.LastSendResult+").");
+       int sends;reviveSends.TryGetValue(c.Pid,out sends);reviveSends[c.Pid]=++sends;
+       // Enviar o comando nao prova que uma oferta de Prece da Vida existe ou foi aceita.
+       if(sends==1)notes.Add(c.Name+": Reviver: aceite enviado; aguardando oferta de Prece da Vida e confirmação de HP.");
+       else if(sends%10==0)notes.Add(c.Name+": Reviver: "+sends+" tentativas de aceite, mas HP continua zerado. Confira se a Prece da Vida chegou ao personagem.");
+      }
       catch(Exception e){DateTime last;if(!reviveErrorNotice.TryGetValue(c.Pid,out last)||(DateTime.UtcNow-last).TotalSeconds>=30){reviveErrorNotice[c.Pid]=DateTime.UtcNow;notes.Add(c.Name+": Reviver: falha ao enviar aceite de ressurreição: "+e.Message);}}
       finally{if(rb!=null){rb.Dispose();if(!rb.RestoreSucceeded){lock(blocked)blocked.Add(c.Pid);notes.Add(c.Name+": ponte sem restauração ao aceitar ressurreição; reinicie esse cliente.");}}}
       continue;}
-     if(deadSince.Remove(c.Pid))notes.Add(c.Name+": voltou à vida.");
+     if(deadSince.Remove(c.Pid))notes.Add(c.Name+": voltou à vida.");reviveSends.Remove(c.Pid);
      var bag=g.ReadInventory();int count=BagCount(bag);int handled;bagHandled.TryGetValue(c.Pid,out handled);
      if(count==0){bagHandled[c.Pid]=0;bagTries.Remove(c.Pid);continue;}
      if(count<=handled)continue;
