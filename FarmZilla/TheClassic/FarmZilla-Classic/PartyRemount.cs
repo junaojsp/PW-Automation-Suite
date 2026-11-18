@@ -21,8 +21,37 @@ static partial class PartyService {
   WaitGroup(()=>{var a=Group(main);var b=Group(anchor);return a!=null&&b!=null&&a.Leader==anchor.Id&&b.Leader==anchor.Id;},token,"Transferência de liderança não confirmada. O principal não foi retirado.");
   phase="saída do principal";token.ThrowIfCancellationRequested();RequireLeaderAndMembers(anchor,new[]{main.Id,anchor.Id});progress.Report(main.Name+": saindo da PT após confirmar a liderança temporária.");Send(main,GroupCommand(0x1E,0),result);WaitGroup(()=>Group(main)==null,token,"Saída do principal não confirmada.");
   phase="liberação do secundário temporário";token.ThrowIfCancellationRequested();WaitGroup(()=>{var state=Group(anchor);return state==null||(state.Leader==anchor.Id&&state.Members.Count==1&&state.Members.Contains(anchor.Id));},token,"O secundário temporário não confirmou a saída dos demais membros.");var anchorParty=Group(anchor);if(anchorParty!=null){if(anchorParty.Leader!=anchor.Id||anchorParty.Members.Count!=1||!anchorParty.Members.Contains(anchor.Id))throw new Exception("A PT temporária recebeu outro membro; não foi desfeita.");Send(anchor,GroupCommand(0x1E,0),result);WaitGroup(()=>Group(anchor)==null,token,"O secundário temporário ainda está em grupo.");}
-  phase="novos convites";progress.Report("PT anterior encerrada. Convidando novamente os secundários.");
-  foreach(var secondary in selected){token.ThrowIfCancellationRequested();var joined=Join(main,secondary,token,progress);if(joined.Blocked){result.Blocked=true;result.Pid=joined.Pid;throw new Exception(joined.Message);}progress.Report(joined.Message);if(!Together(main,secondary))throw new Exception(secondary.Name+": entrada na nova PT não confirmada.");}
+  phase="novos convites";
+  // O servidor pode manter o convite/grupo anterior por alguns instantes apos a dissolucao.
+  // Confirme que TODAS as contas sairam antes de enviar novos convites.
+  progress.Report("PT anterior encerrada. Aguardando liberacao do grupo antes dos novos convites.");
+  WaitGroup(()=>Group(main)==null&&selected.All(s=>Group(s)==null),token,
+   "Uma das contas ainda aparece em PT apos a dissolucao; novos convites nao enviados.");
+  if(token.WaitHandle.WaitOne(1500))token.ThrowIfCancellationRequested();
+  // Use o mesmo lote de convites da opcao Montar PT, que ja confirmou a entrada
+  // de CheirosaWF no segundo envio, em vez de interromper tudo no primeiro membro.
+  progress.Report("Remontar PT: enviando convites em lote para "+selected.Length+" secundario(s).");
+  var joinedBatch=JoinAll(main,selected,token,progress);
+  var missing=new List<CharacterRef>();
+  for(int i=0;i<selected.Length;i++){
+   token.ThrowIfCancellationRequested();var joined=joinedBatch[i];
+   if(joined.Blocked){result.Blocked=true;result.Pid=joined.Pid;throw new Exception(selected[i].Name+": ponte sem restauracao; reinicie o cliente. "+joined.Message);}
+   bool together=Together(main,selected[i]);
+   if(together)progress.Report(selected[i].Name+": reconectado a PT do principal.");
+   else{missing.Add(selected[i]);progress.Report(selected[i].Name+": ainda fora da PT apos lote. "+joined.Message);}
+  }
+  // Se o servidor atrasou apenas um convite, tente novamente os que faltam;
+  // os ja confirmados nao recebem novos pacotes.
+  foreach(var secondary in missing){
+   token.ThrowIfCancellationRequested();
+   if(Together(main,secondary))continue;
+   progress.Report("Remontar PT: recuperando convite pendente para "+secondary.Name+".");
+   var joined=Join(main,secondary,token,progress);
+   if(joined.Blocked){result.Blocked=true;result.Pid=joined.Pid;throw new Exception(joined.Message);}
+   progress.Report(joined.Message);
+  }
+  var unresolved=selected.Where(s=>!Together(main,s)).Select(s=>s.Name).ToArray();
+  if(unresolved.Length>0)throw new Exception("PT parcialmente remontada. Permanecem fora: "+string.Join(", ",unresolved)+". Os membros confirmados foram mantidos.");
   phase="convites dos membros fora da seleção";
   foreach(var own in ownExtra){token.ThrowIfCancellationRequested();var joined=Join(main,own,token,progress);if(joined.Blocked){result.Blocked=true;result.Pid=joined.Pid;throw new Exception(joined.Message);}progress.Report(joined.Message);}
   foreach(var id in outsiders){token.ThrowIfCancellationRequested();Send(main,GroupCommand(0x1B,id),result);progress.Report("Convite enviado para o membro "+id+" (fora do FarmZilla); ele aceita no jogo dele.");}
