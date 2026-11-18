@@ -120,14 +120,40 @@ namespace RotaAvalon {
                 row.ImageIndex=Icon(ids[0]);loaded++;
             }
         }
+        // Identificador neutro somente quando a textura do jogo nao existe no PCK.
+        // Nunca apresenta o quadrado transparente como se fosse um icone carregado.
+        static Bitmap MissingMaterialIcon(){
+            var bmp=new Bitmap(24,24,System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using(var g=Graphics.FromImage(bmp)){
+                g.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using(var fill=new SolidBrush(Color.FromArgb(40,93,132)))
+                    g.FillEllipse(fill,2,2,20,20);
+                using(var pen=new Pen(Color.FromArgb(104,187,227),1.5f))
+                    g.DrawEllipse(pen,2,2,19,19);
+                using(var pen=new Pen(Color.White,1.4f)){
+                    g.DrawLine(pen,12,6,17,12);g.DrawLine(pen,17,12,12,18);
+                    g.DrawLine(pen,12,18,7,12);g.DrawLine(pen,7,12,12,6);
+                }
+            }
+            return bmp;
+        }
         int Icon(int id){
             int index;if(iconIndex.TryGetValue(id,out index))return index;
             Image image=null;
-            try{if(IconFor!=null)image=IconFor(id);if(image!=null){icons.Images.Add((Image)image.Clone());index=icons.Images.Count-1;}else index=0;}
-            catch{index=0;}
+            try{if(IconFor!=null)image=IconFor(id);}catch{}
+            if(image!=null){
+                try{icons.Images.Add(image);index=icons.Images.Count-1;}
+                catch{using(var fallback=MissingMaterialIcon()){icons.Images.Add(fallback);index=icons.Images.Count-1;}}
+            }else{
+                using(var fallback=MissingMaterialIcon()){icons.Images.Add(fallback);index=icons.Images.Count-1;}
+            }
             iconIndex[id]=index;return index;
         }
-        public void ResetIcons(){iconIndex.Clear();while(icons.Images.Count>1)icons.Images.RemoveAt(icons.Images.Count-1);signature="";}
+        public void ResetIcons(){
+            iconIndex.Clear();while(icons.Images.Count>1)icons.Images.RemoveAt(icons.Images.Count-1);
+            foreach(ListViewItem row in materials.Items)row.ImageIndex=0;
+            signature="";if(Visible)LoadVisibleMaterialIcons();
+        }
         public void SetRunning(bool value){if(value==running)return;running=value;start.Enabled=!value;stop.Enabled=value;scan.Enabled=!value;loadRoute.Enabled=!value;height.Enabled=!value;farmRadius.Enabled=!value;TrailRunning(value);if(value){cycle=collected=defenses=skipped=plan=0;next=last="—";}UpdateText();}
         public void SetPlan(RouteDocument route){if(Manual)return;plan=route==null?0:route.Points.Count;Map.Route=route;Map.Invalidate();UpdateText();}
         public void ShowTrail(RouteDocument path){plan=path==null?0:path.Points.Count;Map.Route=path;Map.Invalidate();UpdateText();}
