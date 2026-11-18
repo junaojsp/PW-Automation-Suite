@@ -205,7 +205,25 @@ namespace RotaAvalon {
             catch(Exception e){Error(e);}}
         public void ReportUiError(Exception error){execution.Stop();Log("Erro de interface: "+error.Message);Status("Falha registrada em logs/interface-erros.txt.");}
         void UpdateSummary(){routeSummary.Text=route.Points.Count+" pontos  ·  "+route.Length().ToString("F1")+" unidades  ·  "+(route.Loop?"Circular":"Ida")+"  ·  "+(String.IsNullOrEmpty(route.Character)?"Sem personagem":route.Character)+"  ·  "+route.ResourceIds.Count+" materiais escolhidos · Clique nos marcadores para ordenar";map.Invalidate();routePreview.Invalidate();}
-        void OpenTiles(){CloseTiles();try{mapTiles=new MapTiles(client.GameDirectory);worldPanel.SetAssets(mapTiles);routePreview.Tiles=farm.Map.Tiles=mapTiles;farm.ResetIcons();}catch(Exception e){Log("Mapa: "+e.Message);}}
+        void OpenTiles(){
+            CloseTiles();
+            try{
+                mapTiles=new MapTiles(client.GameDirectory);
+                worldPanel.SetAssets(mapTiles);
+                routePreview.Tiles=farm.Map.Tiles=mapTiles;
+                farm.ResetIcons();
+                // Evidence from the REAL installed surfaces.pck. Does not change farm.
+                Log("Icones dos materiais: "+mapTiles.IconDiagnostics());
+                int checkedIcons=0,foundIcons=0;
+                foreach(var d in catalog.Definitions.Values.Where(d=>catalog.Ground(d.id)).Take(8)){
+                    checkedIcons++;
+                    try{using(var icon=mapTiles.Image(d.icone))if(icon!=null)foundIcons++;}
+                    catch(Exception ex){Log("Icone "+d.id+" ("+d.icone+"): "+ex.Message);}
+                }
+                Log("Icones reais amostrados: "+foundIcons+"/"+checkedIcons+
+                    (foundIcons==0?" - nenhum icone recuperado do PCK desta instalacao.":""));
+            }catch(Exception e){Log("Mapa ou texturas: "+e.Message);}
+        }
         void CloseTiles(){worldPanel.SetAssets(null);routePreview.Tiles=farm.Map.Tiles=null;if(mapTiles!=null){mapTiles.Dispose();mapTiles=null;}}
         void ReadResources(){lastResources=DateTime.Now;try{var frame=client.ReadResources(catalog,snapshot);TrailSeen(frame);var observed=MaterialMap.Merge(history.Merge(snapshot,frame),catalog,snapshot,frame);worldPanel.UpdateFrame(snapshot,frame,"",observed);routePreview.Terrain=farm.Map.Terrain=frame.Terrain;lastObserved=observed;UpdateFarm(observed);routePreview.Resources=observed.Where(r=>route.ResourceIds.Contains(r.TemplateId)||history.Collectible(r.TemplateId)).ToList();routePreview.Invalidate();resourceError="";ReadInventory(frame);}catch(Exception e){execution.Stop();worldPanel.UpdateFrame(snapshot,null,e.Message);routePreview.Resources.Clear();routePreview.Terrain=null;routePreview.Invalidate();if(e.Message!=resourceError){Log("Recursos: "+e.Message);resourceError=e.Message;}}}
         void ReadInventory(ResourceFrame frame){
