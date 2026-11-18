@@ -67,7 +67,7 @@ partial class AvalonInterno {
   Shown+=(s,e)=>potTimer.Start();
   FormClosed+=(s,e)=>{potTimer.Stop();potTimer.Dispose();};
  }
- static bool PotKeyValid(Keys key){return key==Keys.None||(key>=Keys.F1&&key<=Keys.F12);}
+ static bool PotKeyValid(Keys key){return key==Keys.None||(key>=Keys.D1&&key<=Keys.D8)||(key>=Keys.F1&&key<=Keys.F12);}
  static bool SendPotKey(Keys key){
   if(!PotKeyValid(key)||key==Keys.None)return false;
   var input=new[]{new PotInput{type=1,vk=(ushort)key},new PotInput{type=1,vk=(ushort)key,flags=2}};
