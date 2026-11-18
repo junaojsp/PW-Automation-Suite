@@ -212,6 +212,7 @@ namespace RotaAvalon {
                 worldPanel.SetAssets(mapTiles);
                 routePreview.Tiles=farm.Map.Tiles=mapTiles;
                 farm.ResetIcons();
+                Log("Icones originais Rody: "+OriginalMaterialIcons.PresentCount()+"/49 (pasta MatFarmIcons ao lado do EXE).");
                 // Evidence from the REAL installed surfaces.pck. Does not change farm.
                 Log("Icones dos materiais: "+mapTiles.IconDiagnostics());
                 int checkedIcons=0,foundIcons=0;
