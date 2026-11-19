@@ -305,8 +305,24 @@ emit("subindo",new{alvo=CruiseHeight,atual=Math.Round(s.Y/10,1)});
             emit("vida_nao_recuperou",new{minutos=5});}
         bool RecentlyCollected(Waypoint p){lock(recent){recent.RemoveAll(r=>(DateTime.Now-r.Item4).TotalSeconds>RecentSeconds);return recent.Any(r=>r.Item1==p.ResourceId&&Math.Abs(r.Item2-p.X)<10&&Math.Abs(r.Item3-p.Z)<10);}}
         static Dictionary<int,int> Totals(InventorySnapshot bag){var totals=new Dictionary<int,int>();foreach(var item in bag.Items){int n;totals.TryGetValue(item.Id,out n);totals[item.Id]=n+item.Quantity;}return totals;}
-        static bool Gained(InventorySnapshot before,InventorySnapshot after){var a=Totals(before);foreach(var kv in Totals(after)){int n;a.TryGetValue(kv.Key,out n);if(kv.Value>n)return true;}return false;}
-        static bool GainedExcept(InventorySnapshot before,InventorySnapshot after,int exceptId){var a=Totals(before);foreach(var kv in Totals(after)){if(kv.Key==exceptId)continue;int n;a.TryGetValue(kv.Key,out n);if(kv.Value>n)return true;}return false;}
+        // Only the expected material counts as collection. Another potion, drop
+        // or inventory change must never mark a node as harvested.
+        internal static bool MaterialReceived(InventorySnapshot before,InventorySnapshot after,int itemId){
+            return itemId>0&&after.QuantityOf(itemId)>before.QuantityOf(itemId);
+        }
+        InventorySnapshot ReadBagStable(GameClient client){
+            // The game may mutate its inventory vector during a gather tick.
+            // Retry only transient read races; never replace a failed read
+            // with an empty bag or an optimistic success.
+            for(int attempt=0;;attempt++){
+                try{return client.ReadInventory();}
+                catch(IOException e){
+                    string m=e.Message??"";
+                    if(attempt>=2||(!m.Contains("anulada")&&!m.Contains("mudou durante a leitura")))throw;
+                    Wait(200*(attempt+1));
+                }
+            }
+        }
         // A material quest is still waiting to be confirmed (true) or there is none (false: done).
         bool MissionPending(GameClient client,string library){try{NativeBridge.InspectMaterialReward(client,library);return true;}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode==259)return false;return true;}catch{return true;}}
         // One point. Returns true when something was collected. Throws only for what must stop everything.
@@ -320,59 +336,116 @@ emit("subindo",new{alvo=CruiseHeight,atual=Math.Round(s.Y/10,1)});
             if(target==null){emit("pulado_ausente",new{point=index+1,resource=p.ResourceId,altura=Math.Round(s.Y/10,1)});return false;}
             if(Math.Pow(target.X-s.X,2)+Math.Pow(target.Z-s.Z,2)>ArriveXZ*ArriveXZ)Fly(client,target.X,target.Z,character,library);
             var reward=VerifiedRewards.Find(p.ResourceId);uint expected=LearnedMissions.Find(p.ResourceId);if(expected==0)expected=MissionFor(p.ResourceId);
-            var bag=client.ReadInventory();if(bag.Items.Count>=bag.Slots)throw new IOException("Mochila cheia: libere espaço e inicie de novo.");
+            int temporaryId=reward!=null?reward.TemporaryItemId:p.ItemId;
+            var bag=ReadBagStable(client);
+            if(bag.Items.Count>=bag.Slots)throw new IOException("Mochila cheia: libere espaço e inicie de novo.");
             FinishPendingMission(client,character,library,index);var rowsBefore=client.ReadConfirmRows();
-            bag=client.ReadInventory();int temporary=reward==null?0:bag.QuantityOf(reward.TemporaryItemId);
-            // A fight can interrupt the gathering: ask again (up to 3 times) while the material is still there.
-            bool mined=false;for(int attempt=1;attempt<=3&&!mined;attempt++){s=Read(client,character);frame=client.ReadResources(catalog,s);if(!frame.Resources.Any(r=>r.InstanceId==target.InstanceId))break;
-                NativeBridge.Collect(client,catalog,target.InstanceId,library);emit("coleta_solicitada",new{point=index+1,resource=p.ResourceId,attempt=attempt});
-                var harvest=Stopwatch.StartNew();while(harvest.Elapsed.TotalSeconds<15){s=Read(client,character);var now=client.ReadInventory();if(reward!=null?now.QuantityOf(reward.TemporaryItemId)>temporary:Gained(bag,now)){mined=true;break;}frame=client.ReadResources(catalog,s);if(!frame.Resources.Any(r=>r.InstanceId==target.InstanceId)){Wait(600);mined=reward!=null?client.ReadInventory().QuantityOf(reward.TemporaryItemId)>temporary:Gained(bag,client.ReadInventory());break;}Wait(100);}}
-            if(!mined){emit("coleta_falhou",new{point=index+1,resource=p.ResourceId});return false;}
+            bag=ReadBagStable(client);
+            if(temporaryId<=0){
+                emit("coleta_sem_item_identificado",new{point=index+1,resource=p.ResourceId});
+                return false;
+            }
+            // A disappearing material can be a despawn by another player, not a
+            // successful harvest. The only success signal is the expected item.
+            bool mined=false,despawn=false;int attempts=0;string lastReason="item_nao_recebido";
+            for(int attempt=1;attempt<=3&&!mined;attempt++){
+                attempts=attempt;s=Read(client,character);frame=client.ReadResources(catalog,s);
+                var current=frame.Resources.FirstOrDefault(r=>r.InstanceId==target.InstanceId);
+                if(current==null){despawn=true;lastReason="material_desapareceu";break;}
+                double horizontal=Math.Sqrt(Math.Pow(current.X-s.X,2)+Math.Pow(current.Z-s.Z,2));
+                double vertical=Math.Abs(current.Y-s.Y);
+                emit("coleta_posicao",new{point=index+1,resource=p.ResourceId,attempt=attempt,
+                    distancia=Math.Round(current.Distance,1),horizontal=Math.Round(horizontal,1),vertical=Math.Round(vertical,1)});
+                if(current.Distance>50){
+                    lastReason="fora_alcance";emit("coleta_aguardando_alcance",new{point=index+1,resource=p.ResourceId,attempt=attempt,distancia=Math.Round(current.Distance,1)});
+                    if(horizontal>ArriveXZ)Fly(client,current.X,current.Z,character,library);
+                    Wait(500);continue;
+                }
+                try{
+                    NativeBridge.Collect(client,catalog,target.InstanceId,library);
+                    emit("coleta_solicitada",new{point=index+1,resource=p.ResourceId,attempt=attempt,item=temporaryId});
+                }catch(IOException e){
+                    if((e.Message??"").IndexOf("anulada",StringComparison.OrdinalIgnoreCase)<0)throw;
+                    lastReason="solicitacao_anulada";
+                    emit("coleta_anulada",new{point=index+1,resource=p.ResourceId,attempt=attempt,message=e.Message});
+                    Wait(500);
+                    if(MaterialReceived(bag,ReadBagStable(client),temporaryId)){mined=true;break;}
+                    continue;
+                }
+                var harvest=Stopwatch.StartNew();
+                while(harvest.Elapsed.TotalSeconds<15){
+                    s=Read(client,character);
+                    var now=ReadBagStable(client);
+                    if(MaterialReceived(bag,now,temporaryId)){mined=true;break;}
+                    frame=client.ReadResources(catalog,s);
+                    if(!frame.Resources.Any(r=>r.InstanceId==target.InstanceId)){
+                        despawn=true;lastReason="material_desapareceu_sem_item";
+                        // Allow delayed inventory synchronization before concluding
+                        // that someone else collected it or it despawned.
+                        for(int wait=0;wait<8&&!mined;wait++){
+                            Wait(250);
+                            mined=MaterialReceived(bag,ReadBagStable(client),temporaryId);
+                        }
+                        break;
+                    }
+                    Wait(150);
+                }
+                if(despawn)break;
+                if(!mined)lastReason="tempo_esgotado_sem_item";
+            }
+            if(!mined){
+                emit("coleta_falhou",new{point=index+1,resource=p.ResourceId,item=temporaryId,
+                    tentativas=attempts,motivo=lastReason,desapareceu=despawn});
+                return false;
+            }
             lock(recent)recent.Add(Tuple.Create(p.ResourceId,p.X,p.Z,DateTime.Now));
-            emit(reward!=null?"temporario_recebido":"coletado",new{point=index+1,resource=p.ResourceId,item=reward==null?p.ItemId:reward.TemporaryItemId});
+            emit(reward!=null?"temporario_recebido":"coletado",new{point=index+1,resource=p.ResourceId,item=temporaryId,
+                antes=bag.QuantityOf(temporaryId),depois=ReadBagStable(client).QuantityOf(temporaryId)});
             // Material quest (0.32.0): the reward shows up as a NEW item (any id other than the temporary), which works even for
             // materials with no reward registered (e.g. 3081). Success = a new item arrived OR the material quest is gone; while
             // it is still pending, the second option is chosen again. Shorter waits so collecting a material does not drag.
-            int temporaryId=reward!=null?reward.TemporaryItemId:p.ItemId;
             // 0.48.0: temporary item first, then the quest, then (a bit later) the final item — calmer waits and no fighting in between.
             missionFirst=true;try{Wait(1500);
-            var before=client.ReadInventory();int baseline=reward==null?0:before.QuantityOf(reward.FinalItemId);
+            var before=ReadBagStable(client);int baseline=reward==null?0:before.QuantityOf(reward.FinalItemId);
             for(int attempt=1;attempt<=3;attempt++){
                 // 0.48.1 (log 05/11: herbs/flowers never showed a quest and each collect waited 12 s): no known quest = wait only 4 s.
                 uint quest=0;var ready=Stopwatch.StartNew();
                 while(ready.Elapsed.TotalSeconds<(expected==0?4:12)){Read(client,character);try{quest=NativeBridge.PrepareMaterialReward(client,library,expected).Reserved;break;}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode!=259&&e.NativeErrorCode!=13)throw;}Wait(250);}
-                if(quest==0){if(GainedExcept(before,client.ReadInventory(),temporaryId)&&!MissionPending(client,library)){emit("recompensa_recebida",new{point=index+1,quest=0,attempt=attempt});return true;}emit("missao_nao_apareceu",new{point=index+1,resource=p.ResourceId,expected=expected,attempt=attempt});
+                if(quest==0){emit("missao_nao_apareceu",new{point=index+1,resource=p.ResourceId,expected=expected,attempt=attempt});
                     // 0.51.7 (log Esdras 08/11: Sulfeto de Arsênico 3535 coletado 3×, missão 61991 nunca apareceu — material+58456 só vale
                     // para os minérios): register what the window shows; exactly one row new since before collecting = this material's quest.
                     var rows=client.ReadConfirmRows();var fresh=rows.Where(r=>!rowsBefore.Contains(r)).ToList();
                     emit("missao_janela",new{point=index+1,resource=p.ResourceId,expected=expected,linhas=rows,antes=rowsBefore});
                     if(fresh.Count==1&&fresh[0]!=expected&&!(p.ResourceId>=3074&&p.ResourceId<=3092)&&attempt<3){expected=fresh[0];LearnedMissions.Save(p.ResourceId,expected);emit("missao_aprendida",new{point=index+1,resource=p.ResourceId,quest=expected});continue;}
-                    return true;}
+                    emit("recompensa_nao_confirmada",new{point=index+1,resource=p.ResourceId,motivo="missao_nao_localizada"});return true;}
                 emit("missao_confirmada",new{point=index+1,quest=quest,attempt=attempt});Wait(1200);
                 bool chosen=false;var award=Stopwatch.StartNew();while(award.Elapsed.TotalSeconds<5&&!chosen){Read(client,character);try{NativeBridge.ConfirmSecondReward(client,quest,library);chosen=true;}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode!=259)throw;Wait(300);}}
                 if(!chosen){emit("recompensa_sem_janela",new{point=index+1,quest=quest,attempt=attempt});Wait(1000);continue;}
                 emit("opcao_recompensa",new{point=index+1,quest=quest,opcao=quest==61548?1:2,attempt=attempt});Wait(1500);
                 var confirmation=Stopwatch.StartNew();DateTime again=DateTime.Now.AddSeconds(4);int repeats=0;
-                while(confirmation.Elapsed.TotalSeconds<14){Read(client,character);var now=client.ReadInventory();
+                while(confirmation.Elapsed.TotalSeconds<14){Read(client,character);var now=ReadBagStable(client);
                     // 0.51.19 (Esdras: CheirosoWR "pega a missão, não completa e sai voando"; 5 "missao_pendente_concluida" depois): any new
                     // item (a monster drop) counted as the reward while the quest was still open; now a new item only counts once the quest
                     // is gone, the known final item still counts at once.
                     bool pending=MissionPending(client,library);
-                    bool rewarded=(reward!=null&&now.QuantityOf(reward.FinalItemId)>baseline)||(!pending&&GainedExcept(before,now,temporaryId));
+                    bool rewarded=reward!=null&&reward.FinalItemId>0&&now.QuantityOf(reward.FinalItemId)>baseline;
                     if(rewarded){emit("recompensa_recebida",new{point=index+1,quest=quest,item=reward==null?0:reward.FinalItemId,before=baseline,after=reward==null?0:now.QuantityOf(reward.FinalItemId),attempt=attempt,repeticoes=repeats});return true;}
                     if(!pending&&confirmation.Elapsed.TotalSeconds>3)break;
                     if(DateTime.Now>=again&&repeats<3&&pending){repeats++;try{NativeBridge.ConfirmSecondReward(client,quest,library);emit("opcao_recompensa_repetida",new{point=index+1,quest=quest,opcao=quest==61548?1:2,vez=repeats});}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode!=259&&e.NativeErrorCode!=13&&e.NativeErrorCode!=50)throw;}again=DateTime.Now.AddSeconds(4);}
                     Wait(250);}
-                if(GainedExcept(before,client.ReadInventory(),temporaryId)&&!MissionPending(client,library)){emit("recompensa_recebida",new{point=index+1,quest=quest,attempt=attempt});return true;}
+                if(reward!=null&&reward.FinalItemId>0&&ReadBagStable(client).QuantityOf(reward.FinalItemId)>baseline){
+                    emit("recompensa_recebida",new{point=index+1,quest=quest,item=reward.FinalItemId,attempt=attempt});return true;
+                }
                 emit("missao_sem_confirmacao",new{point=index+1,quest=quest,attempt=attempt});Wait(1000);}
             // 0.51.19: still open after 3 rounds = try once more to finish it before leaving.
-            FinishPendingMission(client,character,library,index);emit("recompensa_nao_confirmada",new{point=index+1,resource=p.ResourceId});return true;
+            FinishPendingMission(client,character,library,index);
+            emit("recompensa_nao_confirmada",new{point=index+1,resource=p.ResourceId,motivo=reward==null?"sem_id_final_validado":"item_final_nao_encontrado"});return true;
             }finally{missionFirst=false;if(hitDuringMission)emit("missao_antes_da_defesa",new{point=index+1,message="Apanhou durante a missão; defendendo agora."});}
         }
         // A material quest left ready (e.g. interrupted run) is finished before collecting again, instead of stopping.
         void FinishPendingMission(GameClient client,string character,string library,int index){
             try{NativeBridge.InspectMaterialReward(client,library);}catch(System.ComponentModel.Win32Exception e){if(e.NativeErrorCode==259)return;throw;}
-            try{uint quest=NativeBridge.PrepareMaterialReward(client,library,0).Reserved;if(quest==0)return;NativeBridge.ConfirmSecondReward(client,quest,library);emit("missao_pendente_concluida",new{point=index+1,quest=quest});Wait(1500);}catch(System.ComponentModel.Win32Exception e){emit("missao_pendente_falhou",new{code=e.NativeErrorCode});}
+            try{uint quest=NativeBridge.PrepareMaterialReward(client,library,0).Reserved;if(quest==0)return;NativeBridge.ConfirmSecondReward(client,quest,library);emit("missao_pendente_comando_enviado",new{point=index+1,quest=quest});Wait(1500);}catch(System.ComponentModel.Win32Exception e){emit("missao_pendente_falhou",new{code=e.NativeErrorCode});}
         }
         string bridgeLibrary;
         void Run(int pid,RouteDocument route,Func<RouteDocument> plan,ResourceCatalog catalog,string library){bridgeLibrary=library;

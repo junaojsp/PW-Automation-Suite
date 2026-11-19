@@ -13,6 +13,13 @@ namespace RotaAvalon {
     public sealed partial class RouteExecution {
         const double TrailArrive=6,LookSeconds=0.6;
         DateTime nextLook;double trailHeight=40;
+        readonly List<Tuple<int,double,double,DateTime>> recentFailures=new List<Tuple<int,double,double,DateTime>>();
+        bool RecentlyFailed(Waypoint p){
+            lock(recentFailures){
+                recentFailures.RemoveAll(r=>(DateTime.Now-r.Item4).TotalSeconds>30);
+                return recentFailures.Any(r=>r.Item1==p.ResourceId&&Math.Abs(r.Item2-p.X)<10&&Math.Abs(r.Item3-p.Z)<10);
+            }
+        }
         public void StartTrail(int pid,TrailRoute trail,ICollection<int> materials,ResourceCatalog catalog,string library){StartTrail(pid,trail,materials,catalog,library,40);}
         // height: flight height (as the game shows it) for points without height — routes from another program (0.47.3, log
         // 05/11 13:11–13:16: Limago started on the ground, "kept the current height" ~23 and bumped into houses and a mountain).
@@ -31,7 +38,7 @@ namespace RotaAvalon {
             if(DateTime.Now<nextLook)return null;nextLook=DateTime.Now.AddSeconds(LookSeconds);
             ResourceFrame frame;try{frame=client.ReadResources(catalog,s);}catch{return null;}
             foreach(var r in frame.Resources.Where(r=>chosen.Contains(r.TemplateId)&&r.LevelAllowed&&r.HorizontalDistance<=reach).OrderBy(r=>r.HorizontalDistance)){
-                var w=new Waypoint{ResourceId=r.TemplateId,ItemId=r.ItemId,X=r.X,Y=r.Y,Z=r.Z,Action="Coletar"};if(!RecentlyCollected(w))return w;}
+                var w=new Waypoint{ResourceId=r.TemplateId,ItemId=r.ItemId,X=r.X,Y=r.Y,Z=r.Z,Action="Coletar"};if(!RecentlyCollected(w)&&!RecentlyFailed(w))return w;}
             return null;}
         // One leg toward a path point; false = stopped because a material was spotted (look returned true).
         bool TrailLeg(GameClient client,TrailPoint w,string character,string library,Func<ClientSnapshot,bool> look){
@@ -54,8 +61,12 @@ namespace RotaAvalon {
                             for(int round=0;round<20&&!stop;round++){found=null;if(TrailLeg(client,w,character,library,look)||found==null)break;
                                 var at=Read(client,character);CruiseHeight=Double.IsNaN(w.Y)?trailHeight:Math.Max(10,Math.Round(at.Y/10));
                                 emit("material_no_caminho",new{point=index+1,resource=found.ResourceId,distancia=Math.Round(Math.Sqrt(Math.Pow(found.X-at.X,2)+Math.Pow(found.Z-at.Z,2)),1),altura=CruiseHeight});
-                                bool got=false;try{got=Visit(client,found,index,cycle,catalog,character,library,true);}finally{lock(recent)recent.Add(Tuple.Create(found.ResourceId,found.X,found.Z,DateTime.Now));}
+                                bool got=Visit(client,found,index,cycle,catalog,character,library,true);
+                                // A failed attempt is not a collection. Do not add it to
+                                // the 150-second successful-material cache; use the short
+                                // backoff below to avoid immediate retry loops instead.
                                 if(got){collected++;total++;}
+                                else{lock(recentFailures)recentFailures.Add(Tuple.Create(found.ResourceId,found.X,found.Z,DateTime.Now));}
                                 ClimbHere(client,character,library);emit("voltando_trajeto",new{point=index+1,altura=CruiseHeight});}
                             failures=0;}
                         catch(OperationCanceledException){throw;}
