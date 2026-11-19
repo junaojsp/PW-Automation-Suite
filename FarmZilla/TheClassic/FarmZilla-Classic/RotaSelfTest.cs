@@ -22,6 +22,11 @@ namespace RotaAvalon {
                 Check(GameActivity.Classify(".?AVCECHPWorkTrace@@",0)==ActivityKind.Approaching&&GameActivity.Classify(".?AVCECHPWorkPick@@",3537)==ActivityKind.Collecting&&GameActivity.Classify(".?AVCECHPWorkPick@@",0)==ActivityKind.Other,"Classificação de aproximação/coleta incorreta");
                 Check(VerifiedRewards.Find(3537).FinalItemId==1850&&VerifiedRewards.Find(3539).FinalItemId==1821&&VerifiedRewards.Find(3546)==null,"Recompensa não validada foi aceita");
                 var bag=new InventorySnapshot();bag.Items.Add(new InventoryItem{Id=815,Quantity=3});bag.Items.Add(new InventoryItem{Id=815,Quantity=7});bag.Items.Add(new InventoryItem{Id=62502,Quantity=1});Check(bag.QuantityOf(815)==10&&bag.QuantityOf(62502)==1&&bag.QuantityOf(999)==0,"Inventário confundiu item temporário ou pilhas");
+                var afterWrong=new InventorySnapshot();afterWrong.Items.Add(new InventoryItem{Id=815,Quantity=10});afterWrong.Items.Add(new InventoryItem{Id=62502,Quantity=1});afterWrong.Items.Add(new InventoryItem{Id=99999,Quantity=1});
+                Check(!RouteExecution.MaterialReceived(bag,afterWrong,62502),"Coleta aceitou aumento de item não relacionado");
+                var afterRight=new InventorySnapshot();afterRight.Items.Add(new InventoryItem{Id=815,Quantity=10});afterRight.Items.Add(new InventoryItem{Id=62502,Quantity=2});
+                Check(RouteExecution.MaterialReceived(bag,afterRight,62502),"Coleta rejeitou o item esperado");
+                Check(!RouteExecution.MaterialReceived(bag,afterRight,0),"Coleta aceitou ID desconhecido");
                 loaded.Name="Sobrescrita";loaded.Save(file);Check(RouteDocument.Load(file).Name=="Sobrescrita","Salvamento atômico falhou");
                 loaded.Points[0].X=Double.NaN;bool failed=false;try{loaded.Validate();}catch(InvalidDataException){failed=true;}Check(failed,"NaN foi aceito");
                 loaded.Points[0].X=0;loaded.ClientHash="outro";failed=false;try{loaded.Validate();}catch(InvalidDataException){failed=true;}Check(failed,"Perfil incompatível foi aceito");
