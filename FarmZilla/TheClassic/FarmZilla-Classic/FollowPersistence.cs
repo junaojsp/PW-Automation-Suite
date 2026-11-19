@@ -72,16 +72,24 @@ partial class AvalonInterno {
    if(!followIntents.TryGetValue(e.Pid,out intent)||intent.Target!=primary.Id||intent.Id!=e.Id||blocked.Contains(e.Pid)||DateTime.UtcNow<intent.NextAttempt)continue;
    try{bool following,selfFlying,selfKnown;double selfY;using(var state=new State(e.Pid)){if(state.Id!=intent.Id)continue;following=state.Following&&state.Target==intent.Target;selfFlying=state.Flying;selfKnown=state.FlightKnown;selfY=state.Y;}
     if(intent.Enabled){
-     if(!following){jobs.Add(new FollowJob{Entry=e,Intent=intent,Stop=false});continue;}
-     if(!leaderKnown||!selfKnown)continue;
-     DateTime again;bool cooldown=liftNext.TryGetValue(e.Pid,out again)&&DateTime.UtcNow<again;
-     if(cooldown)continue;
-     if(FollowFlight.ShouldTakeoff(true,leaderFlying,selfFlying))
-      jobs.Add(new FollowJob{Entry=e,Intent=intent,Lift=true,LeaderY=leaderY});
-     else if(FollowFlight.ShouldMatchHeight(true,leaderFlying,selfFlying,leaderY,selfY))
-      jobs.Add(new FollowJob{Entry=e,Intent=intent,Height=true,LeaderY=leaderY});
-     else if(FollowFlight.ShouldDescend(true,leaderFlying,selfFlying))
-      jobs.Add(new FollowJob{Entry=e,Intent=intent,Descend=true,LeaderY=leaderY});
+     // A decolagem no jogo pode cancelar temporariamente a acao Seguir.
+     // A INTENCAO do usuario (intent.Enabled), nao o work de seguir atual,
+     // governa o espelhamento do voo; o follow sera reparado em outro ciclo.
+     if(leaderKnown&&selfKnown){
+      DateTime again;bool cooldown=liftNext.TryGetValue(e.Pid,out again)&&DateTime.UtcNow<again;
+      if(!cooldown){
+       if(FollowFlight.ShouldTakeoff(true,leaderFlying,selfFlying)){
+        jobs.Add(new FollowJob{Entry=e,Intent=intent,Lift=true,LeaderY=leaderY});continue;
+       }
+       if(FollowFlight.ShouldDescend(true,leaderFlying,selfFlying)){
+        jobs.Add(new FollowJob{Entry=e,Intent=intent,Descend=true,LeaderY=leaderY});continue;
+       }
+       if(FollowFlight.ShouldMatchHeight(true,leaderFlying,selfFlying,leaderY,selfY)){
+        jobs.Add(new FollowJob{Entry=e,Intent=intent,Height=true,LeaderY=leaderY});continue;
+       }
+      }
+     }
+     if(!following)jobs.Add(new FollowJob{Entry=e,Intent=intent,Stop=false});
     }else if(intent.StopPending){if(!following){intent.StopPending=false;continue;}jobs.Add(new FollowJob{Entry=e,Intent=intent,Stop=true});}
    }catch{}}
   if(jobs.Count==0)return;
@@ -91,9 +99,10 @@ partial class AvalonInterno {
    await Task.WhenAll(jobs.Select(j=>Task.Run(()=>{try{j.Message=j.Lift?Takeoff(j.Entry.Pid,j.Intent.Target,j.LeaderY):j.Height?MatchFlightHeight(j.Entry.Pid,j.LeaderY):j.Descend?FollowLanding(j.Entry.Pid,j.LeaderY):Command(j.Entry.Pid,j.Intent.Target,j.Stop);}catch(Exception ex){j.Error=ex;}})));
    foreach(var j in jobs){var e=j.Entry;var intent=j.Intent;
     if(j.Lift||j.Height||j.Descend){
-     liftNext[e.Pid]=DateTime.UtcNow.AddSeconds(j.Descend?6:4);
-     intent.NextAttempt=DateTime.UtcNow.AddSeconds(j.Descend?6:4);
-     if(j.Error==null){Note(e.Name+": voo sincronizado: "+j.Message);
+     liftNext[e.Pid]=DateTime.UtcNow.AddSeconds(j.Descend?3:2);
+     // Nunca impedir que o Seguir se recupere apenas porque ajustamos o voo.
+     intent.NextAttempt=DateTime.MinValue;
+     if(j.Error==null){if(!j.Descend||j.Message.Contains("confirmado"))Note(e.Name+": voo sincronizado: "+j.Message);
      }else Note(e.Name+": voo sincronizado indisponível: "+j.Error.Message);
      continue;
     }
@@ -118,7 +127,7 @@ partial class AvalonInterno {
    RotaAvalon.NativeBridge.FlightHeight(client,lift,library);
    var clock=System.Diagnostics.Stopwatch.StartNew();
    while(clock.Elapsed.TotalSeconds<4){System.Threading.Thread.Sleep(200);try{s=client.Read();}catch{continue;}
-    if(s.FlightStateKnown&&s.IsFlying){try{Command(pid,target,false);}catch{}return "decolou; ajustando para altura do líder ("+FollowFlight.Height(leaderY)+").";}}
+    if(s.FlightStateKnown&&s.IsFlying){try{Command(pid,target,false);}catch{}return "decolagem confirmada; ajuste à altura do líder pendente.";}}
   }
   return "decolagem enviada; estado de voo ainda não confirmado.";
  }

@@ -8,7 +8,18 @@ sealed class NativeAttackRuntime:IAttackRuntime {
  static CharacterMemory Open(CharacterRef c){var s=new CharacterMemory(c.Pid);if(s.Id!=c.Id){s.Dispose();throw new Exception("Personagem mudou; atualize a lista.");}return s;}
  public uint Target(CharacterRef c){using(var s=Open(c))return s.SelectedTarget;}
  static AttackResult Use(CharacterRef c,Action<AttackBridge,AttackResult> action){var result=new AttackResult();AttackBridge b=null;try{b=new AttackBridge(c.Pid);if(b.CharacterId!=c.Id)throw new Exception("Personagem mudou.");action(b,result);}catch(Exception e){result.Message=c.Name+": "+e.Message;}finally{if(b!=null){try{b.Dispose();}catch(Exception e){result.Message=c.Name+": "+e.Message;}result.Blocked=!b.RestoreSucceeded;if(result.Blocked)result.Message=c.Name+": ponte de ataque sem restauração; reinicie esse cliente.";}}return result;}
- public bool ValidTarget(CharacterRef c,uint target){if(!AttackController.MonsterId(target))return false;var result=Use(c,(b,r)=>{b.Command(0,target);r.Combo=b.LastResult==1?1u:0u;});if(result.Blocked)throw new AttackBlocked(c.Pid,result.Message);if(result.Message!=null)throw new Exception(result.Message);return result.Combo==1;}
+ public bool ValidTarget(CharacterRef c,uint target){
+  if(!AttackController.MonsterId(target))return false;
+  // O bit alto do TG nao diferencia NPC de combate de outros alvos do mapa.
+  // Confirme o objeto REAL como CECMonster no gerenciador do mundo antes de liberar macros.
+  using(var game=new RotaAvalon.GameClient(c.Pid,new Dictionary<string,bool>())){
+   var snapshot=game.Read();
+   if(snapshot.Hp<=0||!game.ReadMonsters(snapshot).Any(m=>m.Id==target))return false;
+  }
+  var result=Use(c,(b,r)=>{b.Command(0,target);r.Combo=b.LastResult==1?1u:0u;});
+  if(result.Blocked)throw new AttackBlocked(c.Pid,result.Message);
+  if(result.Message!=null)throw new Exception(result.Message);return result.Combo==1;
+ }
  public bool Running(CharacterRef c,uint combo,uint target){using(var s=Open(c))return s.OwnedAttackRunning(combo,target);}
  // Current step of the running macro (combo+0x20, observed advancing 1..5 as skills are used on the live client).
  // Support (sacerdote em "Sup"): target the leader (the principal) and run macro 2 on it; same stop/ESC flow as the attackers.
@@ -90,6 +101,15 @@ sealed class AttackController {
  void TickCore(CharacterRef primary,CharacterRef[] selected,bool enabled,bool automatic,bool request,HashSet<int> support,CharacterRef supportOn){
   if(!enabled||primary==null||blocked.Contains(primary.Pid)){StopAll();return;}uint target;try{target=runtime.Target(primary);}catch{StopAll();return;}
   if(!MonsterId(target)){StopAll(true);return;}if(target!=lastTarget){manualTarget=0;nextProbe=DateTime.MinValue;targetValid=false;lastTarget=target;}
+  // Enquanto o alvo novo nao for confirmado como CECMonster, nenhuma macro de suporte
+  // deve sobreviver ao TG anterior (NPCs frequentemente usam a mesma faixa de IDs).
+  if(sessions.Values.Any(x=>x.Support&&x.Target!=target)){
+   foreach(var id in sessions.Keys.ToArray()){
+    Session previous=sessions[id];
+    if(!previous.Support||previous.Target==target)continue;
+    Stop(previous);sessions.Remove(id);
+   }
+  }
   if(request){manualTarget=target;if(automatic)foreach(int id in sessions.Keys.ToArray()){Stop(sessions[id],true);sessions.Remove(id);}}
   bool wanted=automatic||manualTarget==target;
   foreach(var pair in sessions.ToArray()){var ps=pair.Value;bool sup=support.Contains(ps.Character.Pid);bool still=selected.Any(c=>c.Key==ps.Character.Key);if(ps.Support&&sup&&ps.SupportOn!=SupportFor(ps.Character,primary,supportOn).Id){Stop(ps);sessions.Remove(pair.Key);continue;}if(ps.Support&&sup&&wanted&&ps.Target!=target){ps.Target=target;continue;}
@@ -100,6 +120,20 @@ sealed class AttackController {
   // 0.46.7: on a new target the attackable check runs together with the starts (no wait before the first skill).
   bool fresh=nextProbe==DateTime.MinValue;
   if(!fresh&&DateTime.UtcNow>=nextProbe){nextProbe=DateTime.UtcNow.AddSeconds(1);targetValid=ApplyProbe(ProbeTarget(primary,target));}
+  // Suporte EP so pode iniciar apos o alvo ter sido comprovado como monstro real.
+  // Diferentemente do ataque, a macro 2 age no proprio lider e pode curar por engano.
+  if(support.Count>0&&(fresh||!targetValid)){
+   targetValid=ApplyProbe(ProbeTarget(primary,target));
+   nextProbe=DateTime.UtcNow.AddSeconds(1);
+   if(!targetValid){
+    foreach(var id in sessions.Keys.ToArray()){
+     Session old=sessions[id];if(!old.Support)continue;
+     Stop(old);sessions.Remove(id);
+    }
+    // Nao iniciar suporte nem ataque em NPC; o proximo ciclo pode tentar novamente.
+    return;
+   }
+  }
   // The leader supplies the monster target, but his temporary inability to attack must not stop the other clients.
   // Each secondary validates attackability independently in NativeAttackRuntime.Start.
   if(!fresh&&!targetValid)StopLeaderOnly(primary,request);
@@ -112,7 +146,7 @@ sealed class AttackController {
   if(runtime.Target(primary)!=target)return;
   // Each character is its own game process: send all starts at once instead of one after another. The principal's own start
   // waits for the check on its process (both use its bridge); the secondaries do not wait.
-  var probe=fresh?System.Threading.Tasks.Task.Run(()=>ProbeTarget(primary,target)):null;
+  var probe=fresh&&support.Count==0?System.Threading.Tasks.Task.Run(()=>ProbeTarget(primary,target)):null;
   Func<Tuple<CharacterRef,bool,bool>,Tuple<AttackResult,Exception>> start=p=>{try{return Tuple.Create(p.Item3?runtime.StartSupport(p.Item1,SupportFor(p.Item1,primary,supportOn)):runtime.Start(p.Item1,target),(Exception)null);}catch(Exception e){return Tuple.Create((AttackResult)null,e);}};
   var took=new double[pending.Count];var jobs=pending.Select((p,k)=>System.Threading.Tasks.Task.Run(()=>{var sw=System.Diagnostics.Stopwatch.StartNew();try{if(probe!=null&&p.Item1.Pid==primary.Pid&&!probe.Result.Item1)return Tuple.Create(new AttackResult(),(Exception)null);return start(p);}finally{took[k]=sw.Elapsed.TotalSeconds;}})).ToArray();
   System.Threading.Tasks.Task.WaitAll(jobs);
