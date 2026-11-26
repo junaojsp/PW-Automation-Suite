@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -8,8 +9,9 @@ using System.Windows.Forms;
 sealed class FrostAutomationForm : Form {
  sealed class Choice {public DgBot.Account Account;public override string ToString(){return Account.Name+" · PID "+Account.Pid;}}
  readonly Func<List<DgBot.Account>> accounts;readonly Func<bool> allowed;readonly Func<Task> prepare;
- readonly ComboBox leader=new CyanCombo();readonly CheckedListBox followers=new CheckedListBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
+ readonly ComboBox leader=new CyanCombo();readonly CheckedListBox followers=new CheckedListBox();readonly CheckBox footLoot=new CheckBox();readonly TextBox log=new TextBox();readonly Label status=new Label();
  readonly Button dg=new NeonButton(),refresh=new NeonButton();readonly Timer timer=new Timer();
+ static string FootLootFile{get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"AvalonInterno","frost-dg-catar-chao.txt");}}
  FrostBot boss;DgBot dungeon;bool starting,closing;readonly List<int> reserved=new List<int>();
  public CharacterRef CapturePrimary {get{if(dungeon==null||!dungeon.Running)return null;var l=leader.SelectedItem as Choice;return l==null?null:new CharacterRef{Pid=l.Account.Pid,Id=l.Account.Id,Name=l.Account.Name};}}
  public void Observe(byte[] packet){if(dungeon!=null&&dungeon.Running)dungeon.Observe(packet);}
@@ -19,8 +21,9 @@ sealed class FrostAutomationForm : Form {
   AddLabel("BOT FROST · TESTE AVALON",12,10,366,22,Rubi.Accent);AddLabel("Rotinas Bagaceira. DG de teste: um ciclo, sem remontagem automática.",12,36,366,36,Rubi.Muted);
   AddLabel("Líder",12,80,280,20,Rubi.Text);leader.SetBounds(12,102,240,26);leader.DropDownStyle=ComboBoxStyle.DropDownList;Controls.Add(leader);
   refresh.Text="Sincronizar";refresh.SetBounds(260,100,118,30);refresh.Click+=(s,e)=>RefreshAccounts();Controls.Add(refresh);
-  AddLabel("Secundários (líder incluído automaticamente)",12,142,366,20,Rubi.Text);followers.SetBounds(12,166,366,132);followers.CheckOnClick=true;followers.BackColor=Rubi.Panel;followers.ForeColor=Rubi.Text;Controls.Add(followers);
-  dg.Text="Iniciar DG · "+DgBot.RouteSteps+" passos";dg.SetBounds(12,312,366,36);dg.Click+=async(s,e)=>await Toggle(null);Controls.Add(dg);
+  AddLabel("Secundários (líder incluído automaticamente)",12,142,366,20,Rubi.Text);followers.SetBounds(12,166,366,104);followers.CheckOnClick=true;followers.BackColor=Rubi.Panel;followers.ForeColor=Rubi.Text;Controls.Add(followers);
+  footLoot.Text="Catar no chão nos Demônios da Cidade do Gelo, sem Ganância";footLoot.SetBounds(12,276,366,24);footLoot.Font=new Font("Segoe UI",8);footLoot.ForeColor=Rubi.Text;footLoot.BackColor=Rubi.Background;footLoot.FlatStyle=FlatStyle.Flat;try{footLoot.Checked=File.ReadAllText(FootLootFile).Trim()=="1";}catch{}footLoot.CheckedChanged+=(s,e)=>{try{Directory.CreateDirectory(Path.GetDirectoryName(FootLootFile));File.WriteAllText(FootLootFile,footLoot.Checked?"1":"0");}catch{}};Controls.Add(footLoot);
+  dg.Text="Iniciar DG · "+DgBot.RouteSteps+" passos";dg.SetBounds(12,316,366,36);dg.Click+=async(s,e)=>await Toggle(null);Controls.Add(dg);
   status.SetBounds(12,360,366,42);status.Text="Parado. Selecione as contas que participarão do teste.";Controls.Add(status);
   log.SetBounds(12,410,366,180);log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.BackColor=Rubi.Panel;log.ForeColor=Rubi.Text;log.Anchor=AnchorStyles.Top|AnchorStyles.Bottom|AnchorStyles.Left|AnchorStyles.Right;Controls.Add(log);
   timer.Interval=500;timer.Tick+=(s,e)=>{if(!allowed())RequestStop();Buttons();};timer.Start();Shown+=(s,e)=>{if(discover)RefreshAccounts();};
@@ -39,14 +42,14 @@ sealed class FrostAutomationForm : Form {
    await prepare();if(!allowed())throw new InvalidOperationException("Sessão indisponível.");
    // Revalidate each client immediately before any imported routine can send commands.
    foreach(var a in selected)using(var client=new RotaAvalon.GameClient(a.Pid,new Dictionary<string,bool>())){var snapshot=client.Read();if(snapshot.Name!=a.Name)throw new InvalidOperationException("Personagem mudou: "+a.Name);}
-   Note("INICIO versão="+ReleaseInfo.Version+" modo="+(mode.HasValue?mode.ToString():"DG ciclo único")+" contas="+String.Join(",",selected.Select(a=>a.Name+":"+a.Pid)));
+   Note("INICIO versão="+ReleaseInfo.Version+" modo="+(mode.HasValue?mode.ToString():"DG ciclo único")+" contas="+String.Join(",",selected.Select(a=>a.Name+":"+a.Pid))+(mode.HasValue?"":" cata-chao="+(footLoot.Checked?"ligado":"desligado")));
    if(mode.HasValue){boss=new FrostBot(mode.Value,Note);boss.Start(selected.Select(a=>new FrostBot.Account{Pid=a.Pid,Name=a.Name}));State(FrostBot.Title(mode.Value)+" em execução.");}
-   else{dungeon=new DgBot(selected[0],selected,Note,State,null);dungeon.Start();}
+   else{dungeon=new DgBot(selected[0],selected,Note,State,null);dungeon.FootLoot=footLoot.Checked;dungeon.Start();}
   }catch(Exception ex){Note("INICIO_ERRO "+ex);RequestStop();}finally{starting=false;if(!Running)Release();Buttons();}
  }
  void RequestStop(){if(boss!=null)boss.Stop();if(dungeon!=null)dungeon.Stop();if(Running)State("Parando; aguardando comandos em andamento…");}
  void Release(){foreach(int pid in reserved)RotaLock.ClearIf(pid,"Frost Farm");reserved.Clear();}
- void Buttons(){bool running=Running;if(!running)Release();leader.Enabled=followers.Enabled=refresh.Enabled=!running;dg.Enabled=!starting;dg.Text=running?"Parar Frost":"Iniciar DG · "+DgBot.RouteSteps+" passos";}
+ void Buttons(){bool running=Running;if(!running)Release();leader.Enabled=followers.Enabled=refresh.Enabled=footLoot.Enabled=!running;dg.Enabled=!starting;dg.Text=running?"Parar Frost":"Iniciar DG · "+DgBot.RouteSteps+" passos";}
  public async Task StopAsync(){RequestStop();while(Running)await Task.Delay(100);Release();}
  protected override void Dispose(bool disposing){if(disposing){RequestStop();timer.Dispose();}base.Dispose(disposing);}
 }
