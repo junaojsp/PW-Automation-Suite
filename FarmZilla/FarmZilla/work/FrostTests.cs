@@ -11,6 +11,7 @@ static class FrostTests {
   Assert(DgBot.RezOnBody(42,42)&&!DgBot.RezOnBody(1,42)&&!DgBot.RezOnBody(0,42),"A Prece só conta quando a seleção é o corpo");
   Assert(ClassIcons.Archer==6&&ClassIcons.Cleric==7,"EA é o arqueiro (classe 6) e a EP é o sacerdote (classe 7)");
   Assert(DgBot.RezCastTries==6,"Depois de 6 tentativas reais a DG segue o loop em vez de parar");
+  Assert(DgBot.SweepAfterGreed(true,2)&&!DgBot.SweepAfterGreed(false,2)&&!DgBot.SweepAfterGreed(true,0),"Depois da Ganância o líder anda até o drop que sobrou; sem drop ou sem andar, não cata no chão");
   Assert(DgBot.IsDemonPack(181.7,-210.4),"Passo F;181.7;-210.4 é o pack dos Demônios da Cidade do Gelo");
   Assert(!DgBot.IsDemonPack(44.3,-211.6)&&!DgBot.IsDemonPack(187.0,-311.4)&&!DgBot.IsDemonPack(266.1,-83.5),"Outros passos da rota não usam a cata no chão");
   string demon=DgRouteData.Lines.First(l=>l.StartsWith("F;"));Assert(demon.StartsWith("F;181.7;-210.4;"),"O primeiro combate da DG é o pack dos demônios");

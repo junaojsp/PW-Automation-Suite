@@ -1937,7 +1937,13 @@ internal sealed class DgBot
 		return clientSnapshot != null && Dist(clientSnapshot.X, clientSnapshot.Z, 181.7, -210.4) <= 35.0;
 	}
 
-	private void PickupOnFoot()
+	// After Ganância, leftovers stay on the ground until the leader walks onto each one and picks it up (command 6).
+	public static bool SweepAfterGreed(bool walk, int remaining)
+	{
+		return walk && remaining > 0;
+	}
+
+	private void PickupOnFoot(string label)
 	{
 		int num = 0;
 		int num2 = 0;
@@ -2008,7 +2014,7 @@ internal sealed class DgBot
 		int count = Drops(leader, 40.0).Count;
 		if (num2 > 0)
 		{
-			Say("Catar no chão: " + num2 + " drop(s), " + num + " pedido(s)" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ". Sem Ganância.");
+			Say(label + ": " + num2 + " drop(s), " + num + " pedido(s)" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ".");
 		}
 	}
 
@@ -2016,7 +2022,7 @@ internal sealed class DgBot
 	{
 		if (FootLoot && NearDemonPack())
 		{
-			PickupOnFoot();
+			PickupOnFoot("Catar no chão, sem Ganância");
 			return;
 		}
 		int num = 0;
@@ -2080,6 +2086,16 @@ internal sealed class DgBot
 			}
 			Wait(1.2);
 		}
+		int count = Drops(leader, 40.0).Count;
+		if (num2 > 0)
+		{
+			Say("Ganância: " + num2 + " vez(es), " + num + " drop(s) pedidos" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ".");
+		}
+		if (SweepAfterGreed(walk, count))
+		{
+			Say("Drop ainda no chão: o líder anda até cada um e cata.");
+			PickupOnFoot("Cata do que a Ganância deixou");
+		}
 		if (walk && clientSnapshot != null && num2 > 0)
 		{
 			ClientSnapshot clientSnapshot2 = Snap(leader);
@@ -2087,11 +2103,6 @@ internal sealed class DgBot
 			{
 				WalkOnce(clientSnapshot.X, clientSnapshot.Z, 3.0);
 			}
-		}
-		int count = Drops(leader, 40.0).Count;
-		if (num2 > 0)
-		{
-			Say("Ganância: " + num2 + " vez(es), " + num + " drop(s) pedidos" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ".");
 		}
 	}
 
