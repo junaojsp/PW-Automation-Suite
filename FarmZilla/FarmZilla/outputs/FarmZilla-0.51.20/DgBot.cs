@@ -175,6 +175,8 @@ internal sealed class DgBot
 
 	private DateTime prayUntil = DateTime.UtcNow;
 
+	private bool rezGaveUp;
+
 	private readonly HashSet<uint> bossDone = new HashSet<uint>();
 
 	private volatile bool inBoss;
@@ -254,9 +256,16 @@ internal sealed class DgBot
 
 	public const double RezReach = 8.0;
 
+	public const int RezCastTries = 6;
+
 	public static bool InRezRange(double distance)
 	{
 		return distance >= 0.0 && distance <= RezReach;
+	}
+
+	public static bool RezOnBody(uint selected, uint body)
+	{
+		return body != 0 && selected == body;
 	}
 
 	// When set, the Demônios da Cidade do Gelo pack is looted on foot. Ganância (SendLoot) stays for every other call.
@@ -2246,7 +2255,7 @@ internal sealed class DgBot
 			rezNext = DateTime.UtcNow.AddSeconds(2.0);
 			return;
 		}
-		Account account2 = list.FirstOrDefault((Account a) => a.Pid == leader.Pid) ?? list[0];
+		Account account2 = RezBody(list);
 		ClientSnapshot body = Snap(account2);
 		if (body == null)
 		{
@@ -2271,7 +2280,7 @@ internal sealed class DgBot
 		{
 			return;
 		}
-		Say(account.Name + ": Prece da Vida em " + account2.Name + " (durante a luta).");
+		Say(account.Name + ": Prece da Vida no corpo de " + Who(account2) + " (durante a luta).");
 	}
 
 	private void AfterDeaths()
@@ -2341,13 +2350,14 @@ internal sealed class DgBot
 			return;
 		}
 		WaitRez();
-		if (stop || DeadAccounts().Count > 0)
+		if (stop || rezGaveUp)
 		{
-			if (!stop)
-			{
-				Say("ainda há conta morta; sem levantar não segue a DG.");
-				stop = true;
-			}
+			return;
+		}
+		if (DeadAccounts().Count > 0)
+		{
+			Say("ainda há conta morta; sem levantar não segue a DG.");
+			stop = true;
 			return;
 		}
 		ClientSnapshot l2 = Snap(leader);
@@ -2647,8 +2657,40 @@ internal sealed class DgBot
 		}
 	}
 
+	private static string Who(Account a)
+	{
+		if (a == null)
+		{
+			return "conta";
+		}
+		if (a.Class == ClassIcons.Archer)
+		{
+			return "EA " + a.Name;
+		}
+		string klass = ClassIcons.Name(a.Class);
+		return (klass.Length == 0 ? "conta" : klass) + " " + a.Name;
+	}
+
+	private Account RezBody(List<Account> dead)
+	{
+		Account ea = dead.FirstOrDefault((Account a) => a.Class == ClassIcons.Archer);
+		if (ea != null)
+		{
+			return ea;
+		}
+		return dead.FirstOrDefault((Account a) => a.Pid == leader.Pid) ?? dead[0];
+	}
+
 	private bool CastPrece(Account ep, Account target)
 	{
+		ClientSnapshot here = Snap(ep);
+		ClientSnapshot body = Snap(target);
+		double away = ((here == null || body == null) ? 999.0 : Dist(here.X, here.Z, body.X, body.Z));
+		if (!InRezRange(away))
+		{
+			Say(ep.Name + ": não soltou a Prece — ainda a " + away.ToString("F0") + " de " + Who(target) + ".");
+			return false;
+		}
 		try
 		{
 			using (CharacterMemory memory = new CharacterMemory(ep.Pid))
@@ -2681,9 +2723,31 @@ internal sealed class DgBot
 		try
 		{
 			attackBridge = new AttackBridge(ep.Pid);
-			if (!attackBridge.StartMacroOn(target.Id, 3))
+			if (attackBridge.CharacterId != ep.Id)
 			{
-				Say(ep.Name + ": a macro 4 não iniciou em " + target.Name + ".");
+				Say(ep.Name + ": personagem mudou; sem Prece da Vida.");
+				return false;
+			}
+			uint selected = 0;
+			bool started = false;
+			for (int i = 0; i < 2 && !RezOnBody(selected, target.Id); i++)
+			{
+				started = attackBridge.StartMacroOn(target.Id, 3);
+				selected = attackBridge.Read(attackBridge.Host + 0x5FC);
+				if (!started)
+				{
+					break;
+				}
+			}
+			if (!started)
+			{
+				Say(ep.Name + ": a macro 4 não iniciou em " + Who(target) + ".");
+				return false;
+			}
+			if (!RezOnBody(selected, target.Id))
+			{
+				string other = ((selected == 0) ? "ninguém" : selected.ToString());
+				Say(ep.Name + ": a macro 4 disparou, mas " + Who(target) + " não ficou selecionada (seleção " + other + "). A Prece não saiu no corpo.");
 				return false;
 			}
 			prayUntil = DateTime.UtcNow.AddSeconds(6.0);
@@ -2691,7 +2755,7 @@ internal sealed class DgBot
 		}
 		catch (Exception ex)
 		{
-			Say(ep.Name + ": Prece da Vida em " + target.Name + " — " + ex.Message);
+			Say(ep.Name + ": não conseguiu a Prece em " + Who(target) + " — " + ex.Message);
 			return false;
 		}
 		finally
@@ -2739,14 +2803,27 @@ internal sealed class DgBot
 		}
 		ClientSnapshot end = Snap(ep);
 		ClientSnapshot still = Snap(target);
-		return end != null && still != null && (still.Hp > 0 || Dist(end.X, end.Z, still.X, still.Z) <= reach + 1.5);
+		return end != null && still != null && (still.Hp > 0 || Dist(end.X, end.Z, still.X, still.Z) <= reach);
 	}
 
 	private void WaitRez()
 	{
 		followOn = false;
-		Account ep = all.FirstOrDefault((Account a) => a.Class == 7);
-		int attempt = 0;
+		rezGaveUp = false;
+		Account ep = all.FirstOrDefault((Account a) => a.Class == ClassIcons.Cleric);
+		Account ea = all.FirstOrDefault((Account a) => a.Class == ClassIcons.Archer);
+		if (ea == null)
+		{
+			Say("neste grupo não há EA (arqueiro) entre as contas marcadas.");
+		}
+		else
+		{
+			ClientSnapshot eaSnap = Snap(ea);
+			bool eaDead = eaSnap != null && eaSnap.Hp <= 0;
+			Say("EA deste grupo: " + ea.Name + (eaDead ? " (morta — a Prece vai no corpo dela)." : " (viva)."));
+		}
+		int confirmed = 0;
+		int missed = 0;
 		while (!stop)
 		{
 			List<Account> dead = DeadAccounts();
@@ -2761,15 +2838,14 @@ internal sealed class DgBot
 				stop = true;
 				return;
 			}
-			Account target = dead.FirstOrDefault((Account a) => a.Pid == leader.Pid) ?? dead[0];
-			attempt++;
-			double reach = ((attempt <= 2) ? RezReach : 4.0);
+			Account target = RezBody(dead);
+			double reach = ((confirmed + missed <= 1) ? RezReach : 4.0);
 			ClientSnapshot here = Snap(ep);
 			ClientSnapshot there = Snap(target);
 			double away = ((here == null || there == null) ? 999.0 : Dist(here.X, here.Z, there.X, there.Z));
 			if (away > reach)
 			{
-				Say(ep.Name + ": indo até " + target.Name + " para a Prece da Vida (a " + away.ToString("F0") + ").");
+				Say(ep.Name + ": indo até " + Who(target) + " para a Prece da Vida (a " + away.ToString("F0") + ").");
 				if (!WalkToBody(ep, target, reach))
 				{
 					ClientSnapshot risen = Snap(target);
@@ -2777,24 +2853,42 @@ internal sealed class DgBot
 					{
 						continue;
 					}
-					Say(ep.Name + ": não chegou em " + target.Name + "; tentando de novo.");
+					Say(ep.Name + ": não chegou em " + Who(target) + "; tentando de novo.");
+					missed++;
+					if (missed >= RezCastTries)
+					{
+						GiveUpRez(target, landed: false);
+						return;
+					}
 					Wait(1.0);
 					continue;
 				}
+				Esc(ep);
+				Thread.Sleep(400);
 			}
 			ClientSnapshot before = Snap(target);
 			if (before != null && before.Hp > 0)
 			{
-				Say(target.Name + ": levantou.");
+				Say(Who(target) + ": levantou.");
 				continue;
 			}
-			AcceptRevive(DeadAccounts());
+			here = Snap(ep);
+			there = Snap(target);
+			away = ((here == null || there == null) ? 999.0 : Dist(here.X, here.Z, there.X, there.Z));
 			if (!CastPrece(ep, target))
 			{
+				missed++;
+				if (missed >= RezCastTries)
+				{
+					GiveUpRez(target, landed: false);
+					return;
+				}
 				Wait(1.5);
 				continue;
 			}
-			Say(ep.Name + ": Prece da Vida em " + target.Name + " (tentativa " + attempt + ").");
+			missed = 0;
+			confirmed++;
+			Say(ep.Name + ": Prece da Vida no corpo de " + Who(target) + " (a " + away.ToString("F0") + ", tentativa " + confirmed + ").");
 			Stopwatch wait = Stopwatch.StartNew();
 			while (!stop && wait.Elapsed.TotalSeconds < 8.0)
 			{
@@ -2802,39 +2896,57 @@ internal sealed class DgBot
 				ClientSnapshot now = Snap(target);
 				if (now != null && now.Hp > 0)
 				{
-					Say(target.Name + ": levantou.");
+					Say(Who(target) + ": levantou.");
 					break;
 				}
 				Thread.Sleep(400);
 			}
 			ClientSnapshot after = Snap(target);
-			if (after == null || after.Hp <= 0)
+			if (after != null && after.Hp > 0)
 			{
-				Say(target.Name + ": ainda morto depois da Prece; a EP tenta de novo.");
+				continue;
+			}
+			Say(Who(target) + ": a Prece saiu no corpo e a vida continuou 0.");
+			if (confirmed >= RezCastTries)
+			{
+				GiveUpRez(target, landed: true);
+				return;
 			}
 		}
 	}
 
-	private bool FinishCycle()
+	private void GiveUpRez(Account target, bool landed)
+	{
+		rezGaveUp = true;
+		Say(landed ? Who(target) + ": a Prece saiu no corpo " + RezCastTries + " vezes e a vida continuou 0. Seguindo o loop (remontar, pedra e entrar)." : Who(target) + ": a Prece não saiu no corpo depois de " + RezCastTries + " tentativas. Seguindo o loop (remontar, pedra e entrar).");
+	}
+
+	private bool FinishCycle(bool insistRez = true)
 	{
 		if (SingleCycle)
 		{
-			Say("Loop desligado: a DG parou neste ciclo. Marque Repetir DG para remontar, usar a pedra e entrar de novo.");
+			Say(insistRez ? "Loop desligado: a DG parou neste ciclo. Marque Repetir DG para remontar, usar a pedra e entrar de novo." : "A Prece não levantou e o loop está desligado: parando. Marque Repetir DG para remontar, usar a pedra e entrar de novo.");
 			return false;
 		}
-		if (DeadAccounts().Count > 0)
+		if (insistRez && DeadAccounts().Count > 0)
 		{
 			Say("conta morta no fim da DG: a EP ressuscita antes de remontar.");
 			AfterDeaths();
-			if (stop || DeadAccounts().Count > 0)
+			if (stop)
 			{
-				if (!stop)
-				{
-					Say("ainda há conta morta; sem levantar não remonta nem entra de novo.");
-				}
+				return false;
+			}
+			if (DeadAccounts().Count > 0 && !rezGaveUp)
+			{
+				Say("ainda há conta morta; sem levantar não remonta nem entra de novo.");
 				return false;
 			}
 		}
+		if (DeadAccounts().Count > 0)
+		{
+			Say("a conta segue morta; mesmo assim remonta, usa a pedra e entra de novo.");
+		}
+		rezGaveUp = false;
 		Thread.Sleep(800);
 		if (!RemountForLoop())
 		{
@@ -3585,6 +3697,7 @@ internal sealed class DgBot
 			{
 				Cycles++;
 				CycleStart = DateTime.Now;
+				rezGaveUp = false;
 				bossDone.Clear();
 				skipMob.Clear();
 				loboPrepped = false;
@@ -3611,7 +3724,7 @@ internal sealed class DgBot
 				}
 				foreach (Step item2 in route)
 				{
-					if (stop)
+					if (stop || rezGaveUp)
 					{
 						break;
 					}
@@ -3627,15 +3740,15 @@ internal sealed class DgBot
 					{
 						Say("conta morta antes do passo " + (item2.Index + 1) + ": esperando a ressurreição.");
 						AfterDeaths();
-						if (stop)
+						if (stop || rezGaveUp)
 						{
 							break;
 						}
 						ClientSnapshot clientSnapshot2 = Snap(leader);
 						if (clientSnapshot2 != null && clientSnapshot2.Hp <= 0)
 						{
-							Say("líder morto e a ressurreição não o levantou; parando.");
-							stop = true;
+							rezGaveUp = true;
+							Say("líder morto e a ressurreição não o levantou; saindo para remontar, pedra e entrar.");
 							break;
 						}
 					}
@@ -3843,6 +3956,15 @@ internal sealed class DgBot
 						}
 						break;
 					}
+					}
+				}
+				if (rezGaveUp && !stop)
+				{
+					LastTime = DateTime.Now - CycleStart;
+					Say("saindo da DG com a conta ainda morta: remontar, pedra e entrar de novo.");
+					if (!FinishCycle(false))
+					{
+						stop = true;
 					}
 				}
 			}

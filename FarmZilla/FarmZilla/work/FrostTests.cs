@@ -8,6 +8,9 @@ static class FrostTests {
   Assert(RotaLock.TrySet(199999,"teste Frost"),"Reserva inicial Frost");Assert(!RotaLock.TrySet(199999,"outra rota"),"Reserva não sobrepõe outra automação");RotaLock.Clear(199999);
   var imported=new DgBot(new DgBot.Account(),new System.Collections.Generic.List<DgBot.Account>(),delegate{},delegate{},null);Assert(imported.SingleCycle,"Sem a caixa de loop o bot fica em um ciclo");Assert(!imported.Loop,"O loop só liga quando a tela marca Repetir DG");imported.Loop=true;Assert(!imported.SingleCycle,"Repetir DG desliga o ciclo único e segue para remontar");Assert(!imported.FootLoot,"Catar no chão começa desligado");
   Assert(DgBot.InRezRange(0)&&DgBot.InRezRange(8)&&!DgBot.InRezRange(8.1)&&!DgBot.InRezRange(-1),"A EP só conta a Prece da Vida quando está a até 8 do corpo");
+  Assert(DgBot.RezOnBody(42,42)&&!DgBot.RezOnBody(1,42)&&!DgBot.RezOnBody(0,42),"A Prece só conta quando a seleção é o corpo");
+  Assert(ClassIcons.Archer==6&&ClassIcons.Cleric==7,"EA é o arqueiro (classe 6) e a EP é o sacerdote (classe 7)");
+  Assert(DgBot.RezCastTries==6,"Depois de 6 tentativas reais a DG segue o loop em vez de parar");
   Assert(DgBot.IsDemonPack(181.7,-210.4),"Passo F;181.7;-210.4 é o pack dos Demônios da Cidade do Gelo");
   Assert(!DgBot.IsDemonPack(44.3,-211.6)&&!DgBot.IsDemonPack(187.0,-311.4)&&!DgBot.IsDemonPack(266.1,-83.5),"Outros passos da rota não usam a cata no chão");
   string demon=DgRouteData.Lines.First(l=>l.StartsWith("F;"));Assert(demon.StartsWith("F;181.7;-210.4;"),"O primeiro combate da DG é o pack dos demônios");
