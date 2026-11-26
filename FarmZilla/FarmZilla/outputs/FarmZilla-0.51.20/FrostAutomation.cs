@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -50,7 +49,7 @@ sealed class FrostAutomationForm : Form {
    else{var party=selected.Select(a=>new CharacterRef{Pid=a.Pid,Id=a.Id,Name=a.Name}).ToList();dungeon=new DgBot(selected[0],selected,Note,State,()=>RemountNow(party));dungeon.FootLoot=footLoot.Checked;dungeon.Loop=loopDg.Checked;dungeon.Start();}
   }catch(Exception ex){Note("INICIO_ERRO "+ex);RequestStop();}finally{starting=false;if(!Running)Release();Buttons();}
  }
- bool RemountNow(List<CharacterRef> party){if(party.Count<2)return true;var result=PartyService.Remount(party[0],party.Skip(1).ToArray(),CancellationToken.None,new Progress<string>(Note));if(!string.IsNullOrEmpty(result.Message))Note(result.Message);return result.Message!=null&&result.Message.StartsWith("PT remontada")&&!result.Blocked;}
+ bool RemountNow(List<CharacterRef> party){if(party.Count<2)return true;var result=PartyService.Remount(party[0],party.Skip(1).ToArray(),System.Threading.CancellationToken.None,new Progress<string>(Note));if(!string.IsNullOrEmpty(result.Message))Note(result.Message);return result.Message!=null&&result.Message.StartsWith("PT remontada")&&!result.Blocked;}
  void RequestStop(){if(boss!=null)boss.Stop();if(dungeon!=null)dungeon.Stop();if(Running)State("Parando; aguardando comandos em andamento…");}
  void Release(){foreach(int pid in reserved)RotaLock.ClearIf(pid,"Frost Farm");reserved.Clear();}
  void Buttons(){bool running=Running;if(!running)Release();leader.Enabled=followers.Enabled=refresh.Enabled=footLoot.Enabled=loopDg.Enabled=!running;dg.Enabled=!starting;dg.Text=running?"Parar Frost":"Iniciar DG · "+DgBot.RouteSteps+" passos";}
