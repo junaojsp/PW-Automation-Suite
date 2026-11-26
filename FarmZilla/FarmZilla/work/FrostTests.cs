@@ -6,8 +6,13 @@ static class FrostTests {
   int bosses=0;foreach(string line in DgRouteData.Lines){var fields=line.Split(';');Assert(fields.Length==4,"Estrutura do passo Frost");double x=Double.Parse(fields[1],CultureInfo.InvariantCulture),z=Double.Parse(fields[2],CultureInfo.InvariantCulture);Assert(RotaAvalon.GameClient.ValidCoordinate(x)&&RotaAvalon.GameClient.ValidCoordinate(z),"Coordenadas da rota válidas");if(fields[0]=="B")bosses++;}
   Assert(bosses==5,"Cinco etapas de boss preservadas");
   Assert(RotaLock.TrySet(199999,"teste Frost"),"Reserva inicial Frost");Assert(!RotaLock.TrySet(199999,"outra rota"),"Reserva não sobrepõe outra automação");RotaLock.Clear(199999);
-  var imported=new DgBot(new DgBot.Account(),new System.Collections.Generic.List<DgBot.Account>(),delegate{},delegate{},null);Assert(imported.SingleCycle,"Teste DG inicia limitado a um ciclo");
-  using(var screen=new FrostAutomationForm(()=>new System.Collections.Generic.List<DgBot.Account>(),()=>false,()=>System.Threading.Tasks.Task.FromResult(0),false)){Assert(screen.Text.Contains("Frost"),"Tela das rotinas Frost pode ser criada sem jogo");}
+  var imported=new DgBot(new DgBot.Account(),new System.Collections.Generic.List<DgBot.Account>(),delegate{},delegate{},null);Assert(imported.SingleCycle,"Teste DG inicia limitado a um ciclo");Assert(!imported.FootLoot,"Catar no chão começa desligado");
+  Assert(DgBot.IsDemonPack(181.7,-210.4),"Passo F;181.7;-210.4 é o pack dos Demônios da Cidade do Gelo");
+  Assert(!DgBot.IsDemonPack(44.3,-211.6)&&!DgBot.IsDemonPack(187.0,-311.4)&&!DgBot.IsDemonPack(266.1,-83.5),"Outros passos da rota não usam a cata no chão");
+  string demon=DgRouteData.Lines.First(l=>l.StartsWith("F;"));Assert(demon.StartsWith("F;181.7;-210.4;"),"O primeiro combate da DG é o pack dos demônios");
+  byte[] pickup=TeleportBridge.PickupPacket(0xC0123456,1234);Assert(pickup.Length==10&&pickup[0]==6&&pickup[1]==0&&BitConverter.ToUInt32(pickup,2)==0xC0123456&&BitConverter.ToUInt32(pickup,6)==1234,"Cata no chão é o comando 6, um drop, e não a Ganância 184");
+  foreach(var bad in new[]{new uint[]{0x80000001,1},new uint[]{0xC0000001,0},new uint[]{1,10},new uint[]{0xC0000001,1000001}}){bool refused=false;try{TeleportBridge.PickupPacket(bad[0],bad[1]);}catch{refused=true;}Assert(refused,"Cata recusa id que não é drop ou template fora da lista");}
+  using(var screen=new FrostAutomationForm(()=>new System.Collections.Generic.List<DgBot.Account>(),()=>false,()=>System.Threading.Tasks.Task.FromResult(0),false)){Assert(screen.Text.Contains("Frost"),"Tela das rotinas Frost pode ser criada sem jogo");var box=screen.Controls.OfType<CheckBox>().Single();Assert(box.Text.Contains("Demônios da Cidade do Gelo")&&box.Text.Contains("sem Ganância"),"Opção de catar no chão fica na tela da DG e não substitui o nome da Ganância");}
   var previous=CultureInfo.CurrentCulture;try{
    CultureInfo.CurrentCulture=new CultureInfo("pt-BR");
    var snapshot=new ClientSnapshot{Pid=123,Name="Líder, \"Avalon\"",X=125.5f,Y=100,Z=-250,Hp=450,MaxHp=500,ReadAt=new DateTime(2026,11,11,17,0,0,DateTimeKind.Utc)};

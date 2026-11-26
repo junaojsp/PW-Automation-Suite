@@ -236,6 +236,9 @@ internal sealed class DgBot
 
 	public bool SingleCycle = true;
 
+	// When set, the Demônios da Cidade do Gelo pack is looted on foot. Ganância (SendLoot) stays for every other call.
+	public bool FootLoot;
+
 	public void Start()
 	{
 		foreach (Account item in all)
@@ -1890,8 +1893,100 @@ internal sealed class DgBot
 		Loot(walk: true);
 	}
 
+	// First fight of the route (F;181.7;-210.4), the Demônios da Cidade do Gelo pack on the ice after the gate.
+	public static bool IsDemonPack(double x, double z)
+	{
+		return Math.Abs(x - 181.7) < 0.05 && Math.Abs(z + 210.4) < 0.05;
+	}
+
+	private bool NearDemonPack()
+	{
+		ClientSnapshot clientSnapshot = Snap(leader);
+		return clientSnapshot != null && Dist(clientSnapshot.X, clientSnapshot.Z, 181.7, -210.4) <= 35.0;
+	}
+
+	private void PickupOnFoot()
+	{
+		int num = 0;
+		int num2 = 0;
+		HashSet<uint> hashSet = new HashSet<uint>();
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		while (!stop && num2 < 12 && stopwatch.Elapsed.TotalSeconds < 70.0)
+		{
+			ClientSnapshot clientSnapshot = Snap(leader);
+			if (clientSnapshot == null || clientSnapshot.Hp <= 0)
+			{
+				break;
+			}
+			List<double[]> list = Drops(leader, 40.0);
+			double[] array = null;
+			double num3 = 1000000000.0;
+			foreach (double[] item in list)
+			{
+				if (hashSet.Contains((uint)item[2]))
+				{
+					continue;
+				}
+				double num4 = Dist(item[0], item[1], clientSnapshot.X, clientSnapshot.Z);
+				if (num4 < num3)
+				{
+					num3 = num4;
+					array = item;
+				}
+			}
+			if (array == null)
+			{
+				break;
+			}
+			uint matter = (uint)array[2];
+			uint template = (uint)array[3];
+			hashSet.Add(matter);
+			num2++;
+			followOn = false;
+			if (num3 > 3.0 && !WalkOnce(array[0], array[1], 2.0))
+			{
+				continue;
+			}
+			ClientSnapshot clientSnapshot2 = Snap(leader);
+			if (clientSnapshot2 == null || Dist(clientSnapshot2.X, clientSnapshot2.Z, array[0], array[1]) > 3.0)
+			{
+				continue;
+			}
+			if (!Drops(leader, 6.0).Any((double[] d) => (uint)d[2] == matter))
+			{
+				continue;
+			}
+			TeleportBridge teleportBridge = null;
+			try
+			{
+				teleportBridge = new TeleportBridge(leader.Pid);
+				teleportBridge.SendPickup(matter, template);
+				num++;
+			}
+			catch (Exception ex)
+			{
+				Say("chão: " + ex.Message);
+			}
+			finally
+			{
+				teleportBridge?.Dispose();
+			}
+			Wait(0.7);
+		}
+		int count = Drops(leader, 40.0).Count;
+		if (num2 > 0)
+		{
+			Say("Catar no chão: " + num2 + " drop(s), " + num + " pedido(s)" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ". Sem Ganância.");
+		}
+	}
+
 	private void Loot(bool walk)
 	{
+		if (FootLoot && NearDemonPack())
+		{
+			PickupOnFoot();
+			return;
+		}
 		int num = 0;
 		int num2 = 0;
 		Stopwatch stopwatch = Stopwatch.StartNew();

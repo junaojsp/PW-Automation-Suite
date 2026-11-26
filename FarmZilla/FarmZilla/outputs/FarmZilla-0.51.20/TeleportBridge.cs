@@ -128,6 +128,26 @@ public sealed class TeleportBridge : IDisposable {
 		Send(array);
 	}
 
+	// Click-pickup (command 6), the slot between the captured town revive 0x04 and unselect 0x08.
+	// 10 bytes: 06 00 + matter id + template. Not opcode 184 (Ganância, many drops at range).
+	public static byte[] PickupPacket(uint matterId, uint templateId)
+	{
+		if ((matterId & 0xC0000000u) != 3221225472u || templateId == 0 || templateId > 1000000)
+		{
+			throw new Exception("Drop invalido");
+		}
+		byte[] array = new byte[10];
+		array[0] = 6;
+		BitConverter.GetBytes(matterId).CopyTo(array, 2);
+		BitConverter.GetBytes(templateId).CopyTo(array, 6);
+		return array;
+	}
+
+	public void SendPickup(uint matterId, uint templateId)
+	{
+		Send(PickupPacket(matterId, templateId));
+	}
+
 	public void SendDgPacket(byte[] p)
 	{
 		if (p == null || p.Length < 2 || p[1] != 0 || ((p[0] != 35 || p.Length != 6) && (p[0] != 37 || p.Length < 10 || p.Length > 32) && (p[0] != 49 || p.Length != 9) && (p[0] != 86 || p.Length != 10) && (p[0] != 2 || p.Length != 6)))
