@@ -169,7 +169,17 @@ internal sealed class DgBot
 
 	private DateTime rezNext = DateTime.UtcNow;
 
+	private DateTime rezWalkNote = DateTime.MinValue;
+
+	private DateTime rezMacroWarn = DateTime.MinValue;
+
 	private DateTime prayUntil = DateTime.UtcNow;
+
+	private bool rezGaveUp;
+
+	private int rezSkill;
+
+	private DateTime rezAcceptWarn = DateTime.MinValue;
 
 	private readonly HashSet<uint> bossDone = new HashSet<uint>();
 
@@ -235,6 +245,40 @@ internal sealed class DgBot
 	}
 
 	public bool SingleCycle = true;
+
+	public bool Loop
+	{
+		get
+		{
+			return !SingleCycle;
+		}
+		set
+		{
+			SingleCycle = !value;
+		}
+	}
+
+	public const double RezReach = 8.0;
+
+	public const int RezCastTries = 6;
+
+	public static bool InRezRange(double distance)
+	{
+		return distance >= 0.0 && distance <= RezReach;
+	}
+
+	public static bool RezOnBody(uint selected, uint body)
+	{
+		return body != 0 && selected == body;
+	}
+
+	public static bool CanUseStone(int hp)
+	{
+		return hp > 0;
+	}
+
+	// When set, the Demônios da Cidade do Gelo pack is looted on foot. Ganância (SendLoot) stays for every other call.
+	public bool FootLoot;
 
 	public void Start()
 	{
@@ -1403,7 +1447,7 @@ internal sealed class DgBot
 			foreach (Account item in all)
 			{
 				ClientSnapshot clientSnapshot3 = Snap(item);
-				if (clientSnapshot3 != null && clientSnapshot3.Hp > 0)
+				if (clientSnapshot3 != null && clientSnapshot3.Hp > 0 && !EpMustRez(item))
 				{
 					Attack(item, cur);
 				}
@@ -1423,7 +1467,7 @@ internal sealed class DgBot
 				foreach (Account item2 in all)
 				{
 					ClientSnapshot clientSnapshot3 = Snap(item2);
-					if (clientSnapshot3 != null && clientSnapshot3.Hp > 0 && (item2.Class != 7 || !(DateTime.UtcNow < prayUntil)))
+					if (clientSnapshot3 != null && clientSnapshot3.Hp > 0 && (item2.Class != 7 || !(DateTime.UtcNow < prayUntil)) && !EpMustRez(item2))
 					{
 						if (!MacroOn(item2) || ((item2.Class != 7 || EpHits(cur)) && TargetOf(item2) != cur) || (item2.Class == 7 && EpModeChanged(item2, cur)))
 						{
@@ -1890,8 +1934,106 @@ internal sealed class DgBot
 		Loot(walk: true);
 	}
 
+	// First fight of the route (F;181.7;-210.4), the Demônios da Cidade do Gelo pack on the ice after the gate.
+	public static bool IsDemonPack(double x, double z)
+	{
+		return Math.Abs(x - 181.7) < 0.05 && Math.Abs(z + 210.4) < 0.05;
+	}
+
+	private bool NearDemonPack()
+	{
+		ClientSnapshot clientSnapshot = Snap(leader);
+		return clientSnapshot != null && Dist(clientSnapshot.X, clientSnapshot.Z, 181.7, -210.4) <= 35.0;
+	}
+
+	// After Ganância, leftovers stay on the ground until the leader walks onto each one and picks it up (command 6).
+	public static bool SweepAfterGreed(bool walk, int remaining)
+	{
+		return walk && remaining > 0;
+	}
+
+	private void PickupOnFoot(string label)
+	{
+		int num = 0;
+		int num2 = 0;
+		HashSet<uint> hashSet = new HashSet<uint>();
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		while (!stop && num2 < 12 && stopwatch.Elapsed.TotalSeconds < 70.0)
+		{
+			ClientSnapshot clientSnapshot = Snap(leader);
+			if (clientSnapshot == null || clientSnapshot.Hp <= 0)
+			{
+				break;
+			}
+			List<double[]> list = Drops(leader, 40.0);
+			double[] array = null;
+			double num3 = 1000000000.0;
+			foreach (double[] item in list)
+			{
+				if (hashSet.Contains((uint)item[2]))
+				{
+					continue;
+				}
+				double num4 = Dist(item[0], item[1], clientSnapshot.X, clientSnapshot.Z);
+				if (num4 < num3)
+				{
+					num3 = num4;
+					array = item;
+				}
+			}
+			if (array == null)
+			{
+				break;
+			}
+			uint matter = (uint)array[2];
+			uint template = (uint)array[3];
+			hashSet.Add(matter);
+			num2++;
+			followOn = false;
+			if (num3 > 3.0 && !WalkOnce(array[0], array[1], 2.0))
+			{
+				continue;
+			}
+			ClientSnapshot clientSnapshot2 = Snap(leader);
+			if (clientSnapshot2 == null || Dist(clientSnapshot2.X, clientSnapshot2.Z, array[0], array[1]) > 3.0)
+			{
+				continue;
+			}
+			if (!Drops(leader, 6.0).Any((double[] d) => (uint)d[2] == matter))
+			{
+				continue;
+			}
+			TeleportBridge teleportBridge = null;
+			try
+			{
+				teleportBridge = new TeleportBridge(leader.Pid);
+				teleportBridge.SendPickup(matter, template);
+				num++;
+			}
+			catch (Exception ex)
+			{
+				Say("chão: " + ex.Message);
+			}
+			finally
+			{
+				teleportBridge?.Dispose();
+			}
+			Wait(0.7);
+		}
+		int count = Drops(leader, 40.0).Count;
+		if (num2 > 0)
+		{
+			Say(label + ": " + num2 + " drop(s), " + num + " pedido(s)" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ".");
+		}
+	}
+
 	private void Loot(bool walk)
 	{
+		if (FootLoot && NearDemonPack())
+		{
+			PickupOnFoot("Catar no chão, sem Ganância");
+			return;
+		}
 		int num = 0;
 		int num2 = 0;
 		Stopwatch stopwatch = Stopwatch.StartNew();
@@ -1953,6 +2095,16 @@ internal sealed class DgBot
 			}
 			Wait(1.2);
 		}
+		int count = Drops(leader, 40.0).Count;
+		if (num2 > 0)
+		{
+			Say("Ganância: " + num2 + " vez(es), " + num + " drop(s) pedidos" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ".");
+		}
+		if (SweepAfterGreed(walk, count))
+		{
+			Say("Drop ainda no chão: o líder anda até cada um e cata.");
+			PickupOnFoot("Cata do que a Ganância deixou");
+		}
 		if (walk && clientSnapshot != null && num2 > 0)
 		{
 			ClientSnapshot clientSnapshot2 = Snap(leader);
@@ -1960,11 +2112,6 @@ internal sealed class DgBot
 			{
 				WalkOnce(clientSnapshot.X, clientSnapshot.Z, 3.0);
 			}
-		}
-		int count = Drops(leader, 40.0).Count;
-		if (num2 > 0)
-		{
-			Say("Ganância: " + num2 + " vez(es), " + num + " drop(s) pedidos" + ((count > 0) ? (", " + count + " ainda no chão") : "") + ".");
 		}
 	}
 
@@ -2059,7 +2206,7 @@ internal sealed class DgBot
 				foreach (Account item in all)
 				{
 					ClientSnapshot clientSnapshot = Snap(item);
-					if (clientSnapshot != null && clientSnapshot.Hp > 0 && !WallHold(item, current))
+					if (clientSnapshot != null && clientSnapshot.Hp > 0 && !WallHold(item, current) && !EpMustRez(item))
 					{
 						Attack(item, current);
 					}
@@ -2070,7 +2217,7 @@ internal sealed class DgBot
 				foreach (Account item2 in all)
 				{
 					ClientSnapshot clientSnapshot = Snap(item2);
-					if (clientSnapshot != null && clientSnapshot.Hp > 0 && (item2.Class != 7 || !(DateTime.UtcNow < prayUntil)) && !WallHold(item2, current))
+					if (clientSnapshot != null && clientSnapshot.Hp > 0 && (item2.Class != 7 || !(DateTime.UtcNow < prayUntil)) && !WallHold(item2, current) && !EpMustRez(item2))
 					{
 						if (!MacroOn(item2) || ((item2.Class != 7 || EpHits(current)) && TargetOf(item2) != current) || (item2.Class == 7 && EpModeChanged(item2, current)))
 						{
@@ -2115,55 +2262,45 @@ internal sealed class DgBot
 		{
 			return;
 		}
-		rezNext = DateTime.UtcNow.AddSeconds(8.0);
-		List<Account> list = all.Where((Account a) =>
-		{
-			ClientSnapshot clientSnapshot2 = Snap(a);
-			return clientSnapshot2 != null && clientSnapshot2.Hp <= 0;
-		}).ToList();
+		List<Account> list = DeadAccounts();
 		if (list.Count == 0)
 		{
 			return;
 		}
+		AcceptRevive(list);
 		Account account = all.FirstOrDefault((Account a) => a.Class == 7);
 		ClientSnapshot clientSnapshot = ((account == null) ? null : Snap(account));
-		foreach (Account item in list)
+		if (account == null || clientSnapshot == null || clientSnapshot.Hp <= 0 || list.Any((Account a) => a.Pid == account.Pid))
 		{
-			TeleportBridge teleportBridge = null;
-			try
-			{
-				teleportBridge = new TeleportBridge(item.Pid);
-				teleportBridge.SendReviveAccept();
-			}
-			catch
-			{
-			}
-			finally
-			{
-				teleportBridge?.Dispose();
-			}
+			rezNext = DateTime.UtcNow.AddSeconds(2.0);
+			return;
 		}
-		if (account == null || clientSnapshot == null || clientSnapshot.Hp <= 0 || list.Contains(account))
+		Account account2 = RezBody(list);
+		ClientSnapshot body = Snap(account2);
+		if (body == null)
+		{
+			rezNext = DateTime.UtcNow.AddSeconds(2.0);
+			return;
+		}
+		double away = Dist(clientSnapshot.X, clientSnapshot.Z, body.X, body.Z);
+		if (!InRezRange(away))
+		{
+			StopMacro(account);
+			Nav(account, body.X, body.Z);
+			rezNext = DateTime.UtcNow.AddSeconds(1.0);
+			if (DateTime.UtcNow >= rezWalkNote)
+			{
+				rezWalkNote = DateTime.UtcNow.AddSeconds(8.0);
+				Say(account.Name + ": indo até " + account2.Name + " para a Prece da Vida (a " + away.ToString("F0") + ", durante a luta).");
+			}
+			return;
+		}
+		rezNext = DateTime.UtcNow.AddSeconds(8.0);
+		if (!CastPrece(account, account2))
 		{
 			return;
 		}
-		Account account2 = list.FirstOrDefault((Account a) => a.Pid == leader.Pid) ?? list[0];
-		Esc(account);
-		AttackBridge attackBridge = null;
-		try
-		{
-			attackBridge = new AttackBridge(account.Pid);
-			attackBridge.StartMacroOn(account2.Id, 3);
-			prayUntil = DateTime.UtcNow.AddSeconds(6.0);
-			Say(account.Name + ": Prece da Vida em " + account2.Name + " (durante a luta).");
-		}
-		catch
-		{
-		}
-		finally
-		{
-			attackBridge?.Dispose();
-		}
+		Say(account.Name + ": Prece da Vida no corpo de " + Who(account2) + " (durante a luta).");
 	}
 
 	private void AfterDeaths()
@@ -2233,12 +2370,14 @@ internal sealed class DgBot
 			return;
 		}
 		WaitRez();
-		if (all.Any((Account a) =>
+		if (stop || rezGaveUp)
 		{
-			ClientSnapshot clientSnapshot5 = Snap(a);
-			return clientSnapshot5 != null && clientSnapshot5.Hp <= 0;
-		}) && Snap(Wb()) != null && Snap(Wb()).Hp <= 0)
+			return;
+		}
+		if (DeadAccounts().Count > 0)
 		{
+			Say("ainda há conta morta; sem levantar não segue a DG.");
+			stop = true;
 			return;
 		}
 		ClientSnapshot l2 = Snap(leader);
@@ -2500,68 +2639,521 @@ internal sealed class DgBot
 		Wait(1.5);
 	}
 
+	private bool EpMustRez(Account a)
+	{
+		if (a == null || a.Class != 7)
+		{
+			return false;
+		}
+		return DeadAccounts().Any((Account other) => other.Pid != a.Pid);
+	}
+
+	private List<Account> DeadAccounts()
+	{
+		return all.Where((Account a) =>
+		{
+			ClientSnapshot clientSnapshot = Snap(a);
+			return clientSnapshot != null && clientSnapshot.Hp <= 0;
+		}).ToList();
+	}
+
+	private void AcceptRevive(List<Account> dead)
+	{
+		foreach (Account item in dead)
+		{
+			TeleportBridge teleportBridge = null;
+			try
+			{
+				teleportBridge = new TeleportBridge(item.Pid);
+				teleportBridge.SendReviveAccept();
+			}
+			catch (Exception ex)
+			{
+				if (DateTime.UtcNow >= rezAcceptWarn)
+				{
+					rezAcceptWarn = DateTime.UtcNow.AddSeconds(20.0);
+					Say(item.Name + ": aceite da ressurreição não saiu — " + ex.Message);
+				}
+			}
+			finally
+			{
+				teleportBridge?.Dispose();
+			}
+		}
+	}
+
+	private static string Who(Account a)
+	{
+		if (a == null)
+		{
+			return "conta";
+		}
+		if (a.Class == ClassIcons.Archer)
+		{
+			return "EA " + a.Name;
+		}
+		string klass = ClassIcons.Name(a.Class);
+		return (klass.Length == 0 ? "conta" : klass) + " " + a.Name;
+	}
+
+	private Account RezBody(List<Account> dead)
+	{
+		Account ea = dead.FirstOrDefault((Account a) => a.Class == ClassIcons.Archer);
+		if (ea != null)
+		{
+			return ea;
+		}
+		return dead.FirstOrDefault((Account a) => a.Pid == leader.Pid) ?? dead[0];
+	}
+
+	private bool CastPrece(Account ep, Account target)
+	{
+		ClientSnapshot here = Snap(ep);
+		ClientSnapshot body = Snap(target);
+		double away = ((here == null || body == null) ? 999.0 : Dist(here.X, here.Z, body.X, body.Z));
+		if (!InRezRange(away))
+		{
+			Say(ep.Name + ": não soltou a Prece — ainda a " + away.ToString("F0") + " de " + Who(target) + ".");
+			return false;
+		}
+		int skill = 0;
+		try
+		{
+			using (CharacterMemory memory = new CharacterMemory(ep.Pid))
+			{
+				if (memory.Id != ep.Id)
+				{
+					Say(ep.Name + ": personagem mudou; sem Prece da Vida.");
+					return false;
+				}
+				if (!memory.MacroConfigured(3))
+				{
+					if (DateTime.UtcNow >= rezMacroWarn)
+					{
+						rezMacroWarn = DateTime.UtcNow.AddSeconds(20.0);
+						Say(ep.Name + ": cadastre a Prece da Vida na macro 4 (quarto espaço da janela R).");
+					}
+					return false;
+				}
+				skill = memory.MacroSkill(3);
+			}
+		}
+		catch (Exception ex)
+		{
+			Say(ep.Name + ": não leu a macro 4 — " + ex.Message);
+			return false;
+		}
+		if (skill <= 0)
+		{
+			Say(ep.Name + ": a macro 4 não tem a skill da Prece da Vida.");
+			return false;
+		}
+		Esc(ep);
+		StopMacro(ep);
+		Thread.Sleep(300);
+		AttackBridge attackBridge = null;
+		try
+		{
+			attackBridge = new AttackBridge(ep.Pid);
+			if (attackBridge.CharacterId != ep.Id)
+			{
+				Say(ep.Name + ": personagem mudou; sem Prece da Vida.");
+				return false;
+			}
+			uint selected = 0;
+			bool started = false;
+			for (int i = 0; i < 2 && !RezOnBody(selected, target.Id); i++)
+			{
+				started = attackBridge.StartMacroOn(target.Id, 3);
+				selected = attackBridge.Read(attackBridge.Host + 0x5FC);
+				if (!started)
+				{
+					break;
+				}
+			}
+			if (!started)
+			{
+				Say(ep.Name + ": a macro 4 não iniciou em " + Who(target) + ".");
+				return false;
+			}
+			if (!RezOnBody(selected, target.Id))
+			{
+				string other = ((selected == 0) ? "ninguém" : selected.ToString());
+				Say(ep.Name + ": a macro 4 disparou, mas " + Who(target) + " não ficou selecionada (seleção " + other + "). A Prece não saiu no corpo.");
+				return false;
+			}
+		}
+		catch (Exception ex)
+		{
+			Say(ep.Name + ": não conseguiu a Prece em " + Who(target) + " — " + ex.Message);
+			return false;
+		}
+		finally
+		{
+			attackBridge?.Dispose();
+		}
+		TeleportBridge cast = null;
+		try
+		{
+			cast = new TeleportBridge(ep.Pid);
+			if (cast.CharacterId != ep.Id)
+			{
+				Say(ep.Name + ": personagem mudou; sem Prece da Vida.");
+				return false;
+			}
+			cast.SendAllySkill((uint)skill, target.Id);
+			rezSkill = skill;
+			prayUntil = DateTime.UtcNow.AddSeconds(8.0);
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Say(ep.Name + ": a skill " + skill + " não saiu no corpo de " + Who(target) + " — " + ex.Message);
+			return false;
+		}
+		finally
+		{
+			cast?.Dispose();
+		}
+	}
+
+	private bool WalkToBody(Account ep, Account target, double reach)
+	{
+		StopMacro(ep);
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		double best = double.MaxValue;
+		Stopwatch stuck = Stopwatch.StartNew();
+		while (!stop && stopwatch.Elapsed.TotalSeconds < 25.0)
+		{
+			ClientSnapshot here = Snap(ep);
+			ClientSnapshot body = Snap(target);
+			if (here == null || here.Hp <= 0 || body == null)
+			{
+				return false;
+			}
+			if (body.Hp > 0)
+			{
+				return true;
+			}
+			double away = Dist(here.X, here.Z, body.X, body.Z);
+			if (away <= reach)
+			{
+				return true;
+			}
+			if (away < best - 0.4)
+			{
+				best = away;
+				stuck.Restart();
+			}
+			else if (stuck.Elapsed.TotalSeconds > 6.0)
+			{
+				Say(ep.Name + ": parada a " + away.ToString("F1") + " de " + target.Name + "; andando de novo.");
+				Esc(ep);
+				stuck.Restart();
+			}
+			Nav(ep, body.X, body.Z);
+			Thread.Sleep(700);
+		}
+		ClientSnapshot end = Snap(ep);
+		ClientSnapshot still = Snap(target);
+		return end != null && still != null && (still.Hp > 0 || Dist(end.X, end.Z, still.X, still.Z) <= reach);
+	}
+
 	private void WaitRez()
 	{
 		followOn = false;
-		Stopwatch stopwatch = Stopwatch.StartNew();
-		Account account = all.FirstOrDefault((Account a) => a.Class == 7);
-		double num = 0.0;
-		double num2 = 0.0;
-		while (!stop && stopwatch.Elapsed.TotalSeconds < 90.0)
+		rezGaveUp = false;
+		Account ep = all.FirstOrDefault((Account a) => a.Class == ClassIcons.Cleric);
+		Account ea = all.FirstOrDefault((Account a) => a.Class == ClassIcons.Archer);
+		if (ea == null)
 		{
-			List<Account> list = all.Where((Account a) =>
-			{
-				ClientSnapshot clientSnapshot = Snap(a);
-				return clientSnapshot != null && clientSnapshot.Hp <= 0;
-			}).ToList();
-			if (list.Count == 0)
+			Say("neste grupo não há EA (arqueiro) entre as contas marcadas.");
+		}
+		else
+		{
+			ClientSnapshot eaSnap = Snap(ea);
+			bool eaDead = eaSnap != null && eaSnap.Hp <= 0;
+			Say("EA deste grupo: " + ea.Name + (eaDead ? " (morta — a Prece vai no corpo dela)." : " (viva)."));
+		}
+		int confirmed = 0;
+		int missed = 0;
+		while (!stop)
+		{
+			List<Account> dead = DeadAccounts();
+			if (dead.Count == 0)
 			{
 				return;
 			}
-			double totalSeconds = stopwatch.Elapsed.TotalSeconds;
-			if (totalSeconds >= num2)
+			ClientSnapshot epSnap = ((ep == null) ? null : Snap(ep));
+			if (ep == null || dead.Any((Account a) => a.Pid == ep.Pid) || epSnap == null || epSnap.Hp <= 0)
 			{
-				num2 = totalSeconds + 2.0;
-				foreach (Account item in list)
+				Say("EP morta (ou sem EP): ninguém para levantar — parando. Levante na mão e clique Iniciar: o bot continua do ponto mais perto.");
+				stop = true;
+				return;
+			}
+			Account target = RezBody(dead);
+			double reach = ((confirmed + missed <= 1) ? RezReach : 4.0);
+			ClientSnapshot here = Snap(ep);
+			ClientSnapshot there = Snap(target);
+			double away = ((here == null || there == null) ? 999.0 : Dist(here.X, here.Z, there.X, there.Z));
+			if (away > reach)
+			{
+				Say(ep.Name + ": indo até " + Who(target) + " para a Prece da Vida (a " + away.ToString("F0") + ").");
+				if (!WalkToBody(ep, target, reach))
 				{
-					TeleportBridge teleportBridge = null;
-					try
+					ClientSnapshot risen = Snap(target);
+					if (risen != null && risen.Hp > 0)
 					{
-						teleportBridge = new TeleportBridge(item.Pid);
-						teleportBridge.SendReviveAccept();
+						continue;
 					}
-					catch
+					Say(ep.Name + ": não chegou em " + Who(target) + "; tentando de novo.");
+					missed++;
+					if (missed >= RezCastTries)
 					{
+						GiveUpRez(target, landed: false);
+						return;
 					}
-					finally
+					Wait(1.0);
+					continue;
+				}
+				Esc(ep);
+				Thread.Sleep(400);
+			}
+			ClientSnapshot before = Snap(target);
+			if (before != null && before.Hp > 0)
+			{
+				Say(Who(target) + ": levantou.");
+				continue;
+			}
+			here = Snap(ep);
+			there = Snap(target);
+			away = ((here == null || there == null) ? 999.0 : Dist(here.X, here.Z, there.X, there.Z));
+			if (!CastPrece(ep, target))
+			{
+				missed++;
+				if (missed >= RezCastTries)
+				{
+					GiveUpRez(target, landed: false);
+					return;
+				}
+				Wait(1.5);
+				continue;
+			}
+			missed = 0;
+			confirmed++;
+			Say(ep.Name + ": skill " + rezSkill + " (Prece da Vida) no corpo de " + Who(target) + " (a " + away.ToString("F0") + ", tentativa " + confirmed + ").");
+			Stopwatch wait = Stopwatch.StartNew();
+			while (!stop && wait.Elapsed.TotalSeconds < 8.0)
+			{
+				AcceptRevive(DeadAccounts());
+				ClientSnapshot now = Snap(target);
+				if (now != null && now.Hp > 0)
+				{
+					Say(Who(target) + ": levantou.");
+					break;
+				}
+				Thread.Sleep(400);
+			}
+			ClientSnapshot after = Snap(target);
+			if (after != null && after.Hp > 0)
+			{
+				continue;
+			}
+			Say(Who(target) + ": a skill " + rezSkill + " foi no corpo e a vida continuou 0.");
+			if (confirmed >= RezCastTries)
+			{
+				GiveUpRez(target, landed: true);
+				return;
+			}
+		}
+	}
+
+	private void GiveUpRez(Account target, bool landed)
+	{
+		rezGaveUp = true;
+		Say(landed ? Who(target) + ": a Prece saiu no corpo " + RezCastTries + " vezes e a vida continuou 0. Seguindo o loop (remontar, pedra e entrar)." : Who(target) + ": a Prece não saiu no corpo depois de " + RezCastTries + " tentativas. Seguindo o loop (remontar, pedra e entrar).");
+	}
+
+	private bool FinishCycle(bool insistRez = true)
+	{
+		if (SingleCycle)
+		{
+			Say(insistRez ? "Loop desligado: a DG parou neste ciclo. Marque Repetir DG para remontar, usar a pedra e entrar de novo." : "A Prece não levantou e o loop está desligado: parando. Marque Repetir DG para remontar, usar a pedra e entrar de novo.");
+			return false;
+		}
+		if (insistRez && DeadAccounts().Count > 0)
+		{
+			Say("conta morta no fim da DG: a EP ressuscita antes de remontar.");
+			AfterDeaths();
+			if (stop)
+			{
+				return false;
+			}
+			if (DeadAccounts().Count > 0 && !rezGaveUp)
+			{
+				Say("ainda há conta morta; sem levantar não remonta nem entra de novo.");
+				return false;
+			}
+		}
+		if (DeadAccounts().Count > 0)
+		{
+			Say("a conta segue morta; mesmo assim remonta, usa a pedra e entra de novo.");
+		}
+		rezGaveUp = false;
+		Thread.Sleep(800);
+		if (!RemountForLoop())
+		{
+			return false;
+		}
+		Say((all.Count < 2 ? "Sem PT para remontar. " : "PT remontada. ") + "Esperando 1 min 10 s para a DG liberar a saída.");
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		while (!stop && stopwatch.Elapsed.TotalSeconds < 70.0)
+		{
+			status("DG " + Cycles + " concluída · pedra em " + (70 - (int)stopwatch.Elapsed.TotalSeconds) + " s");
+			Thread.Sleep(500);
+		}
+		if (stop || !LeaveWithStone())
+		{
+			return false;
+		}
+		SideSteps();
+		if (stop)
+		{
+			return false;
+		}
+		Say("começando a próxima DG.");
+		return true;
+	}
+
+	private bool RemountForLoop()
+	{
+		if (all.Count < 2)
+		{
+			Say("só o líder na DG: sem PT para remontar.");
+			return true;
+		}
+		if (remount == null)
+		{
+			Say("remontar PT indisponível; parando antes da próxima DG.");
+			return false;
+		}
+		for (int num = 0; num < 3 && !stop; num++)
+		{
+			if (num > 0)
+			{
+				Say("remontar PT de novo (" + (num + 1) + "ª tentativa).");
+				Thread.Sleep(5000);
+			}
+			try
+			{
+				if (remount())
+				{
+					return true;
+				}
+			}
+			catch (Exception ex)
+			{
+				Say("remontar PT: " + ex.Message);
+			}
+		}
+		if (!stop)
+		{
+			Say("a PT não remontou — sem remontar a próxima DG fica sem monstros; parando. Remonte a PT na mão e clique Iniciar.");
+		}
+		return false;
+	}
+
+	private bool NearPort(Account a)
+	{
+		ClientSnapshot clientSnapshot = Snap(a);
+		return clientSnapshot != null && Dist(clientSnapshot.X, clientSnapshot.Z, PortoX, PortoZ) < 150.0;
+	}
+
+	private bool LeaveWithStone()
+	{
+		Say("saindo da DG com a pedra de teleporte.");
+		foreach (Account a in all)
+		{
+			if (stop)
+			{
+				return false;
+			}
+			ClientSnapshot life = Snap(a);
+			if (life != null && !CanUseStone(life.Hp))
+			{
+				Say(a.Name + ": morta, a pedra não funciona. Revivendo na cidade para sair da DG.");
+				if (!TownRevive(a) && InsideOf(a))
+				{
+					Say(a.Name + ": continuou morta dentro da DG. As outras seguem o loop.");
+				}
+				continue;
+			}
+			if (InsideOf(a))
+			{
+				if (!TeleportToPorto2(a) && InsideOf(a))
+				{
+					if (Learned().ContainsKey("saida"))
 					{
-						teleportBridge?.Dispose();
+						ReplayOn(a, "saida", () => !InsideOf(a), 12.0);
+					}
+					if (InsideOf(a) && !TeleportToPorto2(a) && InsideOf(a))
+					{
+						Say(a.Name + ": a pedra não tirou da DG.");
+						return false;
 					}
 				}
 			}
-			if (account != null && totalSeconds >= num && !list.Contains(account))
+			else if (!NearPort(a) && !TeleportToPorto(a) && !NearPort(a))
 			{
-				num = totalSeconds + 8.0;
-				Account current = list[0];
-				Esc(account);
-				AttackBridge attackBridge = null;
-				try
-				{
-					attackBridge = new AttackBridge(account.Pid);
-					attackBridge.StartMacroOn(current.Id, 3);
-					Say(account.Name + ": Prece da Vida em " + current.Name + ".");
-				}
-				catch
-				{
-				}
-				finally
-				{
-					attackBridge?.Dispose();
-				}
+				Say(a.Name + ": a pedra não levou à Cidade Sul do Dragão.");
+				return false;
+			}
+		}
+		List<string> stuck = (from account in all
+			where InsideOf(account)
+			let snap = Snap(account)
+			where snap == null || CanUseStone(snap.Hp)
+			select account.Name).ToList();
+		if (stuck.Count > 0)
+		{
+			Say("ainda dentro da DG depois da pedra: " + string.Join(", ", stuck.ToArray()) + " — parando antes da próxima.");
+			return false;
+		}
+		return true;
+	}
+
+	private bool TownRevive(Account a)
+	{
+		TeleportBridge teleportBridge = null;
+		try
+		{
+			teleportBridge = new TeleportBridge(a.Pid);
+			teleportBridge.SendTownRevive();
+		}
+		catch (Exception ex)
+		{
+			Say(a.Name + ": reviver na cidade — " + ex.Message);
+			return !InsideOf(a);
+		}
+		finally
+		{
+			teleportBridge?.Dispose();
+		}
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		while (!stop && stopwatch.Elapsed.TotalSeconds < 20.0)
+		{
+			ClientSnapshot clientSnapshot = Snap(a);
+			if (clientSnapshot != null && CanUseStone(clientSnapshot.Hp) && InsideOf(a))
+			{
+				return TeleportToPorto2(a) || !InsideOf(a);
+			}
+			if (!InsideOf(a))
+			{
+				return true;
 			}
 			Thread.Sleep(500);
 		}
-		Say("ainda há conta morta depois de 90 s; seguindo.");
+		return !InsideOf(a);
 	}
 
 	private bool BossNearby()
@@ -3204,6 +3796,7 @@ internal sealed class DgBot
 			{
 				Cycles++;
 				CycleStart = DateTime.Now;
+				rezGaveUp = false;
 				bossDone.Clear();
 				skipMob.Clear();
 				loboPrepped = false;
@@ -3230,7 +3823,7 @@ internal sealed class DgBot
 				}
 				foreach (Step item2 in route)
 				{
-					if (stop)
+					if (stop || rezGaveUp)
 					{
 						break;
 					}
@@ -3246,11 +3839,15 @@ internal sealed class DgBot
 					{
 						Say("conta morta antes do passo " + (item2.Index + 1) + ": esperando a ressurreição.");
 						AfterDeaths();
+						if (stop || rezGaveUp)
+						{
+							break;
+						}
 						ClientSnapshot clientSnapshot2 = Snap(leader);
 						if (clientSnapshot2 != null && clientSnapshot2.Hp <= 0)
 						{
-							Say("líder morto e ninguém levantou em 90 s; parando.");
-							stop = true;
+							rezGaveUp = true;
+							Say("líder morto e a ressurreição não o levantou; saindo para remontar, pedra e entrar.");
 							break;
 						}
 					}
@@ -3452,103 +4049,21 @@ internal sealed class DgBot
 						LastTime = DateTime.Now - CycleStart;
 						Say("DG nº " + Cycles + " concluída em " + LastTime.ToString("h\\:mm\\:ss") + ".");
 						followOn = false;
-						if (SingleCycle) { Say("Teste de ciclo único concluído; remontagem automática não habilitada nesta PR."); stop = true; break; }
-						Thread.Sleep(800);
-						bool flag = remount == null;
-						for (int num4 = 0; num4 < 3; num4++)
+						if (!FinishCycle())
 						{
-							if (stop)
-							{
-								break;
-							}
-							if (flag)
-							{
-								break;
-							}
-							if (num4 > 0)
-							{
-								Say("remontar PT de novo (" + (num4 + 1) + "ª tentativa).");
-								Thread.Sleep(5000);
-							}
-							try
-							{
-								flag = remount();
-							}
-							catch (Exception ex)
-							{
-								Say("remontar PT: " + ex.Message);
-							}
-						}
-						if (stop)
-						{
-							break;
-						}
-						if (!flag)
-						{
-							Say("a PT não remontou — sem remontar a próxima DG fica sem monstros; parando. Remonte a PT na mão e clique Iniciar.");
 							stop = true;
-							break;
-						}
-						Say("PT remontada: esperando 1 min 10 s antes de sair.");
-						Stopwatch stopwatch = Stopwatch.StartNew();
-						while (!stop && stopwatch.Elapsed.TotalSeconds < 70.0)
-						{
-							status("DG " + Cycles + " concluída · saindo em " + (70 - (int)stopwatch.Elapsed.TotalSeconds) + " s");
-							Thread.Sleep(500);
-						}
-						if (stop)
-						{
-							break;
-						}
-						Say("esperando o jogo tirar da DG (fim da contagem).");
-						Stopwatch stopwatch2 = Stopwatch.StartNew();
-						while (!stop && stopwatch2.Elapsed.TotalSeconds < 90.0 && all.Any((Account a2) => InsideOf(a2)))
-						{
-							Thread.Sleep(500);
-						}
-						if (stop)
-						{
-							break;
-						}
-						if (!all.Any((Account a2) => InsideOf(a2)))
-						{
-							Say("saíram da DG sozinhas (" + stopwatch2.Elapsed.TotalSeconds.ToString("F0") + " s).");
-						}
-						if (InsideOf(leader) && (!Learned().ContainsKey("saida") || !ReplayOn(leader, "saida", () => !InsideOf(leader), 12.0)) && InsideOf(leader))
-						{
-							TeleportToPorto2(leader);
-						}
-						if (InsideOf(leader))
-						{
-							Say("o líder não saiu da DG; parando.");
-							stop = true;
-							break;
-						}
-						foreach (Account a in all)
-						{
-							if (!stop && a.Pid != leader.Pid && InsideOf(a) && (!Learned().ContainsKey("saida") || !ReplayOn(a, "saida", () => !InsideOf(a), 12.0)) && InsideOf(a))
-							{
-								TeleportToPorto2(a);
-							}
-						}
-						List<string> list = (from account in all
-							where InsideOf(account)
-							select account.Name).ToList();
-						if (list.Count > 0)
-						{
-							Say("ainda dentro da DG: " + string.Join(", ", list.ToArray()) + " — parando antes da próxima.");
-							stop = true;
-						}
-						if (!stop)
-						{
-							SideSteps();
-						}
-						if (!stop)
-						{
-							Say("começando a próxima DG.");
 						}
 						break;
 					}
+					}
+				}
+				if (rezGaveUp && !stop)
+				{
+					LastTime = DateTime.Now - CycleStart;
+					Say("saindo da DG com a conta ainda morta: remontar, pedra e entrar de novo.");
+					if (!FinishCycle(false))
+					{
+						stop = true;
 					}
 				}
 			}

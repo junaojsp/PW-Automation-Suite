@@ -89,6 +89,32 @@ public sealed class TeleportBridge : IDisposable {
 		Send(array);
 	}
 
+	// Prece da Vida on a dead ally: same 12-byte cast as the other skills, aimed at the character id.
+	// The macro only selects that name; it does not put this packet on the corpse.
+	public static byte[] AllySkillPacket(uint skill, uint playerId)
+	{
+		if (skill < 1 || skill > 32767 || playerId < 1 || (playerId & 0x80000000u) != 0)
+		{
+			throw new Exception("Habilidade invalida");
+		}
+		byte[] array = new byte[12];
+		array[0] = 41;
+		BitConverter.GetBytes(skill).CopyTo(array, 2);
+		array[6] = 11;
+		array[7] = 1;
+		BitConverter.GetBytes(playerId).CopyTo(array, 8);
+		return array;
+	}
+
+	public void SendAllySkill(uint skill, uint playerId)
+	{
+		if (playerId == CharacterId)
+		{
+			throw new Exception("Habilidade invalida");
+		}
+		Send(AllySkillPacket(skill, playerId));
+	}
+
 	public void SendTargetSkill(uint skill, uint target)
 	{
 		if (skill != 185 || (target & 0xC0000000u) != 2147483648u)
@@ -126,6 +152,26 @@ public sealed class TeleportBridge : IDisposable {
 			BitConverter.GetBytes(drops[i].Value).CopyTo(array, 10 + 8 * i);
 		}
 		Send(array);
+	}
+
+	// Click-pickup (command 6), the slot between the captured town revive 0x04 and unselect 0x08.
+	// 10 bytes: 06 00 + matter id + template. Not opcode 184 (Ganância, many drops at range).
+	public static byte[] PickupPacket(uint matterId, uint templateId)
+	{
+		if ((matterId & 0xC0000000u) != 3221225472u || templateId == 0 || templateId > 1000000)
+		{
+			throw new Exception("Drop invalido");
+		}
+		byte[] array = new byte[10];
+		array[0] = 6;
+		BitConverter.GetBytes(matterId).CopyTo(array, 2);
+		BitConverter.GetBytes(templateId).CopyTo(array, 6);
+		return array;
+	}
+
+	public void SendPickup(uint matterId, uint templateId)
+	{
+		Send(PickupPacket(matterId, templateId));
 	}
 
 	public void SendDgPacket(byte[] p)
