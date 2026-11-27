@@ -89,6 +89,32 @@ public sealed class TeleportBridge : IDisposable {
 		Send(array);
 	}
 
+	// Prece da Vida on a dead ally: same 12-byte cast as the other skills, aimed at the character id.
+	// The macro only selects that name; it does not put this packet on the corpse.
+	public static byte[] AllySkillPacket(uint skill, uint playerId)
+	{
+		if (skill < 1 || skill > 32767 || playerId < 1 || (playerId & 0x80000000u) != 0)
+		{
+			throw new Exception("Habilidade invalida");
+		}
+		byte[] array = new byte[12];
+		array[0] = 41;
+		BitConverter.GetBytes(skill).CopyTo(array, 2);
+		array[6] = 11;
+		array[7] = 1;
+		BitConverter.GetBytes(playerId).CopyTo(array, 8);
+		return array;
+	}
+
+	public void SendAllySkill(uint skill, uint playerId)
+	{
+		if (playerId == CharacterId)
+		{
+			throw new Exception("Habilidade invalida");
+		}
+		Send(AllySkillPacket(skill, playerId));
+	}
+
 	public void SendTargetSkill(uint skill, uint target)
 	{
 		if (skill != 185 || (target & 0xC0000000u) != 2147483648u)

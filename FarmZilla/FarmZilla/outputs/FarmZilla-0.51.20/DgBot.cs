@@ -177,6 +177,10 @@ internal sealed class DgBot
 
 	private bool rezGaveUp;
 
+	private int rezSkill;
+
+	private DateTime rezAcceptWarn = DateTime.MinValue;
+
 	private readonly HashSet<uint> bossDone = new HashSet<uint>();
 
 	private volatile bool inBoss;
@@ -266,6 +270,11 @@ internal sealed class DgBot
 	public static bool RezOnBody(uint selected, uint body)
 	{
 		return body != 0 && selected == body;
+	}
+
+	public static bool CanUseStone(int hp)
+	{
+		return hp > 0;
 	}
 
 	// When set, the Demônios da Cidade do Gelo pack is looted on foot. Ganância (SendLoot) stays for every other call.
@@ -2658,8 +2667,13 @@ internal sealed class DgBot
 				teleportBridge = new TeleportBridge(item.Pid);
 				teleportBridge.SendReviveAccept();
 			}
-			catch
+			catch (Exception ex)
 			{
+				if (DateTime.UtcNow >= rezAcceptWarn)
+				{
+					rezAcceptWarn = DateTime.UtcNow.AddSeconds(20.0);
+					Say(item.Name + ": aceite da ressurreição não saiu — " + ex.Message);
+				}
 			}
 			finally
 			{
@@ -2702,6 +2716,7 @@ internal sealed class DgBot
 			Say(ep.Name + ": não soltou a Prece — ainda a " + away.ToString("F0") + " de " + Who(target) + ".");
 			return false;
 		}
+		int skill = 0;
 		try
 		{
 			using (CharacterMemory memory = new CharacterMemory(ep.Pid))
@@ -2720,11 +2735,17 @@ internal sealed class DgBot
 					}
 					return false;
 				}
+				skill = memory.MacroSkill(3);
 			}
 		}
 		catch (Exception ex)
 		{
 			Say(ep.Name + ": não leu a macro 4 — " + ex.Message);
+			return false;
+		}
+		if (skill <= 0)
+		{
+			Say(ep.Name + ": a macro 4 não tem a skill da Prece da Vida.");
 			return false;
 		}
 		Esc(ep);
@@ -2761,8 +2782,6 @@ internal sealed class DgBot
 				Say(ep.Name + ": a macro 4 disparou, mas " + Who(target) + " não ficou selecionada (seleção " + other + "). A Prece não saiu no corpo.");
 				return false;
 			}
-			prayUntil = DateTime.UtcNow.AddSeconds(6.0);
-			return true;
 		}
 		catch (Exception ex)
 		{
@@ -2772,6 +2791,29 @@ internal sealed class DgBot
 		finally
 		{
 			attackBridge?.Dispose();
+		}
+		TeleportBridge cast = null;
+		try
+		{
+			cast = new TeleportBridge(ep.Pid);
+			if (cast.CharacterId != ep.Id)
+			{
+				Say(ep.Name + ": personagem mudou; sem Prece da Vida.");
+				return false;
+			}
+			cast.SendAllySkill((uint)skill, target.Id);
+			rezSkill = skill;
+			prayUntil = DateTime.UtcNow.AddSeconds(8.0);
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Say(ep.Name + ": a skill " + skill + " não saiu no corpo de " + Who(target) + " — " + ex.Message);
+			return false;
+		}
+		finally
+		{
+			cast?.Dispose();
 		}
 	}
 
@@ -2899,7 +2941,7 @@ internal sealed class DgBot
 			}
 			missed = 0;
 			confirmed++;
-			Say(ep.Name + ": Prece da Vida no corpo de " + Who(target) + " (a " + away.ToString("F0") + ", tentativa " + confirmed + ").");
+			Say(ep.Name + ": skill " + rezSkill + " (Prece da Vida) no corpo de " + Who(target) + " (a " + away.ToString("F0") + ", tentativa " + confirmed + ").");
 			Stopwatch wait = Stopwatch.StartNew();
 			while (!stop && wait.Elapsed.TotalSeconds < 8.0)
 			{
@@ -2917,7 +2959,7 @@ internal sealed class DgBot
 			{
 				continue;
 			}
-			Say(Who(target) + ": a Prece saiu no corpo e a vida continuou 0.");
+			Say(Who(target) + ": a skill " + rezSkill + " foi no corpo e a vida continuou 0.");
 			if (confirmed >= RezCastTries)
 			{
 				GiveUpRez(target, landed: true);
@@ -3036,6 +3078,16 @@ internal sealed class DgBot
 			{
 				return false;
 			}
+			ClientSnapshot life = Snap(a);
+			if (life != null && !CanUseStone(life.Hp))
+			{
+				Say(a.Name + ": morta, a pedra não funciona. Revivendo na cidade para sair da DG.");
+				if (!TownRevive(a) && InsideOf(a))
+				{
+					Say(a.Name + ": continuou morta dentro da DG. As outras seguem o loop.");
+				}
+				continue;
+			}
 			if (InsideOf(a))
 			{
 				if (!TeleportToPorto2(a) && InsideOf(a))
@@ -3059,6 +3111,8 @@ internal sealed class DgBot
 		}
 		List<string> stuck = (from account in all
 			where InsideOf(account)
+			let snap = Snap(account)
+			where snap == null || CanUseStone(snap.Hp)
 			select account.Name).ToList();
 		if (stuck.Count > 0)
 		{
@@ -3066,6 +3120,40 @@ internal sealed class DgBot
 			return false;
 		}
 		return true;
+	}
+
+	private bool TownRevive(Account a)
+	{
+		TeleportBridge teleportBridge = null;
+		try
+		{
+			teleportBridge = new TeleportBridge(a.Pid);
+			teleportBridge.SendTownRevive();
+		}
+		catch (Exception ex)
+		{
+			Say(a.Name + ": reviver na cidade — " + ex.Message);
+			return !InsideOf(a);
+		}
+		finally
+		{
+			teleportBridge?.Dispose();
+		}
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		while (!stop && stopwatch.Elapsed.TotalSeconds < 20.0)
+		{
+			ClientSnapshot clientSnapshot = Snap(a);
+			if (clientSnapshot != null && CanUseStone(clientSnapshot.Hp) && InsideOf(a))
+			{
+				return TeleportToPorto2(a) || !InsideOf(a);
+			}
+			if (!InsideOf(a))
+			{
+				return true;
+			}
+			Thread.Sleep(500);
+		}
+		return !InsideOf(a);
 	}
 
 	private bool BossNearby()

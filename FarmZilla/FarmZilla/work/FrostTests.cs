@@ -9,6 +9,9 @@ static class FrostTests {
   var imported=new DgBot(new DgBot.Account(),new System.Collections.Generic.List<DgBot.Account>(),delegate{},delegate{},null);Assert(imported.SingleCycle,"Sem a caixa de loop o bot fica em um ciclo");Assert(!imported.Loop,"O loop só liga quando a tela marca Repetir DG");imported.Loop=true;Assert(!imported.SingleCycle,"Repetir DG desliga o ciclo único e segue para remontar");Assert(!imported.FootLoot,"Catar no chão começa desligado");
   Assert(DgBot.InRezRange(0)&&DgBot.InRezRange(8)&&!DgBot.InRezRange(8.1)&&!DgBot.InRezRange(-1),"A EP só conta a Prece da Vida quando está a até 8 do corpo");
   Assert(DgBot.RezOnBody(42,42)&&!DgBot.RezOnBody(1,42)&&!DgBot.RezOnBody(0,42),"A Prece só conta quando a seleção é o corpo");
+  byte[] ally=TeleportBridge.AllySkillPacket(187,4242);Assert(ally.Length==12&&ally[0]==41&&BitConverter.ToUInt32(ally,2)==187&&ally[6]==11&&ally[7]==1&&BitConverter.ToUInt32(ally,8)==4242,"A Prece sai no id da conta morta, não só na seleção da macro");
+  bool allyRefused=false;try{TeleportBridge.AllySkillPacket(187,0x80000001);}catch{allyRefused=true;}Assert(allyRefused,"A Prece não vai em id de monstro");
+  Assert(DgBot.CanUseStone(1)&&!DgBot.CanUseStone(0),"Conta morta não usa a pedra de teleporte");
   Assert(ClassIcons.Archer==6&&ClassIcons.Cleric==7,"EA é o arqueiro (classe 6) e a EP é o sacerdote (classe 7)");
   Assert(DgBot.RezCastTries==6,"Depois de 6 tentativas reais a DG segue o loop em vez de parar");
   Assert(DgBot.SweepAfterGreed(true,2)&&!DgBot.SweepAfterGreed(false,2)&&!DgBot.SweepAfterGreed(true,0),"Depois da Ganância o líder anda até o drop que sobrou; sem drop ou sem andar, não cata no chão");
